@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.puxa.engine'
+version = '0.1.0'
+
+android {
+  namespace "app.puxa.engine"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  // Extrator do YouTube do app NewPipe (Java puro), servido pelo JitPack
+  implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
+  implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+  implementation 'androidx.core:core-ktx:1.13.1'
+}

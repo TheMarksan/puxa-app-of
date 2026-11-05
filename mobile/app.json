@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Puxa",
+    "slug": "puxa",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "puxa",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F4F5F7",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F5F7"
+    },
+    "android": {
+      "package": "app.puxa",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#2547D0",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.INTERNET"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "extraMavenRepos": [
+              "https://jitpack.io"
+            ],
+            "buildArchs": [
+              "arm64-v8a"
+            ],
+            "extraProguardRules": "# NewPipeExtractor: o decifrador do YouTube roda no Rhino, que usa reflexão\n-keep class org.schabi.newpipe.extractor.** { *; }\n-keep class org.mozilla.javascript.** { *; }\n-keep class org.mozilla.classfile.ClassFileWriter\n-dontwarn org.mozilla.javascript.**\n-dontwarn javax.script.**\n-dontwarn java.beans.**\n-dontwarn jdk.dynalink.**\n-dontwarn javax.lang.model.**\n-dontwarn org.jsoup.**\n-dontwarn com.google.re2j.**\n-dontwarn edu.umd.cs.findbugs.annotations.**\n-dontwarn org.openjsse.**\n-dontwarn org.conscrypt.**\n-dontwarn org.bouncycastle.**"
+          }
+        }
+      ],
+      "expo-font",
+      "./plugins/with-puxa-android"
+    ]
+  }
+}

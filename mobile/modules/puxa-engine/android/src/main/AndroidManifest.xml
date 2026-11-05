@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Para saber se o WhatsApp está instalado e mandar o arquivo direto para ele -->
+  <queries>
+    <package android:name="com.whatsapp" />
+    <package android:name="com.whatsapp.w4b" />
+  </queries>
+  <application>
+    <provider
+      android:name="app.puxa.engine.PuxaFileProvider"
+      android:authorities="${applicationId}.puxa.files"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/puxa_file_paths" />
+    </provider>
+  </application>
+</manifest>
