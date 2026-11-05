@@ -1,0 +1,320 @@
+/* Demo do estado vazio. Tudo escopado em .pd; medidas dentro da tela em pontos do iPhone (393 × 852). */
+.pd {
+  & .ss-stage {
+    --ss-font: "Archivo", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --ss-accent: #2547D0;
+    --pd-ink: #16191D;
+    --pd-muted: #5B626B;
+    --pd-line: #E1E3E6;
+    --pd-wa: #0E7A43;
+    --pd-ios: cubic-bezier(0.3, 0.75, 0.1, 1);
+    /* Um chão próprio e discreto: a figura tem a largura do celular mais um respiro igual em volta.
+       O topo cortado se dissolve sobre conteúdo de preenchimento. */
+    background: #EEF0F2;
+    border-radius: 18px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 44px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 44px);
+  }
+
+  /* Preso a um respiro da base, cortado no topo */
+  /* Um respiro igual nos lados e embaixo; sangra só pelo topo */
+  .pd-phone {
+    position: absolute;
+    bottom: 22px;
+    left: 22px;
+  }
+
+  .pd-screen {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: #FAFAF8;
+    color: var(--pd-ink);
+    font-family: var(--ss-font);
+  }
+
+  /* Preenchimento onde o topo se dissolve: o fim da lista de qualidade */
+  .pd-above {
+    position: absolute;
+    top: 300px;
+    left: 20px;
+    right: 20px;
+    border: 1px solid var(--pd-line);
+    border-radius: 12px;
+    background: #fff;
+  }
+  .pd-above__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 46px;
+    padding: 0 14px;
+    border-top: 1px solid var(--pd-line);
+  }
+  .pd-above__row:first-child { border-top: 0; }
+  .pd-above__size { margin-left: auto; display: flex; }
+  .pd-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #C9CDD2; flex: none; }
+  .pd-radio[data-on] { border-color: var(--ss-accent); box-shadow: inset 0 0 0 3px #fff; background: var(--ss-accent); }
+
+  .pd-video {
+    position: absolute;
+    top: 414px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .pd-thumb {
+    flex: none;
+    width: 76px;
+    height: 43px;
+    border-radius: 8px;
+    background:
+      radial-gradient(120% 90% at 30% 20%, #6E7FA8 0%, transparent 60%),
+      linear-gradient(135deg, #2E3A55, #1B2233);
+  }
+  .pd-video__text { display: grid; gap: 7px; min-width: 0; }
+  .pd-video__title {
+    font-size: 16px;
+    line-height: 1.3;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* O editor ocupa a tela toda para o reset escondido valer para tudo o que ele tem */
+  .pd-editor { position: absolute; inset: 0; }
+
+  .pd-seg { position: absolute; top: 474px; left: 20px; right: 20px; width: auto; font-size: 15px; }
+
+  .pd-wave {
+    position: absolute;
+    top: 524px;
+    left: 20px;
+    right: 20px;
+    border: 1px solid var(--pd-line);
+    border-radius: 12px;
+    background: #fff;
+    padding: 10px 12px;
+  }
+  .pd-track {
+    position: relative;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .pd-bar {
+    flex: 1;
+    border-radius: 1px;
+    background: #C3C8CE;
+    transition: background-color 150ms ease;
+    transform: scaleY(0.62);
+  }
+  .pd-bar[data-in] { background: var(--pd-ink); }
+
+  .pd-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 28px;
+    margin-left: -14px;
+  }
+  .pd-handle::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: var(--ss-accent);
+  }
+  .pd-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 32px;
+    margin: -16px 0 0 -7px;
+    border-radius: 5px;
+    background: var(--ss-accent);
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  .pd-times { position: relative; height: 20px; margin-top: 4px; }
+  .pd-time {
+    position: absolute;
+    top: 0;
+    line-height: 20px;
+    transform: translateX(-50%);
+    font-size: 13px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ss-accent);
+  }
+
+  /* Barra de ações fixa no rodapé, como no site no celular */
+  .pd-send {
+    position: absolute;
+    top: 756px;
+    left: 20px;
+    right: 20px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--pd-wa);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    font-weight: 650;
+    transition: transform 120ms ease, background-color 120ms ease;
+    will-change: transform;
+  }
+  .pd-send[data-pressed] { transform: scale(0.98); background: #0B6537; }
+  .pd-send__label { display: inline-flex; align-items: center; gap: 0.3em; line-height: 20px; height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pd-send .ss-spinner { --ss-spinner-color: #fff; color: #fff; }
+
+  .pd-listen {
+    position: absolute;
+    top: 648px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .pd-listen__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border: 1px solid #C9CDD2;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 650;
+  }
+
+  /* O toast é o mesmo do site: cartão claro, ícone num círculo verde */
+  .pd-toast-lane {
+    position: absolute;
+    top: 694px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .pd-toast {
+    --ss-toast-rise: 14px;
+    background: #fff;
+    color: var(--pd-ink);
+    border: 1px solid var(--pd-line);
+    border-radius: 14px;
+    padding: 10px 16px 10px 10px;
+    font-size: 15px;
+    font-weight: 650;
+    gap: 10px;
+    box-shadow: 0 10px 28px rgba(22, 25, 29, 0.12);
+  }
+  .pd-toast-icon {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--pd-wa);
+    color: #fff;
+  }
+
+  /* Folha de compartilhar do sistema */
+  .pd-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.45s ease;
+  }
+  .pd-scrim[data-open] { opacity: 1; }
+
+  .pd-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 440px;
+    padding: 18px 16px 0;
+    border-radius: 16px 16px 0 0;
+    background: #F2F2F7;
+    transform: translateY(100%);
+    visibility: hidden;
+    transition: transform 0.5s var(--pd-ios), visibility 0s linear 0.5s;
+    will-change: transform;
+  }
+  .pd-sheet[data-open] { transform: translateY(0); visibility: visible; transition-delay: 0s; }
+
+  .pd-sheet__head { display: flex; align-items: center; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #DCDCE1; }
+  .pd-file {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #fff;
+    display: grid;
+    place-items: center;
+    color: var(--ss-accent);
+  }
+  .pd-sheet__file { display: grid; gap: 3px; min-width: 0; flex: 1; }
+  .pd-sheet__name { font-size: 15px; font-weight: 650; line-height: 1.3; }
+  .pd-sheet__meta { font-size: 13px; color: var(--pd-muted); line-height: 1.3; font-variant-numeric: tabular-nums; }
+  .pd-close {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #E3E3E8;
+    color: #6B6B70;
+    display: grid;
+    place-items: center;
+  }
+
+  .pd-people { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 18px 2px 0; }
+  .pd-person {
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 8px;
+    transition: transform 120ms ease;
+    will-change: transform;
+  }
+  .pd-person[data-pressed] { transform: scale(0.95); }
+  .pd-person__name { font-size: 12px; line-height: 1.3; text-align: center; max-width: 78px; }
+
+  .pd-list {
+    margin-top: 22px;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .pd-list__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 16px;
+    border-top: 1px solid #ECECF0;
+  }
+  .pd-list__row:first-child { border-top: 0; }
+  .pd-list__icon { width: 18px; height: 18px; border-radius: 5px; background: #D9DADF; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .pd .ss-stage { background: #1C1F23; }
+}

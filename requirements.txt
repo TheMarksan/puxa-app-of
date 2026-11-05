@@ -1,0 +1,4 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+# [default] inclui o yt-dlp-ejs, que resolve os desafios de JavaScript do YouTube
+yt-dlp[default]>=2026.10.26

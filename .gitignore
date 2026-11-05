@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+cookies.txt
+
+# Demo: dependências e filmagens locais (o pacote pronto fica em static/demo/)
+demo/node_modules/
+demo/shots/
+
+# Cópias instaladas de skills; skills-lock.json registra a fonte para reinstalar
+.agents/
+.claude/

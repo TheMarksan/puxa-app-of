@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Puxa: MP3 e MP4 do YouTube</title>
+  <meta name="description" content="Cole um link do YouTube, escolha MP3 ou MP4 e salve no aparelho ou mande no WhatsApp, inteiro ou só um trecho.">
+  <meta name="theme-color" content="#FAFAF8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#15171A" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232547D0'/%3E%3Cpath d='M16 7v13m0 0-5.5-5.5M16 20l5.5-5.5M9 25h14' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <a class="wordmark" href="/" aria-label="Puxa, página inicial">puxa</a>
+  </header>
+  <p class="demo-bar" id="demo-bar" hidden>Modo demonstração: as informações do vídeo são reais, mas o arquivo é gerado no servidor com som e imagem de teste.</p>
+
+  <main class="page">
+    <div class="intro" id="intro">
+      <h1 class="headline">Baixe do YouTube em MP3 ou MP4 e mande no WhatsApp.</h1>
+    </div>
+
+    <form class="lookup" id="lookup" novalidate>
+      <label class="label" for="url">Link do vídeo</label>
+      <div class="slot">
+        <input id="url" name="url" type="url" inputmode="url" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="https://youtu.be/…" aria-describedby="url-hint url-error">
+        <button type="button" class="slot-btn" id="clear" aria-label="Limpar link" hidden>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+        </button>
+        <button type="button" class="slot-btn slot-paste" id="paste" hidden>Colar</button>
+      </div>
+      <p class="hint" id="url-hint">Vale link de vídeo, Shorts ou YouTube Music.</p>
+      <p class="field-error" id="url-error" hidden></p>
+      <button class="btn btn-primary btn-block" id="lookup-btn" type="submit">
+        <span class="spinner" aria-hidden="true"></span><span class="btn-label">Buscar vídeo</span>
+      </button>
+    </form>
+
+    <div id="status" class="visually-hidden" role="status" aria-live="polite"></div>
+
+    <!-- Estado vazio -->
+    <section class="empty" id="empty">
+      <p>Nenhum vídeo ainda. Cole um link acima para ver as opções de áudio e vídeo.</p>
+      <button type="button" class="btn-link" id="sample">Testar com um vídeo de exemplo</button>
+      <div class="demo" role="img" aria-label="Demonstração: um trecho do áudio é escolhido arrastando a alça na forma de onda e enviado no WhatsApp.">
+        <div id="puxa-demo" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- Carregando: mesma geometria do resultado -->
+    <section class="result skeleton" id="skeleton" hidden aria-hidden="true">
+      <div class="video">
+        <div class="thumb sk"></div>
+        <div class="video-text">
+          <div class="sk sk-line" style="width: 92%"></div>
+          <div class="sk sk-line" style="width: 64%"></div>
+          <div class="sk sk-line sk-small" style="width: 40%"></div>
+        </div>
+      </div>
+      <div class="group"><div class="sk sk-label"></div><div class="sk sk-segmented"></div></div>
+      <div class="group"><div class="sk sk-label"></div><div class="sk sk-list"></div></div>
+    </section>
+
+    <!-- Erro ao buscar -->
+    <section class="alert" id="lookup-error" hidden role="alert">
+      <p class="alert-title" id="lookup-error-title"></p>
+      <p class="alert-text" id="lookup-error-text"></p>
+      <button type="button" class="btn btn-secondary" id="lookup-retry">Tentar de novo</button>
+    </section>
+
+    <!-- Resultado -->
+    <section class="result" id="result" hidden aria-labelledby="v-title">
+      <div class="video">
+        <div class="thumb">
+          <img id="v-thumb" alt="" referrerpolicy="no-referrer" decoding="async">
+          <span class="badge" id="v-duration"></span>
+        </div>
+        <div class="video-text">
+          <h2 class="video-title" id="v-title"></h2>
+          <p class="video-channel" id="v-channel"></p>
+          <p class="video-meta" id="v-meta"></p>
+        </div>
+      </div>
+
+      <fieldset class="group">
+        <legend class="label">Formato</legend>
+        <div class="segmented">
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <label class="seg">
+            <input type="radio" name="format" value="mp3" checked>
+            <span class="seg-body"><span class="seg-title">MP3</span><span class="seg-note">Só o áudio</span></span>
+          </label>
+          <label class="seg">
+            <input type="radio" name="format" value="mp4">
+            <span class="seg-body"><span class="seg-title">MP4</span><span class="seg-note">Vídeo com som</span></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend class="label">Qualidade</legend>
+        <div class="choices" id="quality-list"></div>
+        <div class="empty-action" id="quality-empty" hidden>
+          <p class="hint">O YouTube não liberou nenhuma versão em vídeo deste link. O áudio continua disponível.</p>
+          <button type="button" class="btn btn-secondary btn-small" id="use-mp3">Usar MP3</button>
+        </div>
+      </fieldset>
+
+      <div class="dock" id="dock">
+      <div class="actions" id="actions">
+        <button type="button" class="btn btn-primary" id="download-btn">Baixar MP3</button>
+        <button type="button" class="btn btn-whatsapp" id="share-btn">Enviar no WhatsApp</button>
+      </div>
+
+      <!-- Progresso do preparo -->
+      <div class="job" id="job" hidden>
+        <div class="job-head">
+          <p class="job-stage"><span class="roll" id="job-stage">Na fila</span></p>
+          <p class="job-percent num" id="job-percent"></p>
+        </div>
+        <div class="steps" id="steps" role="progressbar" aria-labelledby="job-stage" aria-valuemin="0" aria-valuemax="100">
+          <div class="steps-track" id="steps-track"><span class="steps-fill" id="steps-fill"></span></div>
+          <ol class="steps-list">
+            <li class="step" data-state="current"><span class="step-dot"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 6.2l2 2 4-4.4"/></svg></span><span class="step-label">Baixar</span></li>
+            <li class="step" data-state="todo"><span class="step-dot"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 6.2l2 2 4-4.4"/></svg></span><span class="step-label" id="step-process">Converter</span></li>
+            <li class="step" data-state="todo"><span class="step-dot"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 6.2l2 2 4-4.4"/></svg></span><span class="step-label">Pronto</span></li>
+          </ol>
+        </div>
+        <div class="job-foot">
+          <p class="job-numbers" id="job-numbers"></p>
+          <button type="button" class="btn btn-quiet" id="cancel-btn">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- Erro no preparo -->
+      <div class="alert" id="job-error" hidden role="alert">
+        <p class="alert-title" id="job-error-title">Não deu para preparar o arquivo</p>
+        <p class="alert-text" id="job-error-text"></p>
+        <button type="button" class="btn btn-secondary" id="job-retry">Tentar de novo</button>
+      </div>
+
+      <!-- Pronto -->
+      <div class="done" id="done" hidden>
+        <div class="done-file">
+          <svg class="done-check" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>
+          <p class="done-name" id="done-name"></p>
+          <p class="done-size" id="done-size"></p>
+        </div>
+        <p class="hint" id="done-note"></p>
+        <div class="actions" id="done-actions">
+          <a class="btn btn-secondary" id="save-btn" href="#" download>Salvar no aparelho</a>
+          <button type="button" class="btn btn-whatsapp" id="open-send-btn">Enviar no WhatsApp</button>
+        </div>
+      </div>
+      </div>
+      <div class="dock-sentinel" id="dock-sentinel" aria-hidden="true"></div>
+
+      <!-- Envio para o WhatsApp -->
+      <section class="send" id="send" hidden aria-labelledby="send-title">
+        <h3 class="send-title" id="send-title" tabindex="-1">Enviar no WhatsApp</h3>
+        <div class="send-summary" id="send-summary" hidden>
+          <span class="choice-main">Vídeo inteiro</span>
+          <span class="choice-note num" id="summary-duration"></span>
+          <span class="choice-size num" id="summary-size"></span>
+        </div>
+
+        <fieldset class="group" id="send-mode">
+          <legend class="label">O que mandar</legend>
+          <div class="choices">
+            <label class="choice">
+              <input type="radio" name="send-mode" value="whole" checked>
+              <span class="choice-main" id="whole-label">Áudio inteiro</span>
+              <span class="choice-note num" id="whole-duration"></span>
+              <span class="choice-size num" id="whole-size"></span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="send-mode" value="clip">
+              <span class="choice-main">Só um trecho</span>
+              <span class="choice-note">Você escolhe início e fim</span>
+              <span class="choice-size"></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="trim" id="trim" hidden>
+          <div class="wave" id="wave">
+            <canvas id="wave-canvas" aria-hidden="true"></canvas>
+            <div class="wave-playhead" id="playhead" hidden></div>
+            <button type="button" class="wave-handle" id="handle-start" role="slider" aria-label="Início do trecho"></button>
+            <button type="button" class="wave-handle" id="handle-end" role="slider" aria-label="Fim do trecho"></button>
+            <div class="wave-loading" id="wave-loading">
+              <span class="sk"></span>
+            </div>
+          </div>
+          <div class="wave-times" aria-hidden="true">
+            <span class="wave-time num" id="time-start"></span>
+            <span class="wave-time num" id="time-end"></span>
+          </div>
+          <p class="field-error" id="wave-error" hidden></p>
+
+          <div class="trim-fields">
+            <label class="time-field">
+              <span class="label">Início</span>
+              <input id="start-input" class="num" inputmode="decimal" autocomplete="off" aria-describedby="trim-error">
+            </label>
+            <label class="time-field">
+              <span class="label">Fim</span>
+              <input id="end-input" class="num" inputmode="decimal" autocomplete="off" aria-describedby="trim-error">
+            </label>
+            <div class="time-field time-readout">
+              <span class="label">Duração</span>
+              <span class="num" id="clip-length"></span>
+            </div>
+          </div>
+          <p class="field-error" id="trim-error" hidden></p>
+          <div class="trim-tools">
+            <button type="button" class="btn btn-secondary btn-small" id="preview-btn" aria-pressed="false">
+              <svg viewBox="0 0 20 20" aria-hidden="true" class="icon-play"><path d="M6 4.5v11l9-5.5z"/></svg>
+              <svg viewBox="0 0 20 20" aria-hidden="true" class="icon-stop"><path d="M5.5 5.5h9v9h-9z"/></svg>
+              <span class="btn-label">Ouvir trecho</span>
+            </button>
+            <p class="hint num" id="clip-size"></p>
+          </div>
+          <audio id="preview-audio" preload="none"></audio>
+        </div>
+
+        <p class="note" id="size-note" hidden></p>
+        <p class="note" id="share-unsupported" hidden></p>
+
+        <div class="send-actions">
+          <button type="button" class="btn btn-whatsapp btn-block" id="send-btn">
+            <span class="spinner" aria-hidden="true"></span><span class="btn-label">Enviar áudio inteiro</span>
+          </button>
+          <p class="hint" id="send-hint"></p>
+          <a class="btn-link" id="whatsapp-web" href="https://web.whatsapp.com/" target="_blank" rel="noopener" hidden>Abrir o WhatsApp Web</a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Baixe só o que você tem direito de usar. Os arquivos ficam no servidor por <span id="ttl-text">30 minutos</span> e depois são apagados.</p>
+  </footer>
+
+  <section class="toasts" id="toasts" aria-label="Notificações" tabindex="-1">
+    <ol class="toast-list" id="toast-list"></ol>
+  </section>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
