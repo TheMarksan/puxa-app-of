@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, PanResponderInstance, StyleSheet, Text, View } from 'react-native';
+import { Image, PanResponder, PanResponderInstance, StyleSheet, Text, View } from 'react-native';
 
 import { clock } from '../format';
 import { font, Palette, usePalette } from '../theme';
@@ -21,6 +21,12 @@ type Props = {
   /** Posição da prévia tocando, em segundos; null quando parada. */
   playhead: number | null;
   onScrubStart?: () => void;
+  /** Ao soltar uma alça: o tempo dela (início ou fim), para a prévia ir até lá. */
+  onScrubEnd?: (time: number) => void;
+  /** Vídeo: miniaturas ao longo do arquivo no lugar da onda. */
+  filmstrip?: string[];
+  /** Duração máxima do trecho: puxar uma alça além disso arrasta a outra junto. */
+  maxLength?: number;
 };
 
 type Edge = 'start' | 'end' | 'both';
@@ -50,7 +56,7 @@ const Bars = memo(function Bars({ values, color }: { values: number[]; color: st
   );
 });
 
-export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScrubStart }: Props) {
+export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScrubStart, onScrubEnd, filmstrip, maxLength }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const [width, setWidth] = useState(0);
@@ -59,9 +65,9 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
   const [active, setActive] = useState<Edge | null>(null);
 
   // Os PanResponders são criados uma vez; os valores atuais chegam por ref
-  const live = useRef({ start, end, duration, width, onChange, onScrubStart });
+  const live = useRef({ start, end, duration, width, onChange, onScrubStart, onScrubEnd, maxLength });
   useLayoutEffect(() => {
-    live.current = { start, end, duration, width, onChange, onScrubStart };
+    live.current = { start, end, duration, width, onChange, onScrubStart, onScrubEnd, maxLength };
   });
   const origin = useRef({ start: 0, end: 0 });
 
@@ -78,7 +84,8 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
           Haptics.selectionAsync().catch(() => {});
         },
         onPanResponderMove: (_, g) => {
-          const { duration: d, width: w, onChange: emit } = live.current;
+          const { duration: d, width: w, onChange: emit, maxLength: most } = live.current;
+          const max = most ?? Infinity;
           if (w <= 0) return;
           const delta = (g.dx / w) * d;
           const o = origin.current;
@@ -95,6 +102,7 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
               b = Math.min(d, a + len);
               a = Math.min(a, b - MIN_CLIP);
             }
+            if (b - a > max) b = a + max;
             emit(round(a), round(b));
           } else {
             let b = Math.max(Math.min(d, o.end + delta), MIN_CLIP);
@@ -103,10 +111,14 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
               a = Math.max(0, b - len);
               b = Math.max(b, a + MIN_CLIP);
             }
+            if (b - a > max) a = b - max;
             emit(round(a), round(b));
           }
         },
-        onPanResponderRelease: () => setActive(null),
+        onPanResponderRelease: () => {
+          setActive(null);
+          live.current.onScrubEnd?.(edge === 'end' ? live.current.end : live.current.start);
+        },
         onPanResponderTerminate: () => setActive(null),
       });
     // eslint-disable-next-line react-hooks/refs -- PanResponder.create só guarda os callbacks; os refs são lidos nos toques
@@ -147,7 +159,19 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
         accessibilityLabel={`Trecho de ${clock(start)} a ${clock(end)}`}
         accessibilityHint="Arraste as alças para escolher início e fim"
       >
-        {width > 0 ? (
+        {width > 0 && filmstrip ? (
+          <>
+            {/* Vídeo: a tira de quadros, escurecida fora do trecho */}
+            <View style={s.strip} pointerEvents="none">
+              {filmstrip.map((uri, i) => (
+                <Image key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
+              ))}
+            </View>
+            <View pointerEvents="none" style={[s.dim, { left: 0, width: sx }]} />
+            <View pointerEvents="none" style={[s.dim, { left: ex, right: 0 }]} />
+            <View {...responders.both.panHandlers} style={[s.frame, { left: sx, width: Math.max(0, ex - sx) }]} />
+          </>
+        ) : width > 0 ? (
           <>
             <Bars values={bars} color={c.wave} />
             {/* Seleção: as mesmas barras em cor forte, recortadas entre as alças */}
@@ -159,6 +183,10 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
                 <Bars values={bars} color={c.waveActive} />
               </View>
             </View>
+          </>
+        ) : null}
+        {width > 0 ? (
+          <>
             {playhead != null && playhead >= start && playhead <= end ? (
               <View pointerEvents="none" style={[s.playhead, { left: x(playhead) - 1 }]} />
             ) : null}
@@ -166,7 +194,8 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
             <Handle x={ex} responder={responders.end} active={active === 'end'} c={c} label="Fim" />
           </>
         ) : null}
-        {!peaks && width > 0 ? <Text style={s.loading}>Lendo o áudio…</Text> : null}
+        {!peaks && !filmstrip && width > 0 ? <Text style={s.loading}>Lendo o áudio…</Text> : null}
+        {filmstrip && !filmstrip.length && width > 0 ? <Text style={s.loading}>Lendo os quadros…</Text> : null}
       </View>
       <View style={s.labels}>
         <Text style={[s.time, { left: la }, active === 'start' && s.timeActive]}>{clock(start)}</Text>
@@ -204,6 +233,9 @@ const styles = StyleSheet.create({
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
+    strip: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', borderRadius: 8, overflow: 'hidden', backgroundColor: c.sk },
+    dim: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
+    frame: { position: 'absolute', top: 0, bottom: 0, borderTopWidth: 3, borderBottomWidth: 3, borderColor: c.accent },
     wave: { height: WAVE_H, marginHorizontal: 12, justifyContent: 'center' },
     selection: {
       position: 'absolute',

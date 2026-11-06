@@ -3,29 +3,47 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Animated, StyleSheet, Text, View } from 'react-native';
 
 import type { DoneEvent, Stage } from '../../modules/puxa-engine';
-import { bytes, clock, eta, speed, stem } from '../format';
+import { bytes, clock, eta, speed } from '../format';
 import { ms, reduceMotion } from '../motion';
 import { ease, font, Palette, usePalette } from '../theme';
 import { Button, Press } from './Button';
 
+/** O que a pessoa pediu: o arquivo é baixado por baixo e a ação acontece quando ele fica pronto. */
+export type Intent = 'share' | 'sticker' | 'save' | 'edit';
+
 export type DockState =
-  | { kind: 'idle'; label: string; detail: string; disabled?: boolean }
-  | { kind: 'preparing'; video: boolean; stage: Stage; downloaded: number; total: number; speed: number; eta: number | null }
-  | { kind: 'done'; file: DoneEvent; saved: boolean; saving: boolean; sending: boolean }
+  | {
+      kind: 'actions';
+      /** O arquivo do formato escolhido já está no aparelho. */
+      ready: DoneEvent | null;
+      /** O que vai ser baixado (quando ainda não está): "Vídeo 720p · 5,4 MB". */
+      detail: string;
+      image: boolean;
+      /** Vídeo pode ir para o modo Criar. */
+      canEdit: boolean;
+      saved: boolean;
+      saving: boolean;
+      editing: boolean;
+      disabled?: boolean;
+    }
+  | { kind: 'preparing'; intent: Intent | null; video: boolean; stage: Stage; downloaded: number; total: number; speed: number; eta: number | null }
   | { kind: 'error'; message: string };
 
 type Props = {
   state: DockState;
-  onStart: () => void;
+  onAction: (intent: Intent) => void;
   onCancel: () => void;
-  onSend: () => void;
-  onSave: () => void;
-  onShareOther: () => void;
   onRetry: () => void;
 };
 
-/** Rodapé fixo: a ação principal, o preparo em etapas, o arquivo pronto ou o erro. */
-export function Dock({ state, onStart, onCancel, onSend, onSave, onShareOther, onRetry }: Props) {
+const ENDS: Record<Intent, string> = { share: 'Enviar', sticker: 'Figurinha', save: 'Salvar', edit: 'Editar' };
+
+/**
+ * Rodapé fixo: as ações (Compartilhar, Figurinha, Baixar e, em vídeo, Editar) já aparecem com o
+ * link lido. O arquivo vai para o armazenamento do app por baixo, e a ação acontece quando ele
+ * fica pronto; Baixar guarda uma cópia em Download/Puxa.
+ */
+export function Dock({ state, onAction, onCancel, onRetry }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const swap = useState(() => new Animated.Value(1))[0];
@@ -43,37 +61,10 @@ export function Dock({ state, onStart, onCancel, onSend, onSave, onShareOther, o
 
   return (
     <Animated.View style={style}>
-      {state.kind === 'idle' ? (
-        <Button label={state.label} detail={state.detail} icon="download" onPress={onStart} disabled={state.disabled} />
+      {state.kind === 'actions' ? (
+        <Actions state={state} onAction={onAction} s={s} c={c} />
       ) : state.kind === 'preparing' ? (
         <Preparing state={state} onCancel={onCancel} s={s} c={c} />
-      ) : state.kind === 'done' ? (
-        <View style={s.gap}>
-          <View style={s.doneRow}>
-            <Check c={c} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.doneTitle} numberOfLines={1}>
-                {stem(state.file.filename)}
-              </Text>
-              <Text style={s.meta}>
-                {[state.file.mime.startsWith('audio') ? 'Áudio M4A' : 'Vídeo MP4', clock(state.file.duration), bytes(state.file.size)].join(' · ')}
-              </Text>
-            </View>
-          </View>
-          <View style={s.buttons}>
-            <Button tone="wa" icon="send" label="Enviar no WhatsApp" onPress={onSend} busy={state.sending} style={{ flex: 1 }} />
-            <IconButton
-              icon={state.saved ? 'check' : 'download'}
-              busy={state.saving}
-              onPress={onSave}
-              label={state.saved ? 'Salvo em Downloads' : 'Salvar em Downloads'}
-              tint={state.saved ? c.wa : c.ink}
-              s={s}
-              c={c}
-            />
-            <IconButton icon="share-2" onPress={onShareOther} label="Enviar por outro app" tint={c.ink} s={s} c={c} />
-          </View>
-        </View>
       ) : (
         <View style={s.gap}>
           <View style={s.errorRow}>
@@ -92,13 +83,66 @@ export function Dock({ state, onStart, onCancel, onSend, onSave, onShareOther, o
   );
 }
 
-/** Ação secundária só com ícone, do tamanho do botão principal ao lado. */
-function IconButton({ icon, onPress, label, tint, busy, s, c }: { icon: keyof typeof Feather.glyphMap; onPress: () => void; label: string; tint: string; busy?: boolean; s: Styles; c: Palette }) {
+function Actions({ state, onAction, s, c }: { state: Extract<DockState, { kind: 'actions' }>; onAction: (i: Intent) => void; s: Styles; c: Palette }) {
+  const f = state.ready;
+  const kind = f ? (f.mime === 'audio/mpeg' ? 'Áudio MP3' : f.mime.startsWith('audio') ? 'Áudio M4A' : f.mime.startsWith('image') ? 'Foto' : 'Vídeo MP4') : '';
+  const meta = f ? [kind, f.mime.startsWith('image') ? null : clock(f.duration), bytes(f.size), state.saved ? 'Salvo' : null].filter(Boolean).join(' · ') : state.detail;
   return (
-    <Press onPress={onPress} disabled={busy} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy: !!busy }}>
+    <View style={s.gap}>
+      <View style={s.metaRow} accessibilityLiveRegion="polite">
+        {f ? <Check c={c} /> : null}
+        <Text style={[s.meta, { flex: 1 }]} numberOfLines={1}>
+          {f ? <Text style={s.ready}>Pronto · </Text> : null}
+          {meta}
+        </Text>
+      </View>
+      <Button tone="wa" icon="send" label="Compartilhar" onPress={() => onAction('share')} disabled={state.disabled} />
+      <View style={s.buttons}>
+        <Secondary icon="smile" label="Figurinha" onPress={() => onAction('sticker')} disabled={state.disabled} s={s} c={c} />
+        <Secondary
+          icon={state.saved ? 'check' : 'download'}
+          label={state.saved ? 'Salvo' : 'Baixar'}
+          tint={state.saved ? c.waInk : undefined}
+          busy={state.saving}
+          onPress={() => onAction('save')}
+          disabled={state.disabled}
+          s={s}
+          c={c}
+        />
+        {state.canEdit ? <Secondary icon="scissors" label="Editar" busy={state.editing} onPress={() => onAction('edit')} disabled={state.disabled} s={s} c={c} /> : null}
+      </View>
+    </View>
+  );
+}
+
+/** Ação secundária: contorno, ícone e o nome embaixo, mesma altura para as três. */
+function Secondary({
+  icon,
+  label,
+  onPress,
+  busy,
+  disabled,
+  tint,
+  s,
+  c,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  onPress: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+  tint?: string;
+  s: Styles;
+  c: Palette;
+}) {
+  return (
+    <Press onPress={onPress} disabled={busy || disabled} containerStyle={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy: !!busy, disabled: !!disabled }}>
       {(pressed) => (
-        <View style={[s.iconBtnInner, pressed && { backgroundColor: c.hover }]}>
-          {busy ? <ActivityIndicator size="small" color={c.ink} /> : <Feather name={icon} size={20} color={tint} />}
+        <View style={[s.secondary, pressed && { backgroundColor: c.hover }, disabled && { opacity: 0.45 }]}>
+          {busy ? <ActivityIndicator size="small" color={c.ink} /> : <Feather name={icon} size={19} color={tint ?? c.ink} />}
+          <Text style={[s.secondaryText, tint ? { color: tint } : null]} numberOfLines={1}>
+            {label}
+          </Text>
         </View>
       )}
     </Press>
@@ -154,7 +198,7 @@ function Preparing({ state, onCancel, s, c }: { state: Extract<DockState, { kind
             />
           ) : null}
         </View>
-        <Step label="Pronto" state="todo" c={c} s={s} />
+        <Step label={state.intent ? ENDS[state.intent] : 'Pronto'} state="todo" c={c} s={s} />
       </View>
       <View style={s.progressRow}>
         <Text style={s.progressText} numberOfLines={1}>
@@ -192,9 +236,9 @@ function Check({ c }: { c: Palette }) {
   return (
     <Animated.View
       style={{
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
         backgroundColor: c.waSoft,
         alignItems: 'center',
         justifyContent: 'center',
@@ -202,7 +246,7 @@ function Check({ c }: { c: Palette }) {
         opacity: pop,
       }}
     >
-      <Feather name="check" size={22} color={c.wa} />
+      <Feather name="check" size={14} color={c.waInk} />
     </Animated.View>
   );
 }
@@ -211,21 +255,24 @@ type Styles = ReturnType<typeof makeStyles>;
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    gap: { gap: 12 },
-    doneRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    doneTitle: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
-    meta: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 2, fontVariant: ['tabular-nums'] },
+    gap: { gap: 10 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 24 },
+    meta: { fontFamily: font.regular, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
+    ready: { fontFamily: font.semibold, color: c.waInk },
     buttons: { flexDirection: 'row', gap: 8 },
-    iconBtnInner: {
-      width: 54,
-      height: 54,
+    // Ícone em cima e o nome embaixo: cabe "Figurinha" mesmo em celular de 360 dp com três botões
+    secondary: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      height: 56,
+      paddingHorizontal: 4,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: c.lineStrong,
       backgroundColor: c.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
+    secondaryText: { fontFamily: font.semibold, fontSize: 13, color: c.ink },
     steps: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     step: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     stepDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },

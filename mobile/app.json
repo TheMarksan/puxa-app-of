@@ -2,7 +2,7 @@
   "expo": {
     "name": "Puxa",
     "slug": "puxa",
-    "version": "1.0.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "puxa",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "app.puxa",
-      "versionCode": 1,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#2547D0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,11 +25,11 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
@@ -39,9 +39,24 @@
       [
         "expo-audio",
         {
-          "microphonePermission": false,
-          "recordAudioAndroid": false,
+          "microphonePermission": "O Puxa usa o microfone para gravar a sua narração.",
+          "recordAudioAndroid": true,
           "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Puxa usa a câmera para gravar a sua facecam.",
+          "microphonePermission": "O Puxa usa o microfone para gravar a sua narração.",
+          "recordAudioAndroid": true,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Puxa abre fotos e vídeos que você escolher para o modo Criar."
         }
       ],
       [
@@ -49,18 +64,22 @@
         {
           "android": {
             "minSdkVersion": 26,
+            "useLegacyPackaging": true,
             "extraMavenRepos": [
               "https://jitpack.io"
             ],
             "buildArchs": [
               "arm64-v8a"
             ],
-            "extraProguardRules": "# NewPipeExtractor: o decifrador do YouTube roda no Rhino, que usa reflexão\n-keep class org.schabi.newpipe.extractor.** { *; }\n-keep class org.mozilla.javascript.** { *; }\n-keep class org.mozilla.classfile.ClassFileWriter\n-dontwarn org.mozilla.javascript.**\n-dontwarn javax.script.**\n-dontwarn java.beans.**\n-dontwarn jdk.dynalink.**\n-dontwarn javax.lang.model.**\n-dontwarn org.jsoup.**\n-dontwarn com.google.re2j.**\n-dontwarn edu.umd.cs.findbugs.annotations.**\n-dontwarn org.openjsse.**\n-dontwarn org.conscrypt.**\n-dontwarn org.bouncycastle.**"
+            "extraProguardRules": "# NewPipeExtractor: o decifrador do YouTube roda no Rhino, que usa reflexão\n-keep class org.schabi.newpipe.extractor.** { *; }\n-keep class org.mozilla.javascript.** { *; }\n-keep class org.mozilla.classfile.ClassFileWriter\n-dontwarn org.mozilla.javascript.**\n-dontwarn javax.script.**\n-dontwarn java.beans.**\n-dontwarn jdk.dynalink.**\n-dontwarn javax.lang.model.**\n-dontwarn org.jsoup.**\n-dontwarn com.google.re2j.**\n-dontwarn edu.umd.cs.findbugs.annotations.**\n-dontwarn org.openjsse.**\n-dontwarn org.conscrypt.**\n-dontwarn org.bouncycastle.**\n# FFmpegKit: o código nativo chama métodos Java pelo nome\n-keep class com.arthenica.ffmpegkit.** { *; }\n-keep class com.arthenica.smartexception.** { *; }\n# whisper.rn (transcrição no aparelho)\n-keep class com.rnwhisper.** { *; }"
           }
         }
       ],
       "expo-font",
-      "./plugins/with-puxa-android"
+      "./plugins/with-puxa-android",
+      "expo-router",
+      "expo-video",
+      "expo-secure-store"
     ]
   }
 }

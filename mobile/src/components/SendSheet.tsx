@@ -9,8 +9,10 @@ import PuxaEngine, { DoneEvent } from '../../modules/puxa-engine';
 import { bytes, clipName, clock, stem } from '../format';
 import { ms } from '../motion';
 import { ease, font, Palette, usePalette } from '../theme';
+import { BackButton } from './BackButton';
 import { Button, Press } from './Button';
 import { Segmented } from './Segmented';
+import { useSheetDrag } from './SheetParts';
 import { MIN_CLIP, Trimmer } from './Trimmer';
 
 const WA_LIMIT = 16 * 1024 * 1024;
@@ -38,6 +40,7 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
   const [range, setRange] = useState(() => ({ start: 0, end: Math.min(duration, 30) }));
   const [peaks, setPeaks] = useState<number[] | null>(null);
   const [busy, setBusy] = useState<null | 'wa' | 'other'>(null);
+  const sheetDrag = useSheetDrag(onClose, !busy);
 
   const player = useAudioPlayer({ uri: `file://${file.path}` }, { updateInterval: 80 });
   const status = useAudioPlayerStatus(player);
@@ -49,6 +52,7 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
   useEffect(() => {
     if (visible) {
       slide.setValue(0);
+      sheetDrag.reset();
       Animated.timing(slide, { toValue: 1, duration: ms(380), easing: ease.ios, useNativeDriver: true }).start();
     } else if (mounted) {
       Animated.timing(slide, { toValue: 0, duration: ms(220), easing: ease.exit, useNativeDriver: true }).start(() => setMounted(false));
@@ -132,7 +136,7 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
   if (!mounted) return null;
 
   const sheetStyle = {
-    transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [560, 0] }) }],
+    transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [560, 0] }), sheetDrag.drag) }],
   };
 
   return (
@@ -143,21 +147,22 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
         <Pressable style={StyleSheet.absoluteFill} onPress={() => !busy && onClose()} accessibilityLabel="Fechar" />
       </Animated.View>
       <Animated.View style={[s.sheet, sheetStyle, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={s.grabber} />
-        <ScrollView bounces={false} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        {/* Alça e topo: arrastar para baixo fecha a folha */}
+        <View {...sheetDrag.handlers} style={s.dragZone}>
+          <View style={s.grabber} />
           <View style={s.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.title}>Enviar no WhatsApp</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.title} accessibilityRole="header">
+                Enviar
+              </Text>
               <Text style={s.subtitle} numberOfLines={1}>
                 {stem(file.filename)}
               </Text>
             </View>
-            <Press onPress={onClose} disabled={!!busy} style={s.close} accessibilityRole="button" accessibilityLabel="Fechar">
-              <Feather name="x" size={22} color={c.muted} />
-            </Press>
+            <BackButton icon="close" onPress={onClose} disabled={!!busy} />
           </View>
-
-          <Text style={s.label}>O que mandar</Text>
+        </View>
+        <ScrollView bounces={false} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <Segmented
             accessibilityLabel="O que mandar"
             value={mode}
@@ -167,8 +172,8 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
               if (m === 'whole') player.pause();
             }}
             options={[
-              { value: 'whole', label: 'Áudio inteiro', detail: `${clock(file.duration)} · ${bytes(file.size)}` },
-              { value: 'clip', label: 'Só um trecho', detail: 'Você escolhe início e fim' },
+              { value: 'whole', label: 'Inteiro', detail: `${clock(file.duration)} · ${bytes(file.size)}` },
+              { value: 'clip', label: 'Trecho', detail: 'início e fim' },
             ]}
           />
 
@@ -266,9 +271,10 @@ const makeStyles = (c: Palette) =>
       shadowRadius: 24,
       elevation: 24,
     },
-    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.lineStrong, marginTop: 10 },
-    content: { paddingHorizontal: 20, paddingTop: 12, gap: 12 },
-    header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 4 },
+    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.lineStrong, marginTop: 10, marginBottom: 12 },
+    dragZone: { paddingHorizontal: 20, paddingBottom: 10 },
+    content: { paddingHorizontal: 20, paddingTop: 2, gap: 12 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     title: { fontFamily: font.bold, fontSize: 21, color: c.ink, letterSpacing: -0.3 },
     subtitle: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 2 },
     close: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.hover },

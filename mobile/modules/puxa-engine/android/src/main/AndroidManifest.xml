@@ -15,5 +15,12 @@
         android:name="android.support.FILE_PROVIDER_PATHS"
         android:resource="@xml/puxa_file_paths" />
     </provider>
+    <!-- Pacotes de figurinhas para o WhatsApp: só ele lê (permissão dele) -->
+    <provider
+      android:name="app.puxa.engine.StickerProvider"
+      android:authorities="${applicationId}.stickercontentprovider"
+      android:enabled="true"
+      android:exported="true"
+      android:readPermission="com.whatsapp.sticker.READ" />
   </application>
 </manifest>

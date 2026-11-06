@@ -1,5 +1,5 @@
 // Ajustes nativos do Android que o app.json não cobre sozinho.
-const { withAndroidManifest, withAppBuildGradle, AndroidConfig, createRunOncePlugin } = require('expo/config-plugins');
+const { withAndroidManifest, withAppBuildGradle, withGradleProperties, AndroidConfig, createRunOncePlugin } = require('expo/config-plugins');
 
 /** Faz o Puxa aparecer no menu "Compartilhar" do YouTube (recebe o link como texto). */
 function withShareTarget(config) {
@@ -36,6 +36,16 @@ function withDesugaring(config) {
   });
 }
 
-const withPuxaAndroid = (config) => withDesugaring(withShareTarget(config));
+/** Figurinhas animadas (WebP animado) aparecem animadas nas telas do app. */
+function withAnimatedWebp(config) {
+  return withGradleProperties(config, (cfg) => {
+    const props = cfg.modResults.filter((p) => !(p.type === 'property' && p.key === 'expo.webp.animated'));
+    props.push({ type: 'property', key: 'expo.webp.animated', value: 'true' });
+    cfg.modResults = props;
+    return cfg;
+  });
+}
+
+const withPuxaAndroid = (config) => withAnimatedWebp(withDesugaring(withShareTarget(config)));
 
 module.exports = createRunOncePlugin(withPuxaAndroid, 'with-puxa-android', '1.0.0');

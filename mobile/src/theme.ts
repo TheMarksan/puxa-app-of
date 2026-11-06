@@ -1,6 +1,8 @@
 import { Easing, useColorScheme } from 'react-native';
 
-/** Mesmas cores do site; o tema escuro segue o do sistema. */
+import { useSettings } from './settings';
+
+/** Mesmas cores do site; o tema escuro segue o do sistema, a não ser que a pessoa escolha nos Ajustes. */
 export const light = {
   bg: '#FAFAF8',
   surface: '#FFFFFF',
@@ -11,10 +13,14 @@ export const light = {
   accent: '#2547D0',
   accentPressed: '#1D3AB0',
   accentSoft: '#EBEFFC',
+  /** Azul para texto e ícones sobre as superfícies (no escuro, mais claro para ter contraste). */
+  accentInk: '#2547D0',
   onAccent: '#FFFFFF',
   wa: '#0E7A43',
   waPressed: '#0B6537',
   waSoft: '#E7F4EC',
+  /** Verde para texto e ícones (no escuro, mais claro para ter contraste). */
+  waInk: '#0E7A43',
   danger: '#B42318',
   dangerSoft: '#FDF0EE',
   dangerLine: '#F1C7C1',
@@ -40,10 +46,12 @@ export const dark: typeof light = {
   accent: '#3D5EEA',
   accentPressed: '#5371F0',
   accentSoft: '#1E2645',
+  accentInk: '#8EA2FF',
   onAccent: '#FFFFFF',
   wa: '#12804A',
   waPressed: '#169355',
   waSoft: '#16291F',
+  waInk: '#5FD394',
   danger: '#F2877B',
   dangerSoft: '#2C1A18',
   dangerLine: '#5A2B26',
@@ -62,7 +70,10 @@ export const dark: typeof light = {
 export type Palette = typeof light;
 
 export function usePalette(): Palette {
-  return useColorScheme() === 'dark' ? dark : light;
+  const system = useColorScheme();
+  const { theme } = useSettings();
+  const isDark = theme === 'system' ? system === 'dark' : theme === 'dark';
+  return isDark ? dark : light;
 }
 
 export const font = {

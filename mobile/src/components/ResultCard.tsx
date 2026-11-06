@@ -2,22 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { Animated, Image, StyleSheet, Text, View } from 'react-native';
 
 import type { VideoInfo } from '../../modules/puxa-engine';
+import { NAMES } from '../sources/social';
 import { clock, date, views } from '../format';
 import { ms, reduceMotion } from '../motion';
 import { font, Palette, radius, usePalette } from '../theme';
 
-/** Cartão compacto: a capa confirma o vídeo, e o espaço fica para formato e qualidade. */
+/** Cartão compacto: a capa confirma o vídeo (ou a foto), e o espaço fica para formato e qualidade. */
 export function ResultCard({ info }: { info: VideoInfo }) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
-  const meta = [views(info.viewCount), date(info.uploadDate)].filter(Boolean).join(' · ');
+  const network = info.source && info.source !== 'youtube' ? NAMES[info.source] : null;
+  const meta = [network, views(info.viewCount), date(info.uploadDate)].filter(Boolean).join(' · ');
   return (
     <View style={s.card}>
       <View style={s.thumbWrap}>
         <Image source={{ uri: info.thumbnail }} style={s.thumb} resizeMode="cover" accessibilityIgnoresInvertColors />
-        <View style={s.badge}>
-          <Text style={s.badgeText}>{clock(info.duration)}</Text>
-        </View>
+        {info.image || info.duration > 0 ? (
+          <View style={s.badge}>
+            <Text style={s.badgeText}>{info.image ? 'Foto' : clock(info.duration)}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={s.text}>
         <Text style={s.title} numberOfLines={3}>

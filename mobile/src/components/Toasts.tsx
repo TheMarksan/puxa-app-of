@@ -202,5 +202,5 @@ const makeStyles = (c: Palette) =>
     title: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
     body: { fontFamily: font.regular, fontSize: 14, color: c.muted, lineHeight: 19 },
     action: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10 },
-    actionLabel: { fontFamily: font.semibold, fontSize: 15, color: c.accent },
+    actionLabel: { fontFamily: font.semibold, fontSize: 15, color: c.accentInk },
   });

@@ -65,3 +65,14 @@ export function clipName(title: string, start: number, end: number): string {
 export function stem(filename: string): string {
   return filename.replace(/\.[^.]+$/, '');
 }
+
+/** Nome de arquivo seguro: sem barras nem caracteres que o Android recusa. */
+export function safeName(title: string): string {
+  return (
+    title
+      .replace(/[\\/:*?"<>|\n\r\t]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 80) || 'Puxa'
+  );
+}
