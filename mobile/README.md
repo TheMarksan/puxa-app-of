@@ -71,7 +71,7 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 
 O APK pronto é para celulares ARM de 64 bits (praticamente todos os Android de 2017 para cá), Android 8 ou mais novo. As bibliotecas nativas vão comprimidas dentro do APK, que fica bem menor para baixar e mandar; o Android as descompacta na instalação.
 
-1. Copie o `.apk` para o celular e toque nele.
+1. Baixe o `.apk` da [última release](https://github.com/TheMarksan/puxa-app-of/releases/latest) direto no celular (ou copie do computador) e toque nele.
 2. O Android vai pedir para permitir instalar apps desta fonte (o navegador ou o gerenciador de arquivos). Permita só para essa instalação.
 3. O Play Protect pode avisar que o app é desconhecido; é porque ele não veio da Play Store. Toque em "Instalar mesmo assim".
 
@@ -187,7 +187,8 @@ As mensagens aparecem em português no próprio app. As mais comuns:
 
 ## Licenças
 
-- **NewPipeExtractor** é GPL-3.0. Se for distribuir o app publicamente, o código do app também precisa ser publicado sob a GPL-3.0. O arquivo `LICENSE` atual veio do modelo do Expo e deve ser trocado nesse caso.
+- **O app é GPL-3.0** (arquivo `LICENSE`), porque usa o NewPipeExtractor e o FFmpeg, que são GPL-3.0. Quem distribuir o APK precisa deixar o código disponível sob a mesma licença.
+- **NewPipeExtractor** é GPL-3.0.
 - **FFmpeg / FFmpegKit** (build `ffmpeg-kit-16kb` 6.1.1, compilado com `--enable-gpl`) é GPL-3.0, com LAME (MP3), OpenH264 e libwebp (figurinhas).
 - **whisper.cpp / whisper.rn** e os modelos Whisper são MIT. **ML Kit** segue os termos do Google. **React Native WebView** e **expo-secure-store** são MIT.
 - **ElevenLabs:** a transcrição e as vozes seguem os termos da ElevenLabs e usam a conta de quem coloca a chave.

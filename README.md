@@ -4,6 +4,24 @@ Site para colar um link do YouTube, escolher MP3 ou MP4 e a qualidade, e então 
 
 Backend em Python (FastAPI + yt-dlp + ffmpeg). Frontend em HTML, CSS e JavaScript puros, sem etapa de build. A única parte com build é a demo animada do estado vazio (veja abaixo), que já vai pronta em `static/demo/`.
 
+## App Android
+
+O app fica em [`mobile/`](mobile/) (React Native com Expo). Baixa do YouTube, do Instagram e do X direto no celular, faz figurinhas para o WhatsApp, grava legenda no vídeo e transforma links em músicas na Playlist. Como desenvolver e gerar o APK: [`mobile/README.md`](mobile/README.md).
+
+- **Baixar o APK:** na página [Releases](https://github.com/TheMarksan/puxa-app-of/releases/latest), em Assets.
+- **Versões:** cada versão do app tem uma tag (`v1.0.0`, `v1.4.0`, `v1.5.0`...). Para ver o que mudou entre duas: `git diff v1.5.1 v1.5.2 -- mobile`.
+- **Nova versão:** suba `version` e `android.versionCode` em `mobile/app.json`, faça o commit, crie a tag (`git tag -a v1.5.3 -m "Puxa para Android 1.5.3"`), envie com `git push --follow-tags` e publique o APK numa nova release.
+
+## Estrutura
+
+| Pasta | O que tem |
+| --- | --- |
+| `app/`, `static/`, `tests/` | Site: backend FastAPI, página e testes |
+| `demo/` | Fonte da demo animada do site |
+| `mobile/` | App Android (Expo) |
+
+O site é MIT (`LICENSE`). O app é GPL-3.0 (`mobile/LICENSE`), porque usa o NewPipeExtractor e o FFmpeg, que são GPL-3.0.
+
 ## Interface
 
 - **Movimento com causa.** Seguindo as regras da skill stageshow: o resultado chega em sequência depois da busca (o único momento orquestrado), o destaque de MP3/MP4 e o da qualidade escolhida deslizam, a lista muda de altura junto quando troca o formato, a etapa do preparo rola em vez de piscar, a porcentagem gira dígito a dígito, o check se desenha, painéis abrem com a altura e o botão de envio confirma em si mesmo ("Enviado"). Tudo respeita `prefers-reduced-motion`.
