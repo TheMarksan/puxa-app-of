@@ -11,6 +11,7 @@ import { shownCues } from '../editor/captionLayout';
 import { CueList, LinesPicker, LookPicker, MotionPicker, PositionPicker } from '../editor/ui/CaptionControls';
 import { Chip, Row, Section, Slider, Swatches, Toggle, ui, videoFill } from '../editor/ui/kit';
 import { E } from '../editor/ui/palette';
+import { usePlayerTime } from '../editor/ui/usePlayerTime';
 import { StyleEditor } from '../editor/ui/StyleEditor';
 import { clamp, placement } from '../editor/timeline';
 import type { CaptionStyle, Cue, MediaSource } from '../editor/types';
@@ -36,30 +37,6 @@ const seek = (p: VideoPlayer, t: number) => {
 function pinchDistance(e: GestureResponderEvent): number | null {
   const t = e.nativeEvent.touches;
   return t.length < 2 ? null : Math.hypot(t[1].pageX - t[0].pageX, t[1].pageY - t[0].pageY);
-}
-
-/** Tempo do player a ~30 quadros por segundo, voltando ao começo do trecho quando chega ao fim. */
-function usePlayerTime(player: VideoPlayer, range: { start: number; end: number }) {
-  const [state, setState] = useState(() => ({ time: player.currentTime, playing: player.playing }));
-  useEffect(() => {
-    let raf = 0;
-    let last = -1;
-    let was = player.playing;
-    const tick = () => {
-      const t = player.currentTime;
-      const p = player.playing;
-      if (p && t >= range.end - 0.04) seek(player, range.start);
-      if (Math.abs(t - last) >= 1 / 30 || p !== was) {
-        last = t;
-        was = p;
-        setState({ time: t, playing: p });
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [player, range.start, range.end]);
-  return state;
 }
 
 type Props = {

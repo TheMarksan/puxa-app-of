@@ -6,6 +6,8 @@ import { newId } from '../editor/timeline';
 import { onStorageCleared } from '../events';
 import { itemInfo, resolveLink } from '../sources';
 import { audioPlan } from './links';
+import { addToList, inList } from './lists';
+import { forgetLyrics } from './lyricsFetch';
 import { clearTracks, dropTrack, getTracks, patchTrack, putTrack, sameLink, splitLinks, type Track } from './store';
 
 export { audioPlan } from './links';
@@ -42,13 +44,17 @@ function trackFrom(info: VideoInfo, link: string, id = newId('t')): Track {
 /** Já está na lista (pelo link): devolve a faixa existente. */
 const existing = (link: string) => getTracks().find((t) => sameLink(t.link, link));
 
-/** Vídeo aberto no Baixar: entra na playlist já com título e capa. */
-export function addFromInfo(info: VideoInfo, link: string): { track: Track; duplicate: boolean } {
+/** Vídeo aberto no Baixar: entra na biblioteca já com título e capa (e na playlist, se veio uma). */
+export function addFromInfo(info: VideoInfo, link: string, listId?: string): { track: Track; duplicate: boolean } {
   const old = existing(link);
-  if (old && old.status !== 'error') return { track: old, duplicate: true };
+  if (old && old.status !== 'error') {
+    if (listId) addToList(listId, [old.id]);
+    return { track: old, duplicate: true };
+  }
   const t = trackFrom(info, link, old?.id);
   pendingInfo.set(t.id, info);
   putTrack(t);
+  if (listId) addToList(listId, [t.id]);
   pump();
   return { track: t, duplicate: false };
 }
@@ -56,22 +62,33 @@ export function addFromInfo(info: VideoInfo, link: string): { track: Track; dupl
 /** Informação já lida (vinda do Baixar), para não ler o link de novo. */
 const pendingInfo = new Map<string, VideoInfo>();
 
-/** Links colados na tela da playlist: cada um entra na fila. Devolve quantos entraram. */
-export function addLinks(text: string): { added: number; duplicates: number; invalid: boolean } {
+/**
+ * Links colados numa playlist: cada um entra na fila de downloads (e na playlist [listId]).
+ * Um link que já está na biblioteca só entra na playlist. Devolve quantos entraram.
+ */
+export function addLinks(text: string, listId?: string): { added: number; reused: number; duplicates: number; invalid: boolean } {
   const links = splitLinks(text);
   let added = 0;
+  let reused = 0;
   let duplicates = 0;
+  const into: string[] = [];
   for (const link of links) {
     const old = existing(link);
     if (old && old.status !== 'error') {
-      duplicates++;
+      if (listId && !inList(listId, old.id) && !into.includes(old.id)) {
+        into.push(old.id);
+        reused++;
+      } else duplicates++;
       continue;
     }
-    putTrack({ id: old?.id ?? newId('t'), link, title: link.replace(/^https?:\/\/(www\.)?/, ''), artist: '', source: null, thumbnail: null, duration: 0, path: null, size: 0, added: Date.now(), status: 'queued' });
+    const id = old?.id ?? newId('t');
+    putTrack({ id, link, title: link.replace(/^https?:\/\/(www\.)?/, ''), artist: '', source: null, thumbnail: null, duration: 0, path: null, size: 0, added: Date.now(), status: 'queued' });
+    into.push(id);
     added++;
   }
+  if (listId && into.length) addToList(listId, into);
   if (added) pump();
-  return { added, duplicates, invalid: links.length === 0 };
+  return { added, reused, duplicates, invalid: links.length === 0 };
 }
 
 export function retry(id: string) {
@@ -86,6 +103,7 @@ export function removeTrack(t: Track) {
     running = null;
   }
   pendingInfo.delete(t.id);
+  forgetLyrics(t.id);
   if (Platform.OS !== 'web') {
     for (const p of [t.path, t.thumbnail?.startsWith('/') ? t.thumbnail : null]) {
       if (!p) continue;

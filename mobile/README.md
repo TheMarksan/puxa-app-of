@@ -3,7 +3,7 @@
 App em React Native (Expo). A tela inicial é o **Baixar**. No começo, uma barra flutuante azul leva à **Playlist**, às **Figurinhas** e aos **Ajustes**; com um vídeo aberto ela sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
 
 - **Baixar:** vídeos e Shorts do YouTube (MP3, M4A ou MP4 até 1080p), Reels, posts, fotos e perfis do Instagram, e posts e perfis do X. Assim que o link abre, aparecem **Compartilhar**, **Figurinha**, **Baixar** e **Playlist**; o arquivo baixa para o armazenamento do app quando você escolhe uma delas. Vai para o WhatsApp inteiro, só um trecho, com legenda gravada na imagem, dublado com vozes de IA ou como figurinha.
-- **Playlist:** cole links (um ou vários de uma vez) e cada um vira uma música guardada no celular. Toca em fila com a tela desligada, com os controles na notificação e na tela de bloqueio.
+- **Playlists:** cole links (um ou vários de uma vez) e cada um vira uma música guardada no celular. Separe em playlists (Treino, Estudos...), cada uma com a sua capa, toque em fila ou no aleatório com a tela desligada (controles na notificação e na tela de bloqueio) e veja a letra sincronizada, como no Spotify.
 - **Figurinhas:** pastas com nome (Memes, Família...). Cada pasta vira um pacote no WhatsApp, separado em paradas e animadas.
 - **Ajustes:** aparência (automático, claro ou escuro), contas (Instagram, só para stories e destaques, e a chave da ElevenLabs, para transcrição e dublagem na nuvem), espaço ocupado com limpeza por tipo de arquivo, e os termos de uso.
 
@@ -21,11 +21,14 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - **Trecho de vídeo:** a tira de miniaturas mostra o vídeo inteiro, as alças escolhem o trecho e os **capítulos** do YouTube (quando o vídeo tem) viram atalhos de um toque.
 - **Legenda gravada no vídeo:** usa a legenda do YouTube (original ou em português; se o YouTube recusar a tradução, o app traduz no aparelho), **transcreve a fala** quando o vídeo não tem legenda (e nos vídeos do Instagram e do X), ou você **escreve** a sua.
 - **Transcrição:** **No celular** (Whisper, sem internet depois de baixar o modelo) ou pela **ElevenLabs** (Scribe, a mais precisa, principalmente em outros idiomas, usando a sua conta). No celular há três modelos: Rápida, Precisa (padrão) e Máxima. Escolher o idioma falado, em vez de Automático, melhora bastante vídeos curtos, com música ou com sotaque. A escolha fica guardada para os próximos vídeos.
+- **Transcrição mais rápida:** no celular a decodificação é gulosa (a palavra mais provável de cada vez), várias vezes mais rápida que a busca em feixe de antes, e só os trechos que saem estranhos são refeitos. O modelo já começa a carregar quando as opções da legenda aparecem, a transcrição começa sozinha ao tocar em **Transcrever** (se o modelo já está no celular) e as legendas vão aparecendo na prévia enquanto saem. Se a internet cair no meio do download do modelo, o próximo toque continua de onde parou.
 - **Dublar:** a quarta ferramenta do envio de vídeo. A ElevenLabs transcreve separando quem fala, o app traduz e lê com duas vozes de IA (Sarah, feminina, e Liam, masculino): a primeira pessoa fica com a voz escolhida e a segunda com a outra. Cada fala é encaixada no tempo da original (acelera um pouco se precisar). Dá para ouvir antes, deixar o som original baixinho ao fundo ou tirar, e usar a legenda **Da dublagem**. Para português, inglês ou espanhol. Precisa da chave da ElevenLabs (o próprio painel pede); o botão mostra quantos créditos a dublagem deve gastar.
 - **Ajustar na tela:** abre o vídeo em tela cheia com a legenda de verdade por cima. Arraste a legenda para onde quiser: linhas rosa no centro, como no Canva, mostram quando ela está centralizada na vertical ou na horizontal. Ali ficam 10 formatos prontos (faixa, clássica, contorno, impacto, amarela, marca-texto, pílula, cartão, neon, simples), 7 animações (surgir, subir, pop, palavra a palavra, karaokê, uma palavra por vez), 15 fontes, cores, tamanho e a lista dos textos para corrigir, apagar ou criar legendas.
 - **Linhas da legenda:** logo abaixo do cartão da legenda, escolha **1, 2 ou 3 linhas** (padrão: 2). Uma frase que ocuparia mais linhas vira duas ou mais legendas seguidas, com o tempo da fala dividido pelo tamanho de cada pedaço, igual na prévia e no vídeo. A mesma escolha fica em Ajustar na tela > Letra e cor. A posição (em cima, no meio, embaixo ou arrastada) continua na aba Posição.
 - **Enquadramento:** o vídeo vai como veio (padrão) ou com zoom, arrastando para escolher a parte da imagem.
 - **Envio:** três cartões no topo escolhem o que sai: **Vídeo**, figurinha **Animada** (um trecho de até 10 s, limite do WhatsApp) ou figurinha **Parada** (um quadro, com passos de 0,1 s). No vídeo, as ferramentas **Cortar**, **Legenda** e **Zoom** abrem só quando você toca nelas; segurar o Zoom volta ao enquadramento original. Arrastar a alça da folha para baixo fecha o envio.
+- **Prévia do envio:** é um player de verdade, no formato do vídeo: mostra o trecho, o zoom e a legenda como vão sair, com tocar/pausar (o botão mostra o estado), a barra de tempo do trecho para arrastar e o tempo (0:04 / 0:30). Tocando, os controles somem para a legenda aparecer inteira e fica só uma linha do progresso; tocar no vídeo pausa. O trecho toca em repetição. O botão do canto abre em tela cheia.
+- **Legenda na figurinha:** com a legenda ligada no vídeo, as abas Animada e Parada mostram a mesma legenda por cima da prévia, já no recorte, e a figurinha sai com ela gravada (o trecho é montado com a legenda antes de virar figurinha). O botão **Legenda**, ao lado do Contorno, tira a legenda só da figurinha. O trecho da figurinha começa onde começa o corte do vídeo.
 - **Figurinha:** **Recorte** (com os **cantos** ajustáveis do reto ao círculo: arraste a barra ou toque em Retos, Suaves, Redondos ou Círculo) ou **Inteiro** (o quadro todo, sem cortar), e o contorno branco; texto com posição e cor no mesmo campo; o emoji pelo qual o WhatsApp sugere a figurinha; e a **pasta** onde ela entra (ou **Nova**, ali mesmo). A prévia mostra o recorte sobre o fundo da conversa do WhatsApp; arrastar escolhe a parte do vídeo e dois dedos aproximam. Fotos do Instagram e do X também viram figurinha.
 - O formato, os cantos e o contorno escolhidos ficam guardados para a próxima figurinha.
 - **Vídeos do Instagram e do X:** esses MP4 vêm fragmentados; o app os reempacota ao baixar, então o tamanho, a duração e o primeiro quadro saem certos em todos os formatos de figurinha.
@@ -37,14 +40,17 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - O WhatsApp pede **pelo menos 3 figurinhas por pacote**. Enquanto houver menos, as que existem aparecem repetidas; as repetições somem quando você faz as próximas. Cada pasta guarda até 30 paradas e 30 animadas; cheia, o app pede outra pasta.
 - Na tela **Figurinhas** (barra flutuante), as pastas aparecem com a capa das últimas figurinhas. Dentro de uma pasta: renomear, apagar a pasta, adicionar ao WhatsApp e, tocando numa figurinha, mandar em outro app, mover para outra pasta ou apagar (com alguns segundos para desfazer).
 
-## Playlist
+## Playlists
 
-- **Adicionar:** cole um link ou uma mensagem inteira com vários; o app pega os links do YouTube, do Instagram e do X e ignora o resto. Um link que já está na lista não entra de novo (o mesmo vídeo do YouTube em formatos diferentes de link conta como um só). No Baixar, o botão **Playlist** do rodapé manda o vídeo aberto, já com nome e capa.
-- **Baixar:** um link por vez, em fila, mesmo fora da tela da Playlist. Do YouTube vem o M4A original; do Instagram e do X, o áudio AAC do próprio vídeo, copiado sem recodificar (se não der, vira MP3). A capa fica guardada junto. Um link que falhar mostra o motivo e **Tentar de novo**; ao abrir o app, o que estava na fila continua.
+- **Biblioteca e playlists:** a tela abre com **Todas as músicas** (tudo que já virou música no celular) e as suas playlists como pôsteres: cada uma tem uma cor e um desenho de fundo que sai do nome, com o nome em letra grande. **Nova playlist** pede o nome (com sugestões: Treino, Estudos, Relaxar, Viagem, Festa, Foco, cada uma com a cor que combina) e a cor, com a capa mudando junto. Nas opções da playlist (⋯ no topo) dá para trocar nome e cor ou apagar a playlist (as músicas continuam no celular).
+- **Adicionar:** cole um link ou uma mensagem inteira com vários; o app pega os links do YouTube, do Instagram e do X e ignora o resto. Colado numa playlist, o link entra nela (e na biblioteca); um link que já virou música entra na playlist sem baixar de novo. Numa playlist vazia ou com espaço, **Escolher da biblioteca** marca músicas que já estão no celular. No Baixar, o botão **Playlist** do rodapé manda o vídeo aberto, já com nome e capa; com playlists criadas, abre **Salvar em** para escolher em quais ele entra.
+- **Baixar:** um link por vez, em fila, mesmo fora da tela. Do YouTube vem o M4A original; do Instagram e do X, o áudio AAC do próprio vídeo, copiado sem recodificar (se não der, vira MP3). A capa fica guardada junto. Um link que falhar mostra o motivo; tocar nele tenta de novo; ao abrir o app, o que estava na fila continua.
 - **Notificações:** na primeira vez que o app abre (Android 13 ou mais novo), ele pede a permissão de notificações, que o Android exige para mostrar o player na barra de notificação. Se ela foi negada, o app pede de novo ao tocar uma música.
-- **Tocar:** toque numa música para tocar; a fila segue a ordem da lista. O player fica embaixo, com a barra de tempo (tocar ou arrastar), anterior (volta ao começo depois de 3 s), tocar/pausar, próxima e repetir (a lista, só esta música ou nada). Com a tela desligada, a notificação e a tela de bloqueio mostram nome, capa e os controles. Se a fila do player não começar a tocar (ou der erro), o app refaz a fila uma vez e, se ainda assim não tocar, passa a tocar uma música por vez num player simples; nesse modo a notificação traz tocar/pausar e voltar ou avançar 10 s. Um erro ao tocar aparece no próprio player.
-- **Cada música:** no ⋮, mandar no WhatsApp ou em outro app, salvar em `Download/Puxa`, subir, descer ou remover (apaga o arquivo).
-- Os arquivos ficam em `files/playlist` e a lista em `files/playlist.json`. Em Ajustes > Armazenamento, **Playlist** apaga tudo (com um segundo toque).
+- **Tocar:** toque numa música para tocar a playlist a partir dela; o botão grande no topo toca do começo, e **Aleatório** embaralha (a música atual continua). Ao terminar uma música, a próxima começa sozinha; com repetir na lista, depois da última volta para a primeira. O player pequeno flutua embaixo, na cor da playlist, com tocar/pausar, próxima e a linha do tempo; tocar nele abre o player inteiro, com a capa grande, a barra de tempo, anterior (volta ao começo depois de 3 s), próxima, aleatório e repetir (a lista, só esta música ou nada), e **Salvar em** para pôr a música em outra playlist. Com a tela desligada, a notificação e a tela de bloqueio mostram nome, capa e os controles.
+- **Como o player toca:** tocar uma música monta uma fila nova que começa nela (a lista girada até ela, ou embaralhada com ela na frente), então escolher outra música sempre toca a escolhida. Se o player do aparelho parar no fim de uma música ou repetir em vez de seguir, o app passa para a próxima ele mesmo. Música nova que termina de baixar entra na fila sem parar o que está tocando. Se a fila do player não começar a tocar, o app refaz uma vez e, se ainda assim não tocar, passa a tocar uma música por vez num player simples (a notificação traz tocar/pausar e voltar ou avançar 10 s).
+- **Letra:** no player inteiro, o cartão **Letra** (na cor da playlist) mostra as linhas em volta da que está tocando; tocar abre a letra inteira, que acende a linha atual e rola sozinha (se você rolar, ela espera alguns segundos antes de voltar a seguir), e tocar numa linha leva a música para aquele ponto. A letra vem do **LRCLIB**, um banco aberto de letras com o tempo de cada linha: o app tira do título do vídeo o nome da música e do artista (sem "Official Video", "Ao Vivo", "feat."...) e compara a duração. Se não achar, usa a legenda feita à mão do próprio vídeo do YouTube. Se não achar nada ou achar a errada, **Buscar** deixa escrever o nome e escolher o resultado. A letra achada fica guardada com a música e abre sem internet depois.
+- **Cada música:** segure a linha ou toque no ⋮: salvar em playlist, mandar no WhatsApp ou em outro app, salvar em `Download/Puxa`, subir, descer, tirar desta playlist ou apagar do celular (com um segundo toque).
+- Os arquivos ficam em `files/playlist` (com as letras guardadas), a biblioteca em `files/playlist.json` e as playlists em `files/playlists.json`. Em Ajustes > Armazenamento, **Playlist** apaga tudo (com um segundo toque).
 
 ## Ajustes
 
@@ -88,12 +94,14 @@ O código foi conferido aqui com verificação de tipos, lint, testes das legend
 5. Figurinhas: criar uma pasta no envio, fazer duas figurinhas nela, adicionar ao WhatsApp, renomear a pasta e mover uma figurinha para a Puxa.
 6. Com a chave da ElevenLabs: transcrever um vídeo em inglês pela ElevenLabs e pelo celular (modelo Precisa, idioma Inglês) e comparar; dublar um trecho de 15 s para português com o som original baixinho e mandar no WhatsApp.
 7. Mandar um trecho de vídeo com legenda do YouTube em português e outro com legenda transcrita; em "Ajustar na tela", arrastar a legenda até as guias, trocar formato, fonte e animação (karaokê e pop) e conferir que o vídeo enviado ficou igual à prévia.
-8. Playlist: colar uma mensagem com dois links do YouTube e um Reel; esperar baixar, tocar (o som sai e o player aparece na barra de notificação), bloquear a tela e usar próxima e anterior pela notificação; trocar a ordem e remover uma.
-9. No Baixar, abrir um vídeo do X e tocar em Playlist; conferir que entra com nome e capa e que o botão vira "Na playlist".
+8. Playlists: criar Treino e Estudos; colar em Treino uma mensagem com dois links do YouTube e um Reel; esperar baixar, tocar a segunda (deve tocar ela), deixar terminar (a próxima começa sozinha), tocar outra no meio de uma música, bloquear a tela e usar próxima e anterior pela notificação; ligar o aleatório; trocar a ordem e tirar uma.
+9. No Baixar, abrir um vídeo do X e tocar em Playlist; conferir que entra com nome e capa, que **Salvar em** aparece e que o botão vira "Na playlist".
 10. Num Reel e num vídeo do X, fazer uma figurinha animada em Recorte com cantos Retos, Suaves e Círculo, e uma em Inteiro; conferir que a prévia mostra o vídeo em todas. Fazer uma de um quadro em círculo; tocar em Adicionar ao WhatsApp e mandar numa conversa.
 11. Nos Ajustes, trocar para escuro e para claro, limpar os temporários e conferir que o Baixar continua funcionando.
 12. Instagram sem login: digitar @ de um perfil público (deve abrir a grade) e tocar numa publicação. Com login: abrir um link de story (instagram.com/stories/…).
 13. Legenda com 1 linha e com 3 linhas num vídeo com fala longa: conferir que nunca aparecem mais linhas que o escolhido.
+14. Letra: tocar uma música conhecida do YouTube (clipe oficial), abrir o player e conferir que a letra acende na linha certa e que tocar numa linha pula para ela. Numa música sem letra achada, usar Buscar.
+15. Envio de vídeo: tocar e pausar a prévia (o botão muda), arrastar a barra de tempo, ligar a legenda transcrita no celular (as legendas aparecem enquanto saem) e passar para Animada: a legenda aparece na prévia da figurinha e sai gravada nela.
 
 Se algo falhar na montagem, a tela de erro tem **Copiar detalhes técnicos**: esse texto mostra o que o FFmpeg recusou.
 
@@ -127,7 +135,7 @@ A pasta `android/` é gerada pelo `prebuild` e não vai para o git: ajustes nati
 Testes:
 
 ```bash
-npm test                                         # legendas, figurinhas, links e respostas do Instagram e do X, dublagem, playlist
+npm test                                         # legendas, figurinhas, links e respostas do Instagram e do X, dublagem, playlist, fila e letras
 npx tsx tests/sticker.e2e.ts <mídia> <saída>     # gera figurinhas e confere as regras do WhatsApp
 npx expo export -p web                           # prévia da interface no navegador (dados de exemplo)
 ```
@@ -135,10 +143,12 @@ npx expo export -p web                           # prévia da interface no naveg
 ## Estrutura
 
 ```
-src/app/                      rotas: início, playlist, figurinhas (pastas e figurinhas/[id]), ajustes, instagram
+src/app/                      rotas: início, playlist (biblioteca e playlist/[id]), figurinhas (pastas e
+                              figurinhas/[id]), ajustes, instagram
                               (login)
 src/Home.tsx                  modo Baixar: link, resultado, perfil, formato, qualidade, rodapé com as ações
-src/screens/                  telas: início, Playlist, Figurinhas (pastas), pasta, Ajustes, login
+src/screens/                  telas: início, Playlists (LibraryScreen), playlist, Figurinhas (pastas), pasta,
+                              Ajustes, login
 src/settings.ts               preferências guardadas (aparência, pasta, transcrição, voz)
 src/sources/                  links: YouTube, Instagram e X (index.ts decide), leitura das respostas sem
                               React Native (instagramParse.ts, x.ts, json.ts), navegador invisível (harvest.ts)
@@ -146,9 +156,14 @@ src/ai/                       ElevenLabs (chave, transcrição Scribe, vozes), p
                               e a montagem do áudio dublado (dub.ts)
 src/components/               Dock (ações), FloatingBar e QuickMenu, Social (perfil, tiras de posts e
                               stories), Harvester, SendSheet (áudio), VideoSendSheet (vídeo, foto, trecho,
-                              legenda, dublagem e figurinha), DubPanel, StickerPanel, CaptionStudio, Trimmer
-src/playlist/                 playlist: lista guardada (store.ts), fila de downloads (downloads.ts), player com
-                              a notificação (player.ts) e leitura dos links sem React Native (links.ts)
+                              legenda, dublagem e figurinha), SendPreview (o player da prévia), DubPanel,
+                              StickerPanel, CaptionStudio, Trimmer
+src/components/music/         capas, player pequeno e inteiro, letra, folhas (nova playlist, salvar em,
+                              opções da música)
+src/playlist/                 biblioteca (store.ts), playlists (lists.ts, colors.ts), fila de downloads
+                              (downloads.ts), player com a notificação (player.ts), contas da fila sem
+                              React Native (queue.ts), letras (lyrics.ts e a busca em lyricsFetch.ts) e
+                              leitura dos links (links.ts)
 src/stickers/                 figurinhas: geometria e comandos do FFmpeg (sticker.ts), tentativas até caber
                               no limite (make.ts), pastas (folders.ts) e a ponte com o aparelho (device.ts)
 src/editor/                   montagem do vídeo do envio, sem React Native nos arquivos de lógica:

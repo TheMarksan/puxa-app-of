@@ -56,7 +56,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "tsx --test tests/editor.test.ts tests/sticker.test.ts tests/sources.test.ts tests/ai.test.ts tests/playlist.test.ts"
+    "test": "tsx --test tests/editor.test.ts tests/sticker.test.ts tests/sources.test.ts tests/ai.test.ts tests/playlist.test.ts tests/music.test.ts"
   },
   "private": true
 }

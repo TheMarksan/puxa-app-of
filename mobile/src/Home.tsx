@@ -17,7 +17,9 @@ import { MediaStrip, ProfileHeader } from './components/Social';
 import { VideoSendSheet, type SendAs } from './components/VideoSendSheet';
 import { useToast } from './components/Toasts';
 import { forgetThumbs } from './editor/media';
+import { ListPicker } from './components/music/ListPicker';
 import { addFromInfo } from './playlist/downloads';
+import { getLists } from './playlist/lists';
 import { sameLink, useTracks } from './playlist/store';
 import { onAccountChanged, onStorageCleared } from './events';
 import { bytes, stem } from './format';
@@ -85,6 +87,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const [shared] = useState(() => PuxaEngine.takeSharedText());
   const [link, setLink] = useState(shared ?? '');
   const [focused, setFocused] = useState(false);
+  const [pickFor, setPickFor] = useState<{ id: string; title: string } | null>(null);
   const [phase, setPhase] = useState<'empty' | 'loading' | 'result'>('empty');
   const [info, setInfo] = useState<VideoInfo | null>(null);
   const [post, setPost] = useState<SocialPost | null>(null);
@@ -416,16 +419,23 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   /** Link de cada vídeo: o do post ganha o número do item, para cada vídeo do carrossel ser uma música. */
   const trackLink = (i: VideoInfo) => (post && post.items.length > 1 ? `${link.trim()}#${i.id}` : link.trim() || (i.source ? i.id : `https://www.youtube.com/watch?v=${i.id}`));
 
-  /** Manda o áudio do vídeo aberto para a playlist (baixa por baixo, sem prender a tela). */
+  /**
+   * Manda o áudio do vídeo aberto para as músicas (baixa por baixo, sem prender a tela). Com
+   * playlists criadas, já abre o "Salvar em" para escolher em quais ela entra.
+   */
   const toPlaylist = () => {
     if (!info) return;
-    const { duplicate } = addFromInfo(info, trackLink(info));
+    const { track, duplicate } = addFromInfo(info, trackLink(info));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (getLists().length) {
+      setPickFor({ id: track.id, title: track.title });
+      return;
+    }
     toast.show({
-      title: duplicate ? 'Já está na playlist' : 'Na playlist',
+      title: duplicate ? 'Já está nas suas músicas' : 'Nas suas músicas',
       body: duplicate ? undefined : 'O áudio vai sendo baixado. Dá para continuar usando o app.',
       tone: duplicate ? 'info' : 'success',
-      action: { label: 'Abrir', onPress: () => router.push('/playlist') },
+      action: { label: 'Salvar em playlist', onPress: () => setPickFor({ id: track.id, title: track.title }) },
     });
   };
 
@@ -806,6 +816,8 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
           {renderBar(barVisible)}
         </View>
       ) : null}
+
+      <ListPicker trackId={pickFor?.id ?? null} title={pickFor?.title ?? ''} onClose={() => setPickFor(null)} />
 
       {sheet ? (
         <VideoSendSheet

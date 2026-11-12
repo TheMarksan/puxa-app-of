@@ -57,7 +57,7 @@ export async function youtubeCues(videoId: string, track: CaptionTrack, translat
 
 export type WhisperModel = 'base' | 'small' | 'turbo';
 
-export const MODELS: Record<WhisperModel, { label: string; detail: string; mb: number; file: string; url: string; size: number; beam: number }> = {
+export const MODELS: Record<WhisperModel, { label: string; detail: string; mb: number; file: string; url: string; size: number }> = {
   base: {
     label: 'Rápida',
     detail: 'Boa para fala clara · 60 MB',
@@ -65,7 +65,6 @@ export const MODELS: Record<WhisperModel, { label: string; detail: string; mb: n
     file: 'ggml-base-q5_1.bin',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin',
     size: 59_707_625,
-    beam: 5,
   },
   small: {
     label: 'Precisa',
@@ -74,7 +73,6 @@ export const MODELS: Record<WhisperModel, { label: string; detail: string; mb: n
     file: 'ggml-small-q5_1.bin',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
     size: 190_085_487,
-    beam: 5,
   },
   turbo: {
     label: 'Máxima',
@@ -83,7 +81,6 @@ export const MODELS: Record<WhisperModel, { label: string; detail: string; mb: n
     file: 'ggml-large-v3-turbo-q5_0.bin',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
     size: 573_600_000,
-    beam: 3,
   },
 };
 
@@ -141,8 +138,10 @@ type WhisperContext = {
       bestOf?: number;
       temperature?: number;
       temperatureInc?: number;
+      maxContext?: number;
       prompt?: string;
       onProgress?: (p: number) => void;
+      onNewSegments?: (r: { segments: WhisperSegment[] }) => void;
     },
   ) => { stop: () => Promise<void>; promise: Promise<{ result: string; language: string; segments: WhisperSegment[]; isAborted: boolean }> };
 };
@@ -159,6 +158,15 @@ async function context(m: WhisperModel): Promise<WhisperContext> {
   contexts.set(m, ctx);
   ctx.catch(() => contexts.delete(m));
   return ctx;
+}
+
+/**
+ * Carrega o modelo antes de a pessoa pedir (ao abrir as opções da legenda), para a transcrição
+ * começar na hora. Só se o modelo já está no celular.
+ */
+export function warmup(m: WhisperModel) {
+  if (Platform.OS === 'web' || !hasModel(m)) return;
+  context(m).catch(() => {});
 }
 
 export type TranscribeOptions = {
@@ -194,7 +202,11 @@ const forget = (path: string) => {
   }
 };
 
-export async function transcribe(o: TranscribeOptions, progress: CaptionProgress, signal: { cancelled: boolean }): Promise<{ cues: Cue[]; language: string }> {
+/**
+ * [partial]: as legendas que já saíram, enquanto a transcrição continua (em segundos do trecho),
+ * para a prévia ir mostrando sem esperar o fim.
+ */
+export async function transcribe(o: TranscribeOptions, progress: CaptionProgress, signal: { cancelled: boolean }, partial?: (cues: Cue[]) => void): Promise<{ cues: Cue[]; language: string }> {
   if (Platform.OS === 'web') return { cues: sampleCues(o.from ?? 0, o.to ?? 30), language: 'pt' };
   if (o.engine === 'elevenlabs') return transcribeCloud(o, progress, signal);
   const model = modelFile(o.model);
@@ -216,17 +228,24 @@ export async function transcribe(o: TranscribeOptions, progress: CaptionProgress
   progress('Carregando o modelo…', null);
   const ctx = await context(o.model);
   progress('Transcrevendo no aparelho…', 0);
-  const m = MODELS[o.model];
+  // Gulosa (a palavra mais provável de cada vez): várias vezes mais rápida que a busca em feixe,
+  // com quase a mesma precisão. Só os trechos que saem estranhos (repetição, baixa confiança)
+  // são refeitos, com um candidato a mais.
+  const got: WhisperSegment[] = [];
   const { stop, promise } = ctx.transcribe(toUri(wav), {
     language: o.language,
     maxThreads: 4,
-    // Busca em feixe: mais lenta, mas erra bem menos palavras (principalmente fora do inglês)
-    beamSize: m.beam,
-    bestOf: m.beam,
+    bestOf: 2,
     temperature: 0,
     temperatureInc: 0.2,
     prompt: PROMPTS[o.language],
     onProgress: (p: number) => progress('Transcrevendo no aparelho…', p / 100),
+    onNewSegments: partial
+      ? (r) => {
+          got.push(...r.segments);
+          partial(chunk(fromWhisper(got, 0)));
+        }
+      : undefined,
   });
   const timer = setInterval(() => signal.cancelled && stop(), 300);
   try {

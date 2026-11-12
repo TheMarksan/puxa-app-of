@@ -1,64 +1,87 @@
 import Feather from '@expo/vector-icons/Feather';
-import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine from '../../modules/puxa-engine';
-import { Button } from '../components/Button';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { Reveal } from '../components/SheetParts';
+import { AddLinks } from '../components/music/AddLinks';
+import { imageUri, PlaylistCover, TrackArt } from '../components/music/Cover';
+import { ListEditor } from '../components/music/ListEditor';
+import { ListPicker } from '../components/music/ListPicker';
+import { MiniPlayer } from '../components/music/MiniPlayer';
+import { Sheet } from '../components/music/Sheet';
+import { TrackActions, type TrackAction } from '../components/music/TrackActions';
 import { useToast } from '../components/Toasts';
 import { bytes, clock } from '../format';
 import { ms } from '../motion';
-import { addLinks, removeTrack, resumeQueue, retry } from '../playlist/downloads';
-import { cycleLoop, dismissError, next, playTrack, previous, seek, toggle, usePlayer } from '../playlist/player';
+import { COLORS, motifOf } from '../playlist/colors';
+import { removeTrack, resumeQueue, retry } from '../playlist/downloads';
+import { addToList, ALL, deleteList, listLook, moveInList, removeFromList, tracksOf, updateList, useLists } from '../playlist/lists';
+import { playList, playTrack, toggle, toggleShuffle, usePlayer } from '../playlist/player';
 import { moveTrack, useTracks, type Track } from '../playlist/store';
-import { font, type Palette, radius, usePalette } from '../theme';
+import { font, type Palette, usePalette } from '../theme';
 
-const toImage = (p: string | null) => (p ? (p.startsWith('/') && !p.startsWith('/preview') ? `file://${p}` : p) : undefined);
+/** Cor da playlist que dá para ler sobre o fundo do app (no escuro, mais clara). */
+function readable(hex: string, dark: boolean, ink: string): string {
+  if (!dark) return hex === COLORS.amarelo.bg || hex === COLORS.lima.bg ? '#5B4A00' : hex;
+  if (hex === COLORS.grafite.bg) return ink;
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (v: number) => Math.round(v + (255 - v) * 0.38);
+  return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
+}
 
 /**
- * A playlist: cole links (um ou vários) e cada um vira uma música guardada no aparelho. Toca em
- * fila, com a tela desligada, e os controles aparecem na barra de notificação.
+ * Uma playlist (ou Todas as músicas): o pôster no topo com o nome grande, tocar e aleatório, o
+ * campo de links e as músicas. Tocar numa música toca a lista a partir dela.
  */
 export function PlaylistScreen() {
+  const { id: raw } = useLocalSearchParams<{ id: string }>();
+  const id = raw || ALL;
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const toast = useToast();
-  const tracks = useTracks();
+  const all = useTracks();
+  const lists = useLists();
   const player = usePlayer();
-  const [text, setText] = useState('');
-  const [open, setOpen] = useState<string | null>(null);
-  const [playerH, setPlayerH] = useState(0);
+  const [actions, setActions] = useState<Track | null>(null);
+  const [saveTo, setSaveTo] = useState<Track | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [miniH, setMiniH] = useState(0);
 
   useEffect(() => {
     resumeQueue();
   }, []);
 
-  const add = (raw: string) => {
-    const r = addLinks(raw);
-    if (r.invalid) {
-      toast.show({ title: 'Nenhum link aqui', body: 'Cole links do YouTube, do Instagram ou do X.', tone: 'info' });
-      return;
-    }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setText('');
-    if (r.added) toast.show({ title: r.added === 1 ? 'Na fila para virar música' : `${r.added} links na fila`, body: r.duplicates ? `${r.duplicates} já estava${r.duplicates > 1 ? 'm' : ''} na playlist.` : undefined, tone: 'success' });
-    else toast.show({ title: 'Já está na playlist', tone: 'info' });
-  };
+  const own = id === ALL ? null : (lists.find((p) => p.id === id) ?? null);
+  const look = listLook(id);
+  const k = COLORS[look.color];
+  const tint = readable(k.bg, c.dark, c.ink);
+  const tracks = tracksOf(id, all);
+  const ready = tracks.filter((t) => t.status === 'ready');
+  const time = ready.reduce((n, t) => n + (t.duration || 0), 0);
+  const here = player.listId === id;
+  const hasPlayer = !!player.trackId;
 
-  const paste = async () => {
-    const got = (await Clipboard.getStringAsync()).trim();
-    if (!got) {
-      toast.show({ title: 'Nada copiado', body: 'Copie o link no app da rede e toque em Colar de novo.', tone: 'info' });
-      return;
-    }
-    add(got);
-  };
+  const toastBottom = hasPlayer && miniH ? miniH + 8 : insets.bottom + 16;
+  useFocusEffect(
+    useCallback(() => {
+      const t = setTimeout(() => toast.setBottomInset(toastBottom), 60);
+      return () => clearTimeout(t);
+    }, [toast, toastBottom]),
+  );
+
+  // A playlist foi apagada (em outra tela): volta para a lista
+  const gone = id !== ALL && !own;
+  useEffect(() => {
+    if (gone) router.back();
+  }, [gone, router]);
+  if (gone) return <View style={s.root} />;
 
   const share = async (t: Track, whatsapp: boolean) => {
     if (!t.path) return;
@@ -81,242 +104,238 @@ export function PlaylistScreen() {
     }
   };
 
-  const ready = tracks.filter((t) => t.status === 'ready');
-  const current = tracks.find((t) => t.id === player.trackId) ?? null;
-  const toastBottom = current && playerH ? playerH + 8 : insets.bottom + 16;
+  const act = (a: TrackAction, t: Track) => {
+    if (a === 'save-to') {
+      setActions(null);
+      setSaveTo(t);
+      return;
+    }
+    if (a === 'up' || a === 'down') {
+      if (id === ALL) moveTrack(t.id, a === 'up' ? -1 : 1);
+      else moveInList(id, t.id, a === 'up' ? -1 : 1);
+      return;
+    }
+    setActions(null);
+    if (a === 'whatsapp' || a === 'share') share(t, a === 'whatsapp');
+    else if (a === 'download') save(t);
+    else if (a === 'retry') retry(t.id);
+    else if (a === 'remove') {
+      removeFromList(id, t.id);
+      toast.show({ title: `Saiu de ${look.name}`, body: t.title, tone: 'info', action: { label: 'Desfazer', onPress: () => addToList(id, [t.id]) } });
+    } else if (a === 'delete') {
+      removeTrack(t);
+      toast.show({ title: 'Apagada do celular', body: t.title, tone: 'info' });
+    }
+  };
 
-  // Os avisos sobem para cima do player (a tela de trás acerta a altura dela quando volta)
-  useFocusEffect(
-    useCallback(() => {
-      const t = setTimeout(() => toast.setBottomInset(toastBottom), 60);
-      return () => clearTimeout(t);
-    }, [toast, toastBottom]),
-  );
-  const totalTime = ready.reduce((n, t) => n + (t.duration || 0), 0);
+  const onRow = (t: Track) => {
+    if (t.status === 'error') {
+      retry(t.id);
+      return;
+    }
+    if (t.status !== 'ready') return;
+    Haptics.selectionAsync().catch(() => {});
+    if (here && player.trackId === t.id) toggle();
+    else playTrack(id, t.id);
+  };
+
+  const playing = here && player.playing;
+  const index = actions ? tracks.findIndex((x) => x.id === actions.id) : -1;
 
   return (
     <View style={s.root}>
-      <ScreenHeader title="Playlist" />
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: (current ? 210 : 40) + insets.bottom }]} keyboardShouldPersistTaps="handled">
-        <View style={s.addCard}>
-          <View style={s.field}>
-            <Feather name="link" size={18} color={c.muted} />
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="Links do YouTube, Instagram ou X"
-              placeholderTextColor={c.disabledInk}
-              style={s.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              returnKeyType="done"
-              onSubmitEditing={() => text.trim() && add(text)}
-              selectionColor={c.accent}
-              accessibilityLabel="Links para a playlist"
-            />
-            {text ? (
-              <Pressable onPress={() => setText('')} hitSlop={8} accessibilityRole="button" accessibilityLabel="Limpar">
-                <Feather name="x-circle" size={18} color={c.muted} />
+      <ScrollView contentContainerStyle={{ paddingBottom: (hasPlayer ? 110 : 32) + insets.bottom }} keyboardShouldPersistTaps="handled">
+        {/* O pôster da playlist, de ponta a ponta */}
+        <View style={[s.hero, { backgroundColor: k.bg, paddingTop: insets.top + 8 }]}>
+          <HeroMotif kind={motifOf(look.name)} ink={k.ink} />
+          <View style={s.heroTop}>
+            <Pressable onPress={() => router.back()} hitSlop={6} style={[s.round, { backgroundColor: k.ink === '#FFFFFF' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.4)' }]} accessibilityRole="button" accessibilityLabel="Voltar">
+              <Feather name="arrow-left" size={22} color={k.ink} />
+            </Pressable>
+            {own ? (
+              <Pressable onPress={() => setMenu(true)} hitSlop={6} style={[s.round, { backgroundColor: k.ink === '#FFFFFF' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.4)' }]} accessibilityRole="button" accessibilityLabel="Opções da playlist">
+                <Feather name="more-horizontal" size={22} color={k.ink} />
               </Pressable>
             ) : null}
           </View>
-          <View style={s.addRow}>
-            <Button tone="neutral" icon="clipboard" label="Colar" compact onPress={paste} />
-            <View style={{ flex: 1 }}>
-              <Button tone="accent" icon="plus" label="Adicionar" compact disabled={!text.trim()} onPress={() => add(text)} />
-            </View>
-          </View>
-          <Text style={s.hint}>Cada link vira uma música no celular. Dá para colar vários de uma vez.</Text>
+          <Text style={[s.kicker, { color: k.ink }]}>{own ? 'PLAYLIST' : 'BIBLIOTECA'}</Text>
+          <Text style={[s.heroTitle, { color: k.ink }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
+            {look.name}
+          </Text>
+          <Text style={[s.heroMeta, { color: k.ink }]}>
+            {tracks.length === 1 ? '1 música' : `${tracks.length} músicas`}
+            {time ? ` · ${clock(time)}` : ''}
+          </Text>
         </View>
 
-        {tracks.length ? (
-          <View style={s.listHead}>
-            <Text style={s.listTitle}>
-              {ready.length} {ready.length === 1 ? 'música' : 'músicas'}
-              {totalTime ? <Text style={s.listMeta}> · {clock(totalTime)}</Text> : null}
-            </Text>
-            {ready.length ? (
-              <Pressable onPress={() => (player.playing || current ? toggle() : playTrack(ready[0].id))} style={({ pressed }) => [s.playAll, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel={player.playing ? 'Pausar' : 'Tocar a playlist'}>
-                <Feather name={player.playing ? 'pause' : 'play'} size={16} color={c.onAccent} style={player.playing ? null : { marginLeft: 2 }} />
-                <Text style={s.playAllText}>{player.playing ? 'Pausar' : current ? 'Continuar' : 'Tocar'}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : (
-          <View style={s.empty}>
-            <View style={s.emptyIcon}>
-              <Feather name="music" size={28} color={c.accentInk} />
-            </View>
-            <Text style={s.emptyTitle}>Sua playlist está vazia</Text>
-            <Text style={s.emptyBody}>Cole um link aqui em cima ou, no Baixar, toque em Playlist. As músicas tocam com a tela desligada, com controles na notificação.</Text>
-          </View>
-        )}
+        {/* Tocar e aleatório, encaixados na borda do pôster */}
+        <View style={s.actionsRow}>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              toggleShuffle();
+            }}
+            style={({ pressed }) => [s.chip, { borderColor: player.shuffle ? tint : c.line, backgroundColor: player.shuffle ? `${k.bg}22` : c.surface }, pressed && { opacity: 0.85 }]}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: player.shuffle }}
+            accessibilityLabel="Aleatório"
+          >
+            <Feather name="shuffle" size={17} color={player.shuffle ? tint : c.ink} />
+            <Text style={[s.chipText, { color: player.shuffle ? tint : c.ink }]}>Aleatório</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              if (here) toggle();
+              else playList(id);
+            }}
+            disabled={!ready.length}
+            style={({ pressed }) => [s.play, { backgroundColor: k.bg, borderColor: c.bg, opacity: ready.length ? 1 : 0.5 }, pressed && { transform: [{ scale: 0.94 }] }]}
+            accessibilityRole="button"
+            accessibilityLabel={playing ? 'Pausar' : `Tocar ${look.name}`}
+          >
+            <Feather name={playing ? 'pause' : 'play'} size={30} color={k.ink} style={playing ? null : { marginLeft: 4 }} />
+          </Pressable>
+        </View>
 
-        <View style={{ gap: 8 }}>
-          {tracks.map((t, i) => (
-            <TrackRow
-              key={t.id}
-              t={t}
-              index={i}
-              count={tracks.length}
-              playing={player.trackId === t.id}
-              audible={player.trackId === t.id && player.playing}
-              open={open === t.id}
-              c={c}
-              s={s}
-              onPlay={() => {
-                if (t.status === 'ready') {
-                  if (player.trackId === t.id) toggle();
-                  else playTrack(t.id);
-                } else if (t.status === 'error') retry(t.id);
-              }}
-              onMenu={() => setOpen((o) => (o === t.id ? null : t.id))}
-              onShare={(wa) => share(t, wa)}
-              onSave={() => save(t)}
-              onMove={(by) => moveTrack(t.id, by)}
-              onRemove={() => {
-                setOpen(null);
-                removeTrack(t);
-                toast.show({ title: 'Removida da playlist', body: t.title, tone: 'info' });
-              }}
-            />
-          ))}
+        <View style={s.body}>
+          <AddLinks listId={own ? id : undefined} tint={k.bg} tintInk={k.ink} />
+
+          {tracks.length ? (
+            <View style={{ gap: 2 }}>
+              {tracks.map((t, i) => (
+                <TrackRow
+                  key={t.id}
+                  t={t}
+                  n={i + 1}
+                  current={here && player.trackId === t.id}
+                  audible={here && player.trackId === t.id && player.playing}
+                  tint={tint}
+                  art={k.bg}
+                  c={c}
+                  s={s}
+                  onPress={() => onRow(t)}
+                  onMore={() => setActions(t)}
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={s.empty}>
+              <PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={20} />
+              <Text style={s.emptyTitle}>{own ? 'Playlist vazia' : 'Nenhuma música ainda'}</Text>
+              <Text style={s.emptyBody}>
+                {own ? 'Cole links aqui em cima ou escolha músicas que já estão no celular.' : 'Cole um link aqui em cima ou, no Baixar, toque em Playlist. As músicas tocam com a tela desligada.'}
+              </Text>
+              {own && all.length ? (
+                <Pressable onPress={() => setPicking(true)} style={({ pressed }) => [s.emptyBtn, { backgroundColor: k.bg }, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Escolher da biblioteca">
+                  <Feather name="list" size={17} color={k.ink} />
+                  <Text style={[s.emptyBtnText, { color: k.ink }]}>Escolher da biblioteca</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+          {own && tracks.length && all.length > tracks.length ? (
+            <Pressable onPress={() => setPicking(true)} style={({ pressed }) => [s.more, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel="Adicionar músicas da biblioteca">
+              <Feather name="plus" size={18} color={tint} />
+              <Text style={[s.moreText, { color: tint }]}>Adicionar da biblioteca</Text>
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
 
-      {current ? <NowPlaying t={current} c={c} s={s} bottom={insets.bottom} onHeight={setPlayerH} /> : null}
+      <MiniPlayer onHeight={setMiniH} />
+
+      <TrackActions
+        track={actions}
+        inPlaylist={!!own}
+        canUp={index > 0}
+        canDown={index >= 0 && index < tracks.length - 1}
+        tint={k.bg}
+        onClose={() => setActions(null)}
+        onAction={act}
+      />
+      <ListPicker trackId={saveTo?.id ?? null} title={saveTo?.title ?? ''} onClose={() => setSaveTo(null)} />
+      {own ? (
+        <>
+          <ListEditor
+            visible={editing}
+            initial={{ name: own.name, color: own.color }}
+            onClose={() => setEditing(false)}
+            onSave={(name, color) => {
+              updateList(own.id, { name, color });
+              setEditing(false);
+            }}
+          />
+          <ListMenu
+            visible={menu}
+            name={own.name}
+            onClose={() => setMenu(false)}
+            onEdit={() => {
+              setMenu(false);
+              setEditing(true);
+            }}
+            onDelete={() => {
+              setMenu(false);
+              deleteList(own.id);
+              toast.show({ title: 'Playlist apagada', body: 'As músicas continuam no celular, em Todas as músicas.', tone: 'info' });
+            }}
+          />
+          <LibraryPick visible={picking} listId={own.id} tint={k.bg} tintInk={k.ink} onClose={() => setPicking(false)} />
+        </>
+      ) : null}
     </View>
   );
 }
 
 type Styles = ReturnType<typeof makeStyles>;
 
-function TrackRow({
-  t,
-  index,
-  count,
-  playing,
-  audible,
-  open,
-  c,
-  s,
-  onPlay,
-  onMenu,
-  onShare,
-  onSave,
-  onMove,
-  onRemove,
-}: {
-  t: Track;
-  index: number;
-  count: number;
-  playing: boolean;
-  audible: boolean;
-  open: boolean;
-  c: Palette;
-  s: Styles;
-  onPlay: () => void;
-  onMenu: () => void;
-  onShare: (whatsapp: boolean) => void;
-  onSave: () => void;
-  onMove: (by: number) => void;
-  onRemove: () => void;
-}) {
+function TrackRow({ t, n, current, audible, tint, art, c, s, onPress, onMore }: { t: Track; n: number; current: boolean; audible: boolean; tint: string; art: string; c: Palette; s: Styles; onPress: () => void; onMore: () => void }) {
   const busy = t.status === 'queued' || t.status === 'downloading';
   const meta =
     t.status === 'ready'
-      ? [t.artist, t.duration ? clock(t.duration) : null, t.size ? bytes(t.size) : null].filter(Boolean).join(' · ')
+      ? [t.artist, t.duration ? clock(t.duration) : null].filter(Boolean).join(' · ')
       : t.status === 'error'
-        ? t.error || 'Não deu para baixar.'
+        ? t.error || 'Não deu para baixar. Toque para tentar de novo.'
         : t.status === 'queued'
-          ? 'Na fila'
+          ? 'Na fila para virar música'
           : t.progress != null && t.progress > 0
-            ? `Baixando ${Math.round(t.progress * 100)}%`
+            ? `Baixando ${Math.round(t.progress * 100)}%${t.size ? ` · ${bytes(t.size)}` : ''}`
             : 'Lendo o link…';
   return (
-    <View style={[s.track, playing && { borderColor: c.accent, backgroundColor: c.accentSoft }]}>
-      <Pressable
-        onPress={onPlay}
-        android_ripple={{ color: c.hover }}
-        style={s.trackMain}
-        accessibilityRole="button"
-        accessibilityLabel={t.status === 'ready' ? `${audible ? 'Pausar' : 'Tocar'} ${t.title}` : t.status === 'error' ? `Tentar de novo: ${t.title}` : `${t.title}, ${meta}`}
-        disabled={busy}
-      >
-        <View style={s.cover}>
-          {t.thumbnail ? <Image source={{ uri: toImage(t.thumbnail) }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Feather name="music" size={20} color={c.muted} />}
-          {playing ? (
-            <View style={s.coverShade}>
-              <Bars on={audible} />
-            </View>
-          ) : busy ? (
-            <View style={s.coverShade}>
-              <ActivityIndicator color="#fff" size="small" />
-            </View>
-          ) : null}
-        </View>
-        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-          <Text style={[s.trackTitle, playing && { color: c.accentInk }]} numberOfLines={1}>
-            {t.title}
-          </Text>
-          <Text style={[s.trackMeta, t.status === 'error' && { color: c.danger }]} numberOfLines={t.status === 'error' ? 2 : 1}>
-            {meta}
-          </Text>
-          {t.status === 'downloading' ? (
-            <View style={s.bar}>
-              <View style={[s.barFill, { width: `${Math.max(4, (t.progress ?? 0.05) * 100)}%` }]} />
-            </View>
-          ) : null}
-        </View>
-        {t.status === 'error' ? <Feather name="rotate-cw" size={18} color={c.accentInk} /> : null}
-      </Pressable>
-      <Pressable onPress={onMenu} hitSlop={6} style={({ pressed }) => [s.more, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel={`Mais opções: ${t.title}`} accessibilityState={{ expanded: open }}>
-        <Feather name={open ? 'chevron-up' : 'more-vertical'} size={20} color={c.muted} />
-      </Pressable>
-      {open ? (
-        <View style={s.actions}>
-          <Reveal>
-            <View style={s.actionsRow}>
-          {t.status === 'ready' ? (
-            <>
-              <MiniAction icon="send" label="WhatsApp" onPress={() => onShare(true)} c={c} s={s} tone={c.waInk} />
-              <MiniAction icon="share-2" label="Enviar" onPress={() => onShare(false)} c={c} s={s} />
-              <MiniAction icon="download" label="Salvar" onPress={onSave} c={c} s={s} />
-            </>
-          ) : null}
-          <MiniAction icon="arrow-up" label="Subir" disabled={index === 0} onPress={() => onMove(-1)} c={c} s={s} />
-          <MiniAction icon="arrow-down" label="Descer" disabled={index === count - 1} onPress={() => onMove(1)} c={c} s={s} />
-          <MiniAction icon="trash-2" label="Remover" onPress={onRemove} c={c} s={s} tone={c.danger} />
-            </View>
-          </Reveal>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function MiniAction({ icon, label, onPress, disabled, tone, c, s }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; disabled?: boolean; tone?: string; c: Palette; s: Styles }) {
-  return (
     <Pressable
-      onPress={() => {
-        Haptics.selectionAsync().catch(() => {});
-        onPress();
-      }}
-      disabled={disabled}
-      style={({ pressed }) => [s.mini, pressed && { backgroundColor: c.hover }, disabled && { opacity: 0.35 }]}
+      onPress={onPress}
+      onLongPress={onMore}
+      delayLongPress={300}
+      android_ripple={{ color: c.hover }}
+      style={[s.row, current && { backgroundColor: c.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)' }]}
       accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
+      accessibilityLabel={t.status === 'ready' ? `${audible ? 'Pausar' : 'Tocar'} ${t.title}` : t.status === 'error' ? `Tentar de novo: ${t.title}` : `${t.title}, ${meta}`}
+      accessibilityHint="Segure para mais opções"
     >
-      <Feather name={icon} size={18} color={tone ?? c.ink} />
-      <Text style={[s.miniText, tone ? { color: tone } : null]}>{label}</Text>
+      <View style={s.num}>{current ? <Bars on={audible} color={tint} /> : busy ? <ActivityIndicator size="small" color={c.muted} /> : <Text style={s.numText}>{n}</Text>}</View>
+      <TrackArt uri={imageUri(t.thumbnail)} size={48} radius={10} tint={art} />
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+        <Text style={[s.title, current && { color: tint }]} numberOfLines={1}>
+          {t.title}
+        </Text>
+        <Text style={[s.meta, t.status === 'error' && { color: c.danger }]} numberOfLines={t.status === 'error' ? 2 : 1}>
+          {meta}
+        </Text>
+        {t.status === 'downloading' ? (
+          <View style={s.bar}>
+            <View style={[s.barFill, { backgroundColor: tint, width: `${Math.max(4, (t.progress ?? 0.05) * 100)}%` }]} />
+          </View>
+        ) : null}
+      </View>
+      <Pressable onPress={onMore} hitSlop={6} style={({ pressed }) => [s.dots, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel={`Mais opções: ${t.title}`}>
+        <Feather name="more-vertical" size={20} color={c.muted} />
+      </Pressable>
     </Pressable>
   );
 }
 
 /** Três barrinhas que dançam enquanto a música toca (paradas quando pausa). */
-function Bars({ on }: { on: boolean }) {
+function Bars({ on, color }: { on: boolean; color: string }) {
   const [vals] = useState(() => [new Animated.Value(0.4), new Animated.Value(0.8), new Animated.Value(0.55)]);
   useEffect(() => {
     if (!on) {
@@ -335,199 +354,156 @@ function Bars({ on }: { on: boolean }) {
     return () => loops.forEach((l) => l.stop());
   }, [on, vals]);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 18 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: 16 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {vals.map((v, i) => (
-        <Animated.View key={i} style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: '#fff', transform: [{ scaleY: v }], transformOrigin: 'bottom' }} />
+        <Animated.View key={i} style={{ width: 3.5, height: 16, borderRadius: 2, backgroundColor: color, transform: [{ scaleY: v }], transformOrigin: 'bottom' }} />
       ))}
     </View>
   );
 }
 
-/** O player fixo embaixo: capa, nome, barra de tempo e os controles. */
-function NowPlaying({ t, c, s, bottom, onHeight }: { t: Track; c: Palette; s: Styles; bottom: number; onHeight: (h: number) => void }) {
-  const p = usePlayer();
-  const [drag, setDrag] = useState<number | null>(null);
-  const duration = p.duration || t.duration || 0;
-  const time = drag ?? p.time;
-  const loopIcon = p.loop === 'single' ? 'repeat' : 'repeat';
-  const loopLabel = p.loop === 'all' ? 'Repetir: a lista' : p.loop === 'single' ? 'Repetir: esta música' : 'Repetir: desligado';
+/** Desenho de fundo do pôster do topo (o mesmo da capa, em tamanho grande). */
+function HeroMotif({ kind, ink }: { kind: number; ink: string }) {
+  const o = 0.14;
+  if (kind === 0)
+    return (
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {[420, 300, 180].map((d, i) => (
+          <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d, borderWidth: 14, borderColor: ink, opacity: o, right: -d * 0.3, top: -d * 0.35 }} />
+        ))}
+      </View>
+    );
+  if (kind === 1)
+    return (
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o }]}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <View key={i} style={{ position: 'absolute', width: 700, height: 22, backgroundColor: ink, left: -120, top: 10 + i * 64, transform: [{ rotate: '-28deg' }] }} />
+        ))}
+      </View>
+    );
+  if (kind === 2)
+    return (
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o + 0.04 }]}>
+        {Array.from({ length: 24 }, (_, i) => (
+          <View key={i} style={{ position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: ink, right: 24 + (i % 6) * 34, top: 70 + Math.floor(i / 6) * 30 }} />
+        ))}
+      </View>
+    );
   return (
-    <View style={[s.player, { paddingBottom: bottom + 12 }]} onLayout={(e) => onHeight(Math.round(e.nativeEvent.layout.height))}>
-      <View style={s.playerTop}>
-        <View style={s.playerCover}>{t.thumbnail ? <Image source={{ uri: toImage(t.thumbnail) }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Feather name="music" size={20} color={c.muted} />}</View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.playerTitle} numberOfLines={1}>
-            {t.title}
-          </Text>
-          <Text style={s.playerArtist} numberOfLines={1}>
-            {t.artist || 'Playlist do Puxa'}
-          </Text>
-        </View>
-        {p.buffering ? <ActivityIndicator color={c.accent} size="small" /> : null}
-      </View>
-      {p.error ? (
-        <Pressable onPress={dismissError} style={s.playerError} accessibilityRole="button" accessibilityLabel={`${p.error} Toque para fechar.`}>
-          <Feather name="alert-circle" size={16} color={c.danger} />
-          <Text style={s.playerErrorText}>{p.error}</Text>
-          <Feather name="x" size={16} color={c.muted} />
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o }]}>
+      <View style={{ position: 'absolute', width: 320, height: 320, borderRadius: 160, backgroundColor: ink, right: -90, top: 10 }} />
+    </View>
+  );
+}
+
+/** Opções da playlist: editar nome e cor, ou apagar (as músicas continuam no celular). */
+function ListMenu({ visible, name, onClose, onEdit, onDelete }: { visible: boolean; name: string; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  const c = usePalette();
+  const [armed, setArmed] = useState(false);
+  if (!visible && armed) setArmed(false);
+  return (
+    <Sheet visible={visible} onClose={onClose} label={`Opções de ${name}`}>
+      <View style={{ paddingBottom: 4 }}>
+        <Text style={{ fontFamily: font.bold, fontSize: 19, color: c.ink, paddingHorizontal: 22, paddingBottom: 8 }} numberOfLines={1}>
+          {name}
+        </Text>
+        <Pressable onPress={onEdit} android_ripple={{ color: c.hover }} style={menuRow} accessibilityRole="button" accessibilityLabel="Editar nome e cor">
+          <Feather name="edit-3" size={21} color={c.ink} />
+          <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.ink }}>Editar nome e cor</Text>
         </Pressable>
-      ) : null}
-      <SeekBar value={time} max={duration} onScrub={setDrag} onSeek={(v) => { setDrag(null); seek(v); }} c={c} />
-      <View style={s.times}>
-        <Text style={s.time}>{clock(time)}</Text>
-        <Text style={s.time}>{duration ? clock(duration) : '--:--'}</Text>
-      </View>
-      <View style={s.controls}>
-        <CtrlButton icon={loopIcon} label={loopLabel} onPress={cycleLoop} active={p.loop !== 'none'} badge={p.loop === 'single' ? '1' : undefined} c={c} s={s} />
-        <CtrlButton icon="skip-back" label="Anterior" onPress={previous} c={c} s={s} />
         <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            toggle();
-          }}
-          style={({ pressed }) => [s.bigPlay, pressed && { transform: [{ scale: 0.94 }] }]}
+          onPress={() => (armed ? onDelete() : setArmed(true))}
+          android_ripple={{ color: c.hover }}
+          style={menuRow}
           accessibilityRole="button"
-          accessibilityLabel={p.playing ? 'Pausar' : 'Tocar'}
+          accessibilityLabel={armed ? 'Toque de novo para apagar a playlist' : 'Apagar playlist'}
         >
-          <Feather name={p.playing ? 'pause' : 'play'} size={26} color={c.onAccent} style={p.playing ? null : { marginLeft: 3 }} />
+          <Feather name="trash-2" size={21} color={c.danger} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.danger }}>{armed ? 'Toque de novo para apagar' : 'Apagar playlist'}</Text>
+            <Text style={{ fontFamily: font.regular, fontSize: 13, color: c.muted }}>As músicas continuam no celular.</Text>
+          </View>
         </Pressable>
-        <CtrlButton icon="skip-forward" label="Próxima" onPress={next} c={c} s={s} />
-        <View style={{ width: 48 }} />
       </View>
-    </View>
+    </Sheet>
   );
 }
 
-function CtrlButton({ icon, label, onPress, active, badge, c, s }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; active?: boolean; badge?: string; c: Palette; s: Styles }) {
-  return (
-    <Pressable
-      onPress={() => {
-        Haptics.selectionAsync().catch(() => {});
-        onPress();
-      }}
-      hitSlop={6}
-      style={({ pressed }) => [s.ctrl, pressed && { backgroundColor: c.hover }]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Feather name={icon} size={22} color={active === false ? c.muted : active ? c.accentInk : c.ink} />
-      {badge ? <Text style={[s.badge, { color: c.accentInk }]}>{badge}</Text> : null}
-    </Pressable>
-  );
-}
+const menuRow = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 16, minHeight: 56, paddingHorizontal: 22 };
 
-/** Barra de tempo: tocar ou arrastar leva para o ponto. */
-function SeekBar({ value, max, onScrub, onSeek, c }: { value: number; max: number; onScrub: (v: number) => void; onSeek: (v: number) => void; c: Palette }) {
-  const [width, setWidth] = useState(0);
-  const live = useRef({ width, max, onScrub, onSeek });
-  useLayoutEffect(() => {
-    live.current = { width, max, onScrub, onSeek };
-  });
-  // eslint-disable-next-line react-hooks/refs -- PanResponder.create só guarda os callbacks; os refs são lidos nos toques
-  const [responder] = useState(() => {
-    let x0 = 0;
-    let last = 0;
-    const at = (x: number) => {
-      const { width: w, max: m } = live.current;
-      return w > 0 && m > 0 ? Math.min(m, Math.max(0, (x / w) * m)) : 0;
-    };
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => {
-        x0 = e.nativeEvent.locationX;
-        last = at(x0);
-        live.current.onScrub(last);
-      },
-      onPanResponderMove: (_, g) => {
-        last = at(x0 + g.dx);
-        live.current.onScrub(last);
-      },
-      onPanResponderRelease: () => live.current.onSeek(last),
-      onPanResponderTerminate: () => live.current.onSeek(last),
-    });
-  });
-  const x = max > 0 ? Math.min(1, value / max) * width : 0;
+/** Escolher músicas que já estão no celular para esta playlist. */
+function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boolean; listId: string; tint: string; tintInk: string; onClose: () => void }) {
+  const c = usePalette();
+  const all = useTracks();
+  const lists = useLists();
+  const inside = new Set(lists.find((p) => p.id === listId)?.trackIds ?? []);
   return (
-    <View
-      style={{ height: 28, justifyContent: 'center' }}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityLabel="Posição da música"
-      accessibilityValue={{ text: `${clock(value)} de ${clock(max)}` }}
-      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-      onAccessibilityAction={(e) => onSeek(Math.min(max, Math.max(0, value + (e.nativeEvent.actionName === 'increment' ? 10 : -10))))}
-    >
-      <View pointerEvents="none" style={{ height: 4, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden' }}>
-        <View style={{ width: x, height: 4, backgroundColor: c.accent }} />
-      </View>
-      {width > 0 ? <View pointerEvents="none" style={{ position: 'absolute', left: x - 7, top: 7, width: 14, height: 14, borderRadius: 7, backgroundColor: c.accent }} /> : null}
-      <View {...responder.panHandlers} style={[StyleSheet.absoluteFill, { top: -8, bottom: -8 }]} />
-    </View>
+    <Sheet visible={visible} onClose={onClose} label="Escolher da biblioteca">
+      <Text style={{ fontFamily: font.bold, fontSize: 19, color: c.ink, paddingHorizontal: 20, paddingBottom: 8 }}>Da biblioteca</Text>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 8 }}>
+        {all.map((t) => {
+          const on = inside.has(t.id);
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                if (on) removeFromList(listId, t.id);
+                else addToList(listId, [t.id]);
+              }}
+              android_ripple={{ color: c.hover }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on }}
+              accessibilityLabel={t.title}
+            >
+              <TrackArt uri={imageUri(t.thumbnail)} size={44} radius={10} tint={tint} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: font.semibold, fontSize: 15, color: c.ink }} numberOfLines={1}>
+                  {t.title}
+                </Text>
+                <Text style={{ fontFamily: font.regular, fontSize: 13, color: c.muted }} numberOfLines={1}>
+                  {t.artist || ' '}
+                </Text>
+              </View>
+              <View style={[{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, on ? { backgroundColor: tint } : { borderWidth: 2, borderColor: c.lineStrong }]}>
+                {on ? <Feather name="check" size={16} color={tintInk} /> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </Sheet>
   );
 }
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    scroll: { paddingHorizontal: 20, paddingTop: 4, gap: 16 },
-    addCard: { gap: 10, padding: 14, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
-    field: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.bg },
-    input: { flex: 1, minWidth: 0, fontFamily: font.medium, fontSize: 16, color: c.ink, paddingVertical: 12 },
-    addRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-    hint: { fontFamily: font.regular, fontSize: 13, lineHeight: 18, color: c.muted },
-    listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 },
-    listTitle: { fontFamily: font.bold, fontSize: 18, color: c.ink, letterSpacing: -0.3 },
-    listMeta: { fontFamily: font.regular, fontSize: 15, color: c.muted },
-    playAll: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: c.accent },
-    playAllText: { fontFamily: font.semibold, fontSize: 15, color: c.onAccent },
-    empty: { alignItems: 'center', gap: 10, padding: 24, marginTop: 8, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, borderStyle: 'dashed' },
-    emptyIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
-    emptyTitle: { fontFamily: font.bold, fontSize: 18, color: c.ink },
-    emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center' },
-    track: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, overflow: 'hidden' },
-    trackMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, paddingRight: 4 },
-    cover: { width: 52, height: 52, borderRadius: 12, overflow: 'hidden', backgroundColor: c.sk, alignItems: 'center', justifyContent: 'center' },
-    coverShade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.42)', alignItems: 'center', justifyContent: 'center' },
-    trackTitle: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
-    trackMeta: { fontFamily: font.regular, fontSize: 13, color: c.muted },
+    hero: { paddingHorizontal: 20, paddingBottom: 46, overflow: 'hidden' },
+    heroTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 },
+    round: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    kicker: { fontFamily: 'Anton_400Regular', fontSize: 13, letterSpacing: 1.8, opacity: 0.75 },
+    heroTitle: { fontFamily: 'Anton_400Regular', fontSize: 54, lineHeight: 60, textTransform: 'uppercase', marginTop: 2, includeFontPadding: false },
+    heroMeta: { fontFamily: font.semibold, fontSize: 14, opacity: 0.85, marginTop: 4 },
+    actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: -36, marginBottom: 8 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5, marginTop: 30 },
+    chipText: { fontFamily: font.semibold, fontSize: 14 },
+    play: { width: 72, height: 72, borderRadius: 36, borderWidth: 5, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+    body: { paddingHorizontal: 12, gap: 14 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingLeft: 4, paddingRight: 0, borderRadius: 14 },
+    num: { width: 26, alignItems: 'center', justifyContent: 'center' },
+    numText: { fontFamily: font.medium, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
+    title: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
+    meta: { fontFamily: font.regular, fontSize: 13, color: c.muted },
     bar: { height: 3, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden', marginTop: 3 },
-    barFill: { height: 3, borderRadius: 2, backgroundColor: c.accent },
-    more: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-    actions: { width: '100%', paddingHorizontal: 8, paddingBottom: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line, paddingTop: 8 },
-    actionsRow: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 4 },
-    mini: { width: '33.333%', alignItems: 'center', justifyContent: 'center', gap: 4, height: 56, borderRadius: 12 },
-    miniText: { fontFamily: font.medium, fontSize: 12, color: c.ink },
-    player: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      paddingTop: 14,
-      paddingHorizontal: 20,
-      backgroundColor: c.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: c.line,
-      shadowColor: c.shadow,
-      shadowOpacity: c.dark ? 0.5 : 0.12,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: -6 },
-      elevation: 16,
-    },
-    playerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
-    playerError: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, marginBottom: 4, borderRadius: 12, backgroundColor: c.hover },
-    playerErrorText: { flex: 1, fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: c.ink },
-    playerCover: { width: 44, height: 44, borderRadius: 10, overflow: 'hidden', backgroundColor: c.sk, alignItems: 'center', justifyContent: 'center' },
-    playerTitle: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
-    playerArtist: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 1 },
-    times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 },
-    time: { fontFamily: font.medium, fontSize: 12, color: c.muted, fontVariant: ['tabular-nums'] },
-    controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-    ctrl: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-    badge: { position: 'absolute', top: 8, right: 8, fontFamily: font.bold, fontSize: 10 },
-    bigPlay: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent },
+    barFill: { height: 3, borderRadius: 2 },
+    dots: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    empty: { alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingTop: 20 },
+    emptyTitle: { fontFamily: font.bold, fontSize: 19, color: c.ink, marginTop: 6 },
+    emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center' },
+    emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 46, paddingHorizontal: 18, borderRadius: 23, marginTop: 6 },
+    emptyBtnText: { fontFamily: font.semibold, fontSize: 15 },
+    more: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 14, borderRadius: 14 },
+    moreText: { fontFamily: font.semibold, fontSize: 15 },
   });

@@ -5,7 +5,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import PuxaEngine, { type DoneEvent, type StickerFolder, type StickerItem } from '../../modules/puxa-engine';
+import { shownCues } from '../editor/captionLayout';
+import { slice } from '../editor/captions';
+import { exportProject } from '../editor/exporter';
 import { toUri } from '../editor/media';
+import { defaultClip, outputSize } from '../editor/timeline';
+import type { CaptionStyle, Cue, MediaSource, Project } from '../editor/types';
+import { CaptionLayer } from '../editor/ui/CaptionLayer';
+import { usePlayerTime } from '../editor/ui/usePlayerTime';
 import { videoFill } from '../editor/ui/kit';
 import { TextVisual } from '../editor/ui/TextVisual';
 import { bytes, clock } from '../format';
@@ -31,6 +38,7 @@ import { ease, font, type Palette, usePalette } from '../theme';
 import { Button, Press } from './Button';
 import { Reveal } from './SheetParts';
 import { SnapSlider } from './SnapSlider';
+import { cueAt } from './SendPreview';
 import { Trimmer } from './Trimmer';
 
 /** Fundo da conversa do WhatsApp: a figurinha aparece como vai ficar lá (e o contorno branco aparece). */
@@ -73,6 +81,12 @@ type Props = {
   onBusy: (cancel: (() => void) | null) => void;
   /** Abre a pasta onde a figurinha ficou. */
   onOpenStickers: (folderId: string) => void;
+  /** O vídeo de origem (para gravar a legenda antes de virar figurinha). */
+  source?: MediaSource | null;
+  /** Legenda ligada no envio do vídeo: a figurinha mostra (e grava) a mesma. */
+  captions?: { cues: Cue[]; style: CaptionStyle } | null;
+  /** Onde o trecho começa (o corte feito no vídeo, quando houver). */
+  startAt?: number;
 };
 
 /**
@@ -80,14 +94,19 @@ type Props = {
  * quadro). A prévia mostra o recorte que vai sair; embaixo, só o essencial: formato, tempo,
  * texto e emoji.
  */
-export function StickerPanel({ kind, player, file, image, size, duration, filmstrip, thumbAt, title, design, onDesign, emoji, onEmoji, onError, onNotice, onBusy, onOpenStickers }: Props) {
+export function StickerPanel({ kind, player, file, image, size, duration, filmstrip, thumbAt, title, design, onDesign, emoji, onEmoji, onError, onNotice, onBusy, onOpenStickers, source, captions, startAt }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const [range, setRange] = useState(() => {
-    const start = clampT(player.currentTime, 0, Math.max(0, duration - MIN_ANIMATED));
+    const start = clampT(startAt ?? player.currentTime, 0, Math.max(0, duration - MIN_ANIMATED));
     return { start, end: Math.min(duration, start + DEFAULT_ANIMATED) };
   });
-  const [at, setAt] = useState(() => clampT(player.currentTime, 0, Math.max(0, duration - 0.05)));
+  const [at, setAt] = useState(() => clampT(startAt ?? player.currentTime, 0, Math.max(0, duration - 0.05)));
+  // A legenda do vídeo vem junto; dá para tirar só da figurinha
+  const [capOn, setCapOn] = useState(true);
+  const span: [number, number] = kind === 'animated' ? [range.start, range.end] : [Math.max(0, at - 0.6), at + 0.4];
+  const capCues = !image && captions && capOn ? captions.cues.filter((q) => q.text.trim() && q.end > span[0] && q.start < span[1]) : [];
+  const hasCaptions = !image && !!captions && captions.cues.some((q) => q.text.trim());
   const [busy, setBusy] = useState<{ label: string; fraction: number | null } | null>(null);
   const [made, setMade] = useState<Made | null>(null);
   const [box, setBox] = useState(0);
@@ -113,13 +132,19 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
   // Animada: o trecho toca em repetição, como a figurinha vai ficar
   useEffect(() => {
     if (kind !== 'animated' || image) return;
-    seek(player, live.current.start);
-    player.play();
+    // Começa depois que a prévia nova já está na tela (a anterior acabou de sair)
+    const t = setTimeout(() => {
+      seek(player, live.current.start);
+      player.play();
+    }, 150);
     const sub = player.addListener('timeUpdate', ({ currentTime }) => {
       const r = live.current;
       if (player.playing && (currentTime >= r.end || currentTime < r.start - 0.4)) seek(player, r.start);
     });
-    return () => sub.remove();
+    return () => {
+      clearTimeout(t);
+      sub.remove();
+    };
   }, [kind, player, image]);
 
   // Parada: o vídeo para no quadro escolhido
@@ -130,7 +155,7 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
   }, [kind, player, at, image]);
 
   const length = range.end - range.start;
-  const key = JSON.stringify({ kind, range: kind === 'animated' ? range : null, at: kind === 'still' ? at : null, design, emoji, folder: folder?.id });
+  const key = JSON.stringify({ kind, range: kind === 'animated' ? range : null, at: kind === 'still' ? at : null, design, emoji, folder: folder?.id, cap: capCues.length ? [capCues, captions?.style] : null });
   const ready = made?.key === key ? made : null;
   const thumb = image ? toUri(file.path) : thumbAt(kind === 'animated' ? range.start : at);
 
@@ -151,17 +176,39 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
     onBusy(() => (signal.current.cancelled = true));
     if (!image) player.pause();
     try {
-      const result = await makeSticker(
-        {
-          kind,
-          src: { path: file.path, width: size.width, height: size.height },
-          start: image ? 0 : kind === 'animated' ? range.start : at,
-          duration: kind === 'animated' ? length : 0,
-          design,
-        },
-        (label, fraction) => setBusy({ label, fraction }),
-        signal.current,
-      );
+      let req = {
+        kind,
+        src: { path: file.path, width: size.width, height: size.height },
+        start: image ? 0 : kind === 'animated' ? range.start : at,
+        duration: kind === 'animated' ? length : 0,
+        design,
+      };
+      // Com legenda: o trecho é montado antes com a legenda gravada (no recorte, já quadrado,
+      // para a legenda caber nele), e a figurinha sai desse vídeo
+      if (capCues.length && captions && source) {
+        const crop = design.shape === 'crop';
+        const aspect = crop ? ('1:1' as const) : ('original' as const);
+        const project: Project = {
+          id: 'figurinha',
+          title: 'figurinha-legenda',
+          aspect,
+          quality: 720,
+          clips: [{ ...defaultClip(source, span[0], span[1]), fit: 'fill', zoom: crop ? design.crop.zoom : 1, panX: crop ? -design.crop.panX : 0, panY: crop ? -design.crop.panY : 0, volume: 0 }],
+          layers: [],
+          audio: [],
+          captions: { cues: slice(capCues, span[0], span[1]), style: captions.style, label: 'figurinha' },
+          duck: false,
+          fitWhatsApp: false,
+          sources: { [source.id]: source },
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        const out = await exportProject(project, (stage, f) => setBusy({ label: 'Gravando a legenda…', fraction: stage === 'rendering' ? f : null }));
+        if (signal.current.cancelled) throw Object.assign(new Error('Cancelado.'), { code: 'cancelled' });
+        const o = outputSize(aspect, 720, source);
+        req = { ...req, src: { path: out.path, width: o.width, height: o.height }, start: kind === 'animated' ? 0 : at - span[0], design: crop ? { ...design, crop: { zoom: 1, panX: 0, panY: 0 } } : design };
+      }
+      const result = await makeSticker(req, (label, fraction) => setBusy({ label, fraction }), signal.current);
       const saved = await saveSticker(folder?.id ?? 'puxa', kind, result, emoji, design.text.trim() || title.slice(0, 60));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const newest = saved.stickers.find((x) => x.animated === (kind === 'animated')) ?? null;
@@ -225,7 +272,18 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
     <Reveal key={kind}>
       <View style={s.root}>
         <View style={s.previewWrap} onLayout={(e) => setBox(Math.floor(e.nativeEvent.layout.width))}>
-          {P > 0 ? <StickerPreview player={player} image={image ? toUri(file.path) : undefined} design={design} size={size} box={P} c={c} onCrop={(crop) => patch({ crop })} /> : null}
+          {P > 0 ? (
+            <StickerPreview
+              player={player}
+              image={image ? toUri(file.path) : undefined}
+              design={design}
+              size={size}
+              box={P}
+              c={c}
+              onCrop={(crop) => patch({ crop })}
+              captions={hasCaptions && capOn && captions ? captions : null}
+            />
+          ) : null}
         </View>
 
         <View style={s.swatches} accessibilityRole="radiogroup" accessibilityLabel="Formato da figurinha">
@@ -238,6 +296,14 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
           <Swatch label="Contorno" active={design.outline} onPress={() => patch({ outline: !design.outline })} c={c} role="switch">
             <View style={[s.ring, { borderRadius: 4 + 13 * clampCorner(design.corner), borderColor: design.outline ? '#FFFFFF' : 'transparent', backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]} />
           </Swatch>
+          {hasCaptions ? (
+            <Swatch label="Legenda" active={capOn} onPress={() => setCapOn((v) => !v)} c={c} role="switch">
+              <View style={[s.ring, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, gap: 3, backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]}>
+                <View style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: capOn ? '#FFFFFF' : 'rgba(255,255,255,0.4)' }} />
+                <View style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: capOn ? '#FFFFFF' : 'rgba(255,255,255,0.4)' }} />
+              </View>
+            </Swatch>
+          ) : null}
         </View>
 
         <CornerSlider value={clampCorner(design.corner)} onChange={(corner) => patch({ corner })} c={c} />
@@ -513,6 +579,7 @@ function StickerPreview({
   box,
   c,
   onCrop,
+  captions,
 }: {
   player: VideoPlayer;
   image?: string;
@@ -521,6 +588,7 @@ function StickerPreview({
   box: number;
   c: Palette;
   onCrop: (crop: StickerDesign['crop']) => void;
+  captions: { cues: Cue[]; style: CaptionStyle } | null;
 }) {
   const src = size ?? { width: 16, height: 9 };
   const L = stickerLayout(design, src);
@@ -595,6 +663,7 @@ function StickerPreview({
             <VideoView player={player} style={videoFill} contentFit="fill" nativeControls={false} surfaceType="textureView" />
           )}
         </View>
+        {captions && !image ? <StickerCaption player={player} captions={captions} cw={ct.w * k} ch={ct.h * k} /> : null}
       </View>
       {text ? (
         <View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }, design.textPosition === 'top' ? { top: 10 * k } : { bottom: 10 * k }]}>
@@ -613,6 +682,20 @@ function StickerPreview({
           <Text style={pv.hintText}>Arraste para ajustar</Text>
         </Animated.View>
       ) : null}
+    </View>
+  );
+}
+
+/** A legenda do vídeo por cima da prévia, no recorte da figurinha (como vai ficar gravada). */
+function StickerCaption({ player, captions, cw, ch }: { player: VideoPlayer; captions: { cues: Cue[]; style: CaptionStyle }; cw: number; ch: number }) {
+  const { time } = usePlayerTime(player, null);
+  const cues = shownCues(captions.cues, captions.style, cw, ch);
+  // Só a fala que está na tela naquele instante (a parada grava exatamente esse quadro)
+  const cur = cueAt(cues, time, true);
+  if (!cur.cue) return null;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <CaptionLayer cue={cur.cue} next={cur.next} time={cur.at} style={captions.style} cw={cw} ch={ch} />
     </View>
   );
 }
