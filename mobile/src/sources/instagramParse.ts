@@ -301,6 +301,60 @@ export function legacyPost(n: IgNode, owner: IgUser): SocialPost {
   };
 }
 
+/** Publicação da grade nova do perfil para visitantes (só capa, código e tipo). */
+export type IgPolarisNode = {
+  __typename?: string;
+  pk?: string;
+  id?: string;
+  code?: string;
+  caption?: { text?: string } | null;
+  display_uri?: string;
+  media_type?: number;
+  product_type?: string;
+  accessibility_caption?: string | null;
+  user?: IgUser;
+};
+
+/**
+ * Grade do perfil sem conta (polaris_ordered_timeline_connection): vem só a capa de cada
+ * publicação. Fica marcada como parcial, e abrir uma busca o post inteiro pelo código.
+ */
+export function polarisPost(n: IgPolarisNode, owner: IgUser): SocialPost | null {
+  const code = n.code;
+  if (!code || !n.display_uri) return null;
+  const video = n.media_type === 2 || /Video/.test(n.__typename ?? '');
+  const carousel = n.media_type === 8 || /Carousel/.test(n.__typename ?? '');
+  const reel = video && !carousel;
+  const author = owner.username ?? n.user?.username ?? 'instagram';
+  const item: SocialItem = {
+    id: String(n.pk ?? code),
+    kind: reel ? 'video' : 'image',
+    thumbnail: n.display_uri,
+    duration: 0,
+    width: 0,
+    height: 0,
+    variants: [],
+    image: reel ? null : n.display_uri,
+    hasAudio: reel,
+    takenAt: null,
+  };
+  return {
+    source: 'instagram',
+    kind: reel ? 'reel' : 'post',
+    id: String(n.pk ?? code),
+    link: postLink(code, reel),
+    title: titleFrom(n.caption?.text, `${reel ? 'Reel' : 'Post'} de @${author}`),
+    author,
+    authorName: owner.full_name ?? '',
+    avatar: owner.profile_pic_url ?? null,
+    items: [item],
+    initial: 0,
+    headers: MEDIA_HEADERS,
+    shortcode: code,
+    partial: true,
+  };
+}
+
 export type IgProfileData = { user: IgUser & { id: string }; posts: SocialPost[] };
 
 const sameName = (a: unknown, b: string) => typeof a === 'string' && a.toLowerCase() === b.toLowerCase();
@@ -322,7 +376,8 @@ export function parseProfileData(jsons: unknown[], username: string): IgProfileD
   for (const j of jsons) {
     const users = collect(j, (o) => sameName(o.username, username) && (o.id != null || o.pk != null) && ('edge_owner_to_timeline_media' in o || 'profile_pic_url' in o || 'full_name' in o));
     const main = users.find((u) => 'edge_owner_to_timeline_media' in u) ?? users[0];
-    if (main && !user) user = { ...(main as IgUser), id: String(main.id ?? main.pk) };
+    // pk é o número da conta (o que stories e destaques pedem); id às vezes é outro identificador
+    if (main && !user) user = { ...(main as IgUser), id: String(main.pk ?? main.id) };
     for (const u of users) {
       const edges = (u.edge_owner_to_timeline_media as { edges?: { node?: IgNode }[] } | undefined)?.edges ?? [];
       for (const e of edges) if (e.node) add(legacyPost(e.node, u as IgUser));
@@ -342,8 +397,21 @@ export function parseProfileData(jsons: unknown[], username: string): IgProfileD
       }
     }
   }
+  // Grade nova do perfil para visitantes: só capas, na ordem do perfil (os fixados primeiro)
+  for (const j of jsons) {
+    for (const c of collect(j, (o) => 'polaris_ordered_timeline_connection' in o)) {
+      if (!user && sameName(c.username, username) && (c.pk ?? c.id) != null) user = { ...(c as IgUser), id: String(c.pk ?? c.id) };
+      const edges = (c.polaris_ordered_timeline_connection as { edges?: { node?: IgPolarisNode }[] } | undefined)?.edges ?? [];
+      for (const e of edges) {
+        if (!e.node || (e.node.user?.username && !sameName(e.node.user.username, username))) continue;
+        const p = polarisPost(e.node, user ?? { username });
+        if (p) add(p);
+      }
+    }
+  }
   if (!user) return null;
-  posts.sort((a, b) => (b.items[0]?.takenAt ?? 0) - (a.items[0]?.takenAt ?? 0));
+  // As datas só vêm nos formatos completos; sem data, fica a ordem em que o Instagram mostrou
+  if (posts.every((p) => p.items[0]?.takenAt != null)) posts.sort((a, b) => (b.items[0]?.takenAt ?? 0) - (a.items[0]?.takenAt ?? 0));
   return { user, posts };
 }
 

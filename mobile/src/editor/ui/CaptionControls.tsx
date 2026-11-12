@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { clock as fmtClock } from '../../format';
-import { CAPTION_LOOKS, captionHeight, isFree, lookOf, withCaptionHeight } from '../captionLayout';
+import { CAPTION_LOOKS, captionHeight, isFree, LINE_OPTIONS, lookOf, maxLinesOf, withCaptionHeight } from '../captionLayout';
 import { MOTIONS } from '../captionMotion';
 import type { CaptionMotion, CaptionStyle, Cue } from '../types';
 import { Chip, Row, Section, Slider, ui } from './kit';
@@ -67,6 +67,21 @@ export function MotionPicker({ value, onPick }: { value: CaptionMotion | undefin
   );
 }
 
+/** Quantas linhas a legenda pode ocupar: a mais longa vira várias em sequência. */
+export function LinesPicker({ style, onChange }: { style: CaptionStyle; onChange: (s: CaptionStyle) => void }) {
+  const n = maxLinesOf(style);
+  return (
+    <>
+      <Row>
+        {LINE_OPTIONS.map((k) => (
+          <Chip key={k} label={k === 1 ? '1 linha' : `${k} linhas`} active={n === k} onPress={() => onChange({ ...style, maxLines: k })} />
+        ))}
+      </Row>
+      <Text style={[ui.body, styles.hint]}>Frase maior que isso vira duas legendas seguidas, no tempo da fala.</Text>
+    </>
+  );
+}
+
 /** Nome da altura da legenda (as pontas e o meio têm nome; o resto, a porcentagem). */
 export function heightName(h: number): string {
   if (h <= 0.005) return 'Embaixo';
@@ -91,7 +106,7 @@ export function PositionPicker({ style, onChange }: { style: CaptionStyle; onCha
         {free ? <Chip icon="move" label="Arrastada" active onPress={() => {}} /> : null}
         {free && style.x !== 0.5 ? <Chip icon="align-center" label="Centralizar" onPress={() => onChange({ ...style, x: 0.5 })} /> : null}
       </Row>
-      <Section label="Altura">
+      <Section label="Posição na tela">
         <Slider value={captionHeight(style)} min={0} max={1} step={0.01} marks={[0, 0.5, 1]} format={heightName} onChange={(h) => onChange(withCaptionHeight(style, h))} />
       </Section>
       <Text style={[ui.body, styles.hint]}>Arraste a legenda na prévia para pôr onde quiser; as linhas rosa mostram quando ela está no centro.</Text>

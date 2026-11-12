@@ -22,7 +22,7 @@ import { sameLink, useTracks } from './playlist/store';
 import { onAccountChanged, onStorageCleared } from './events';
 import { bytes, stem } from './format';
 import { ms } from './motion';
-import { itemInfo, loadHighlight, openPost, resolveLink, type Highlight, type SocialPost, type SocialProfile } from './sources';
+import { isComplete, itemInfo, loadHighlight, openPost, resolveLink, type Highlight, type SocialPost, type SocialProfile } from './sources';
 import { ease, font, Palette, radius, usePalette } from './theme';
 
 const SAMPLE_URL = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
@@ -184,7 +184,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
         } else {
           // Perfil: abre a publicação mais recente (ou os stories, se só houver eles)
           setProfile(r.profile);
-          const first = r.profile.posts.find((p) => p.items.every((i) => i.kind === 'image' || i.variants.length)) ?? (r.profile.stories?.length ? storiesPost(r.profile) : null);
+          const first = r.profile.posts.find(isComplete) ?? (r.profile.stories?.length ? storiesPost(r.profile) : null);
           setPost(first);
           setIndex(0);
           present(first ? itemInfo(first, 0) : null, true);
@@ -285,8 +285,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const openProfilePost = async (p: SocialPost) => {
     if (postBusy) return;
     setHighlightOpen(null);
-    const complete = p.items.every((i) => i.kind === 'image' || i.variants.length);
-    if (complete) {
+    if (isComplete(p)) {
       pick(p, 0);
       return;
     }

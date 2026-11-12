@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { captionCenter, captionHeight, captionPlacement, defaultCaptionStyle, withCaptionHeight } from '../src/editor/captionLayout';
+import { captionCenter, captionHeight, captionPlacement, charsPerLine, defaultCaptionStyle, limitLines, shownCues, withCaptionHeight, wrapWords } from '../src/editor/captionLayout';
 import { frameAt, frameSegments, wordSpans } from '../src/editor/captionMotion';
 import { chunk, fromWhisper, mapToTimeline, parseTTML, slice, tidy } from '../src/editor/captions';
 import { captionList, estimateBytes, n, planOverlays, plannedBitrate, videoBitrate, WHATSAPP_BYTES } from '../src/editor/render';
@@ -224,4 +224,42 @@ test('altura da legenda: arrastada para o lado mantém o lado ao mudar a altura'
   const st = withCaptionHeight(dragged, 0);
   assert.equal(st.x, 0.3);
   assert.ok(Math.abs(st.y! - 0.88) < 1e-9);
+});
+
+test('linhas da legenda: quebra por palavras sem passar da linha', () => {
+  assert.deepEqual(wrapWords('um dois três quatro cinco'.split(' '), 10), [['um', 'dois'], ['três'], ['quatro'], ['cinco']]);
+  assert.deepEqual(wrapWords(['palavragrandedemais', 'ok'], 8), [['palavragrandedemais'], ['ok']]);
+});
+
+test('linhas da legenda: frase longa vira legendas seguidas, no mesmo tempo total', () => {
+  const text = 'essa é uma frase bem comprida que com certeza não cabe em duas linhas de legenda na tela do celular';
+  const out = limitLines([{ start: 10, end: 16, text }], 2, 20);
+  assert.ok(out.length >= 2);
+  assert.equal(out[0].start, 10);
+  assert.equal(out[out.length - 1].end, 16);
+  for (let i = 1; i < out.length; i++) assert.ok(Math.abs(out[i].start - out[i - 1].end) < 1e-9);
+  for (const c of out) assert.ok(wrapWords(c.text.split(' '), 20).length <= 2, c.text);
+  assert.equal(out.map((c) => c.text).join(' '), text);
+  // Pedaços de tamanho parecido (sem um resto curtinho)
+  const lens = out.map((c) => c.text.length);
+  assert.ok(Math.min(...lens) > Math.max(...lens) / 3);
+});
+
+test('linhas da legenda: o que cabe fica igual, e 1 linha divide mais que 3', () => {
+  const short = { start: 0, end: 2, text: 'cabe fácil' };
+  assert.deepEqual(limitLines([short], 2, 20), [short]);
+  const text = 'uma duas três quatro cinco seis sete oito nove dez onze doze treze catorze quinze';
+  assert.ok(limitLines([{ start: 0, end: 5, text }], 1, 20).length > limitLines([{ start: 0, end: 5, text }], 3, 20).length);
+  // Quebra de linha do YouTube conta como espaço
+  assert.equal(limitLines([{ start: 0, end: 2, text: 'linha um\nlinha dois' }], 1, 12).length, 2);
+});
+
+test('linhas da legenda: a conta depende só da proporção, e maiúsculas cabem menos', () => {
+  const st = defaultCaptionStyle();
+  assert.equal(charsPerLine(st, 1280, 720), charsPerLine(st, 640, 360));
+  assert.ok(charsPerLine({ ...st, uppercase: true }, 1280, 720) < charsPerLine(st, 1280, 720));
+  assert.ok(charsPerLine(st, 720, 1280) < charsPerLine(st, 1280, 720));
+  const long = { start: 0, end: 4, text: 'texto comprido o bastante para não caber numa linha só de um vídeo em pé no celular' };
+  assert.ok(shownCues([long], { ...st, maxLines: 1 }, 720, 1280).length > 1);
+  assert.equal(shownCues([long], { ...st, maxLines: 3 }, 0, 0).length, 1);
 });

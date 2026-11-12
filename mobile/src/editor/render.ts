@@ -11,7 +11,7 @@ import {
   STICKER_BASE,
   transitionLength,
 } from './timeline';
-import { captionPlacement } from './captionLayout';
+import { captionPlacement, shownCues } from './captionLayout';
 import { frameSegments } from './captionMotion';
 import { FPS, type Clip, type FacecamLayer, type FilterId, type FontId, type Layer, type MediaSource, type Project } from './types';
 
@@ -147,7 +147,8 @@ export function planOverlays(p: Project, fonts: Record<FontId, string>): Plan {
     const pl = captionPlacement(st, W, H);
     const blank = add({ name: 'cap-blank.png', kind: 'blank', width: W, height: pl.height });
     const up = (t: string) => (st.uppercase ? t.toUpperCase() : t);
-    const cues = p.captions.cues.filter((c) => c.end > c.start && c.start < total).map((c) => ({ ...c, end: Math.min(c.end, total) }));
+    // Respeita o limite de linhas: uma legenda longa vira várias em sequência
+    const cues = shownCues(p.captions.cues, st, W, H).filter((c) => c.end > c.start && c.start < total).map((c) => ({ ...c, end: Math.min(c.end, total) }));
     // Cada quadro diferente de cada legenda vira um PNG; quadros iguais reaproveitam o mesmo arquivo
     const seen = new Map<string, number>();
     const segments: { png: number; start: number; end: number }[] = [];

@@ -10,7 +10,7 @@ import { Harvester } from '../components/Harvester';
 import { ToastProvider } from '../components/Toasts';
 import { FONT_MAP } from '../editor/fonts';
 import { resumeQueue } from '../playlist/downloads';
-import { preparePlayer } from '../playlist/player';
+import { askOnFirstLaunch } from '../playlist/permissions';
 import { applyTheme, getSettings } from '../settings';
 import { usePalette } from '../theme';
 
@@ -21,10 +21,10 @@ export default function RootLayout() {
   const c = usePalette();
   const [loaded] = useFonts({ Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold, ...FONT_MAP });
 
-  // A playlist volta de onde parou: termina os downloads e deixa os controles prontos
+  // A playlist termina os downloads que ficaram na fila; na primeira entrada, pede as permissões
   useEffect(() => {
     resumeQueue();
-    preparePlayer();
+    askOnFirstLaunch();
   }, []);
 
   useEffect(() => {

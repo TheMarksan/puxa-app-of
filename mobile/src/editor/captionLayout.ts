@@ -1,5 +1,5 @@
 import { clamp, defaultTextStyle } from './timeline';
-import type { CaptionStyle } from './types';
+import type { CaptionStyle, Cue } from './types';
 
 /**
  * Onde a legenda fica no quadro. A faixa tem a largura do vídeo e uma folga em cima e embaixo
@@ -111,3 +111,99 @@ export function lookOf(style: CaptionStyle): string | null {
   );
   return hit?.id ?? null;
 }
+
+// ---------- Linhas no máximo ----------
+
+export const DEFAULT_MAX_LINES = 2;
+export const LINE_OPTIONS = [1, 2, 3] as const;
+
+export const maxLinesOf = (style: Pick<CaptionStyle, 'maxLines'>) => Math.max(1, Math.round(style.maxLines ?? DEFAULT_MAX_LINES));
+
+/**
+ * Quantas letras cabem numa linha da legenda, numa conta segura (letra média um pouco larga, e
+ * mais larga ainda em maiúsculas). Depende só da proporção do quadro, então a prévia (em pontos
+ * da tela) e o vídeo final (em pixels) chegam ao mesmo número.
+ */
+export function charsPerLine(style: CaptionStyle, W: number, H: number): number {
+  if (W <= 0 || H <= 0) return Infinity;
+  const font = style.size * Math.min(W, H);
+  const room = captionPlacement(style, W, H).maxWidth - font * 0.4;
+  const letter = font * (style.uppercase ? 0.7 : 0.58);
+  return Math.max(6, Math.floor(room / letter));
+}
+
+/** Quebra as palavras em linhas de até [perLine] letras (palavra maior que a linha fica sozinha). */
+export function wrapWords(words: string[], perLine: number): string[][] {
+  const lines: string[][] = [];
+  let cur: string[] = [];
+  let len = 0;
+  for (const w of words) {
+    const add = cur.length ? len + 1 + w.length : w.length;
+    if (cur.length && add > perLine) {
+      lines.push(cur);
+      cur = [w];
+      len = w.length;
+    } else {
+      cur.push(w);
+      len = add;
+    }
+  }
+  if (cur.length) lines.push(cur);
+  return lines;
+}
+
+/** Divide as palavras em [parts] pedaços de tamanho parecido (sem deixar um resto curtinho no fim). */
+function balance(words: string[], parts: number): string[][] {
+  const total = words.reduce((a, w) => a + w.length + 1, 0);
+  const out: string[][] = [];
+  let cur: string[] = [];
+  let done = 0;
+  for (let i = 0; i < words.length; i++) {
+    cur.push(words[i]);
+    done += words[i].length + 1;
+    const left = words.length - i - 1;
+    const goal = (total * (out.length + 1)) / parts;
+    if (out.length < parts - 1 && left >= parts - out.length - 1 && done >= goal - words[i].length / 2) {
+      out.push(cur);
+      cur = [];
+    }
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+
+/**
+ * Legendas que não passam de [maxLines] linhas: a que ficaria maior vira duas ou mais em
+ * sequência, com o tempo dividido pelo tamanho de cada pedaço. As que cabem ficam como estão.
+ */
+export function limitLines(cues: Cue[], maxLines: number, perLine: number): Cue[] {
+  if (!Number.isFinite(perLine) || perLine <= 0 || maxLines <= 0) return cues;
+  const out: Cue[] = [];
+  for (const c of cues) {
+    const words = c.text.split(/\s+/).filter(Boolean);
+    const lines = wrapWords(words, perLine);
+    if (lines.length <= maxLines) {
+      out.push(c);
+      continue;
+    }
+    // Menos pedaços possível; aumenta se o equilíbrio deixar algum maior que o limite
+    let parts = Math.ceil(lines.length / maxLines);
+    let chunks = balance(words, parts);
+    while (chunks.some((ch) => wrapWords(ch, perLine).length > maxLines) && parts < words.length) {
+      parts++;
+      chunks = balance(words, parts);
+    }
+    const weight = chunks.map((ch) => ch.join(' ').length + 2);
+    const sum = weight.reduce((a, b) => a + b, 0);
+    let t = c.start;
+    chunks.forEach((ch, i) => {
+      const end = i === chunks.length - 1 ? c.end : t + ((c.end - c.start) * weight[i]) / sum;
+      out.push({ start: t, end, text: ch.join(' ') });
+      t = end;
+    });
+  }
+  return out;
+}
+
+/** As legendas como vão aparecer num quadro W x H, já respeitando o limite de linhas do estilo. */
+export const shownCues = (cues: Cue[], style: CaptionStyle, W: number, H: number): Cue[] => limitLines(cues, maxLinesOf(style), charsPerLine(style, W, H));

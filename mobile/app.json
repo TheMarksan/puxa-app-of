@@ -2,7 +2,7 @@
   "expo": {
     "name": "Puxa",
     "slug": "puxa",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "puxa",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "app.puxa",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#2547D0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,7 +25,8 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",

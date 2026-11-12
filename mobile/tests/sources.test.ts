@@ -370,3 +370,32 @@ test('respostas do navegador invisível: JSON com prefixo, em partes e dentro do
   const html = '<html><head><script type="application/json" data-sjs="">{"require":[{"x":1}]}</script><script>var a = 1;</script></head><body></body></html>';
   assert.deepEqual(jsonsOf({ url: 'https://www.instagram.com/praia/', body: html, html: true }), [{ require: [{ x: 1 }] }]);
 });
+
+// Página do perfil para visitantes (formato de nov/2026): dados da conta e a grade só com capas,
+// em dois scripts JSON separados. Os números e textos aqui são de exemplo.
+test('perfil sem conta: grade nova (polaris) vira posts parciais com o pk da conta', () => {
+  const userScript = { require: [['ScheduledServerJS', 'handle', null, [{ __bbox: { require: [['RelayPrefetchedStreamCache', 'next', [], ['adp_PolarisProfilePageContentQuery', { __bbox: { result: { data: { xig_user_by_username: { pk: '555', id: '178414000999', username: 'mar.aberto', full_name: 'Mar Aberto', profile_pic_url: 'https://cdn/a.jpg', is_private: false } } } } }]]] } }]]] };
+  const node = (code: string, media_type: number, typename: string) => ({ __typename: typename, pk: `9${code.length}${media_type}`, code, display_uri: `https://cdn/${code}.jpg`, media_type, product_type: media_type === 2 ? 'clips' : 'feed', caption: { text: `Legenda ${code}\nsegunda linha` }, user: { username: 'mar.aberto', id: '178414000999' } });
+  const gridScript = { require: [['ScheduledServerJS', 'handle', null, [{ __bbox: { require: [['RelayPrefetchedStreamCache', 'next', [], ['adp_PolarisLoggedOutDesktopWWWProfilePostsTabContentQuery', { __bbox: { result: { data: { xig_user_by_username: { pk: '555', polaris_ordered_timeline_connection: { edges: [{ node: node('AAA111', 2, 'XIGPolarisVideoMedia') }, { node: node('BBB222', 8, 'XIGPolarisCarouselMedia') }, { node: node('CCC333', 1, 'XIGPolarisImageMedia') }], page_info: { has_next_page: true } } } } } } }]]] } }]]] };
+  const html = `<html><body><script type="application/json" data-sjs>${JSON.stringify(userScript)}</script><script type="application/json">${JSON.stringify(gridScript)}</script></body></html>`;
+  const d = parseProfileData(jsonsOf({ url: 'https://www.instagram.com/mar.aberto/', body: html, html: true }), 'mar.aberto');
+  assert.ok(d);
+  assert.equal(d!.user.id, '555');
+  assert.deepEqual(d!.posts.map((p) => [p.shortcode, p.kind, p.items[0].kind, p.partial]), [
+    ['AAA111', 'reel', 'video', true],
+    ['BBB222', 'post', 'image', true],
+    ['CCC333', 'post', 'image', true],
+  ]);
+  assert.equal(d!.posts[0].link, 'https://www.instagram.com/reel/AAA111/');
+  assert.equal(d!.posts[0].title, 'Legenda AAA111');
+  assert.equal(d!.posts[1].items[0].thumbnail, 'https://cdn/BBB222.jpg');
+});
+
+test('post parcial da grade não conta como completo, mesmo sendo foto', async () => {
+  const { isComplete } = await import('../src/sources/social');
+  const base = { source: 'instagram' as const, kind: 'post' as const, id: '1', link: '', title: '', author: 'a', authorName: '', avatar: null, initial: 0, headers: {} };
+  const img = { id: '1', kind: 'image' as const, thumbnail: 't', duration: 0, width: 0, height: 0, variants: [], image: 'i', hasAudio: false, takenAt: null };
+  assert.equal(isComplete({ ...base, items: [img] }), true);
+  assert.equal(isComplete({ ...base, items: [img], partial: true }), false);
+  assert.equal(isComplete({ ...base, items: [{ ...img, kind: 'video', image: null }] }), false);
+});

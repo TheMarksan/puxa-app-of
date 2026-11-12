@@ -23,6 +23,8 @@ export type Settings = {
   stickerShape?: 'crop' | 'fit';
   stickerCorner?: number;
   stickerOutline?: boolean;
+  /** Já pediu a permissão de notificações (na primeira vez que o app abriu). */
+  askedNotifications?: boolean;
 };
 
 const DEFAULTS: Settings = { theme: 'system' };

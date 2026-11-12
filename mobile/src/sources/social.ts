@@ -46,7 +46,12 @@ export type SocialPost = {
   headers: Record<string, string>;
   /** Instagram: código do post, para buscar o post inteiro quando a lista do perfil veio incompleta. */
   shortcode?: string;
+  /** A lista do perfil só trouxe a capa (perfil visto sem conta): abrir busca o post inteiro. */
+  partial?: boolean;
 };
+
+/** Já dá para baixar tudo o que o post mostra (sem precisar buscar o post inteiro). */
+export const isComplete = (p: SocialPost) => !p.partial && p.items.every((i) => i.kind === 'image' || i.variants.length > 0);
 
 export type Highlight = { id: string; title: string; cover: string; count: number };
 

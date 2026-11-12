@@ -14,7 +14,7 @@ import { useToast } from '../components/Toasts';
 import { bytes, clock } from '../format';
 import { ms } from '../motion';
 import { addLinks, removeTrack, resumeQueue, retry } from '../playlist/downloads';
-import { cycleLoop, next, playTrack, previous, seek, toggle, usePlayer } from '../playlist/player';
+import { cycleLoop, dismissError, next, playTrack, previous, seek, toggle, usePlayer } from '../playlist/player';
 import { moveTrack, useTracks, type Track } from '../playlist/store';
 import { font, type Palette, radius, usePalette } from '../theme';
 
@@ -365,6 +365,13 @@ function NowPlaying({ t, c, s, bottom, onHeight }: { t: Track; c: Palette; s: St
         </View>
         {p.buffering ? <ActivityIndicator color={c.accent} size="small" /> : null}
       </View>
+      {p.error ? (
+        <Pressable onPress={dismissError} style={s.playerError} accessibilityRole="button" accessibilityLabel={`${p.error} Toque para fechar.`}>
+          <Feather name="alert-circle" size={16} color={c.danger} />
+          <Text style={s.playerErrorText}>{p.error}</Text>
+          <Feather name="x" size={16} color={c.muted} />
+        </Pressable>
+      ) : null}
       <SeekBar value={time} max={duration} onScrub={setDrag} onSeek={(v) => { setDrag(null); seek(v); }} c={c} />
       <View style={s.times}>
         <Text style={s.time}>{clock(time)}</Text>
@@ -512,6 +519,8 @@ const makeStyles = (c: Palette) =>
       elevation: 16,
     },
     playerTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
+    playerError: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, marginBottom: 4, borderRadius: 12, backgroundColor: c.hover },
+    playerErrorText: { flex: 1, fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: c.ink },
     playerCover: { width: 44, height: 44, borderRadius: 10, overflow: 'hidden', backgroundColor: c.sk, alignItems: 'center', justifyContent: 'center' },
     playerTitle: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
     playerArtist: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 1 },

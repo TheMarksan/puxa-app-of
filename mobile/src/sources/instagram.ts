@@ -20,8 +20,8 @@ import {
   type IgReel,
   type IgUser,
 } from './instagramParse';
-import { jsonsOf } from './json';
-import { type SocialKind, type SocialPost, type SocialProfile, SourceError } from './social';
+import { type Captured, jsonsOf } from './json';
+import { isComplete, type SocialKind, type SocialPost, type SocialProfile, SourceError } from './social';
 
 export { IG_LOGIN_UA, IG_UA, parseInstagram } from './instagramParse';
 
@@ -183,17 +183,21 @@ export async function fetchUser(username: string, f: Fetch = fetch): Promise<IgU
   try {
     const json = await api(`/users/web_profile_info/?username=${encodeURIComponent(username)}`, f);
     const u = (json.data as { user?: IgUser } | undefined)?.user;
-    if (u?.id) return { ...u, id: String(u.id) };
+    if (u?.id || u?.pk) return { ...u, id: String(u.pk ?? u.id) };
   } catch (e) {
+    // Um 404 aqui costuma ser a API fechada, não a conta inexistente: segue para a página
     if (e instanceof SourceError && (e.code === 'rate' || e.code === 'checkpoint')) throw e;
   }
-  // Plano B: o id da conta aparece na própria página do perfil
+  // Plano B: o número da conta aparece na própria página do perfil
   const html = await f(`${ROOT}/${encodeURIComponent(username)}/`, { headers: { 'User-Agent': IG_UA, Accept: 'text/html' }, credentials: 'include' })
     .then((r) => r.text())
     .catch(() => '');
-  const id = /"profile_id":"(\d+)"/.exec(html)?.[1] ?? /"user_id":"(\d+)"/.exec(html)?.[1] ?? /"id":"(\d+)","username":"/.exec(html)?.[1];
-  if (!id) throw new SourceError(instagramLoggedIn() ? 'unavailable' : 'login', instagramLoggedIn() ? `Não achei a conta @${username}.` : LOGIN);
-  return { id, username };
+  const id = /"profile_id":"(\d+)"/.exec(html)?.[1] ?? /"page_id":"profilePage_(\d+)"/.exec(html)?.[1] ?? /"user_id":"(\d+)"/.exec(html)?.[1];
+  if (id) return { id, username };
+  // Plano C: a página aberta no navegador invisível (com a mesma sessão do app)
+  const page = await profileFromPage(username);
+  if (page) return page.user;
+  throw new SourceError('unavailable', `Não achei a conta @${username} no Instagram. Confira o nome e tente de novo.`);
 }
 
 export async function fetchReel(reelId: string, f: Fetch = fetch): Promise<IgReel> {
@@ -216,6 +220,18 @@ export async function fetchHighlight(link: string, highlightId: string, storyId:
   return parseReelPost(reel, { kind: 'highlight', id: highlightId, link, storyId });
 }
 
+/** A página pública do perfil no navegador invisível: dados da conta e a grade de publicações. */
+async function profileFromPage(username: string): Promise<IgProfileData | null> {
+  const got = await harvest({
+    url: `${ROOT}/${encodeURIComponent(username)}/`,
+    pattern: /web_profile_info|\/graphql\/query|\/api\/graphql/,
+    html: true,
+    userAgent: IG_UA,
+    enough: (c) => (parseProfileData(c.flatMap(jsonsOf), username)?.posts.length ?? 0) > 0,
+  }).catch(() => [] as Captured[]);
+  return parseProfileData(got.flatMap(jsonsOf), username);
+}
+
 /**
  * Perfil sem precisar de conta: primeiro o pedido que o site faz para quem visita; se o
  * Instagram recusar, a página pública do perfil num navegador invisível. Com login, ainda vêm
@@ -227,29 +243,19 @@ export async function fetchProfile(username: string, f: Fetch = fetch): Promise<
   try {
     data = parseProfileData([await api(`/users/web_profile_info/?username=${encodeURIComponent(username)}`, f)], username);
   } catch (e) {
-    if (e instanceof SourceError && e.code === 'unavailable') throw new SourceError('unavailable', `Não achei a conta @${username} no Instagram.`);
+    // O Instagram responde 404 nesse pedido para quem não está logado, mesmo com a conta
+    // existindo: não dá para concluir nada daqui, então a página pública decide
     refused = e instanceof SourceError ? e : null;
   }
   if (!data || !data.posts.length) {
-    const got = await harvest({
-      url: `${ROOT}/${encodeURIComponent(username)}/`,
-      pattern: /web_profile_info|\/graphql\/query|\/api\/graphql/,
-      html: true,
-      userAgent: IG_UA,
-      enough: (c) => (parseProfileData(c.flatMap(jsonsOf), username)?.posts.length ?? 0) > 0,
-    }).catch(() => []);
-    const fromPage = parseProfileData(got.flatMap(jsonsOf), username);
+    const fromPage = await profileFromPage(username);
     if (fromPage && (!data || fromPage.posts.length)) data = fromPage;
   }
   if (!data) {
-    if (instagramLoggedIn()) throw refused ?? new SourceError('network', `Não consegui abrir @${username} agora. Tente de novo em instantes.`);
+    if (refused?.code === 'rate') throw new SourceError('ig_blocked', 'O Instagram pediu uma pausa nas visitas sem conta. Espere alguns minutos ou entre na conta.');
+    if (instagramLoggedIn()) throw new SourceError('unavailable', `Não achei a conta @${username} no Instagram. Confira o nome e tente de novo.`);
     // Visita sem conta recusada: a tela oferece entrar na conta como alternativa
-    throw new SourceError(
-      'ig_blocked',
-      refused?.code === 'rate'
-        ? 'O Instagram pediu uma pausa nas visitas sem conta. Espere alguns minutos ou entre na conta.'
-        : `Não consegui abrir @${username} agora. O Instagram às vezes barra visitas sem conta: tente de novo em instantes ou entre na conta.`,
-    );
+    throw new SourceError('ig_blocked', `Não consegui abrir @${username}. Confira o nome; se estiver certo, o Instagram pode estar barrando visitas sem conta agora. Tente de novo em instantes ou entre na conta.`);
   }
   const user = data.user;
   const base: SocialProfile = {
@@ -278,7 +284,7 @@ export async function fetchProfile(username: string, f: Fetch = fetch): Promise<
 
 /** Post de um perfil que veio sem o link de algum vídeo: busca o post inteiro pelo código. */
 export async function completePost(post: SocialPost, f: Fetch = fetch): Promise<SocialPost> {
-  if (post.source !== 'instagram' || !post.shortcode || post.items.every((i) => i.kind === 'image' || i.variants.length)) return post;
+  if (post.source !== 'instagram' || !post.shortcode || isComplete(post)) return post;
   return fetchMedia(post.shortcode, post.link, post.kind, f);
 }
 

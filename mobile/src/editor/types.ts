@@ -129,6 +129,8 @@ export type CaptionStyle = TextStyle & {
   y?: number;
   /** Cor da palavra falada no karaokê. */
   highlight?: string;
+  /** Quantas linhas uma legenda pode ocupar na tela; a mais longa vira várias em sequência. Sem valor: 2. */
+  maxLines?: number;
 };
 
 export type Captions = { cues: Cue[]; style: CaptionStyle; label: string };

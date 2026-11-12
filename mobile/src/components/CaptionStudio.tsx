@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clock } from '../format';
 import { CaptionLayer, Guides, NO_GUIDES, type GuideState } from '../editor/ui/CaptionLayer';
-import { CueList, LookPicker, MotionPicker, PositionPicker } from '../editor/ui/CaptionControls';
+import { shownCues } from '../editor/captionLayout';
+import { CueList, LinesPicker, LookPicker, MotionPicker, PositionPicker } from '../editor/ui/CaptionControls';
 import { Chip, Row, Section, Slider, Swatches, Toggle, ui, videoFill } from '../editor/ui/kit';
 import { E } from '../editor/ui/palette';
 import { StyleEditor } from '../editor/ui/StyleEditor';
@@ -202,6 +203,9 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
         {tab === 'text' ? (
           <>
             <Toggle label="Tudo em maiúsculas" value={style.uppercase} onChange={(uppercase) => onStyle({ ...style, uppercase })} />
+            <Section label="Linhas no máximo">
+              <LinesPicker style={style} onChange={onStyle} />
+            </Section>
             <StyleEditor style={style} onChange={(s) => onStyle({ ...style, ...s })} onLive={(s) => onStyle({ ...style, ...s })} />
           </>
         ) : null}
@@ -351,7 +355,8 @@ function StudioCanvas({
   });
 
   // Sem legendas ainda: um exemplo que se repete, para escolher estilo, animação e lugar
-  const inRange = cues.filter((c) => c.end > range.start && c.start < range.end);
+  // A prévia mostra as legendas já divididas pelo limite de linhas, como no vídeo final
+  const inRange = shownCues(cues.filter((c) => c.end > range.start && c.start < range.end), style, cw, ch);
   let cue: Cue | null = null;
   let next: number | undefined;
   let at = time;

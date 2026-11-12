@@ -1,4 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DoneEvent, VideoInfo } from '../../modules/puxa-engine';
 import type { DubResult } from '../ai/dub';
 import { useElevenKey } from '../ai/key';
-import { CAPTION_LOOKS, captionHeight, defaultCaptionStyle, lookOf, withCaptionHeight } from '../editor/captionLayout';
+import { CAPTION_LOOKS, defaultCaptionStyle, LINE_OPTIONS, lookOf, maxLinesOf, shownCues } from '../editor/captionLayout';
 import { MOTIONS } from '../editor/captionMotion';
 import { slice } from '../editor/captions';
 import { exportProject } from '../editor/exporter';
@@ -27,12 +28,10 @@ import { ease, font, Palette, usePalette } from '../theme';
 import { BackButton } from './BackButton';
 import { Button } from './Button';
 import { Pill } from './Pill';
-import { heightName } from '../editor/ui/CaptionControls';
 import { CaptionStudio, ORIGINAL, type Framing, type StudioTab } from './CaptionStudio';
 import { DubPanel, useDubPreview } from './DubPanel';
 import { ModeTiles, Reveal, ToolToggle, useSheetDrag, type Mode } from './SheetParts';
 import { clampCorner, defaultDesign, EMOJIS, type StickerDesign } from '../stickers/sticker';
-import { SnapSlider } from './SnapSlider';
 import { StickerPanel } from './StickerPanel';
 import { MIN_CLIP, Trimmer } from './Trimmer';
 
@@ -78,18 +77,42 @@ export type SendAs = 'video' | 'animated' | 'still' | 'photo';
  * dublagem com vozes de IA. Ou como figurinha do WhatsApp: animada (um trecho) ou parada (um
  * quadro). Fotos (Instagram, X) vão como foto ou figurinha parada.
  */
-const HEIGHT_STOPS = [
-  { value: 0, label: 'Embaixo' },
-  { value: 0.5, label: 'No meio' },
-  { value: 1, label: 'Em cima' },
-];
-
-/** Quadrinho com a faixa da legenda na altura daquele ponto. */
-function HeightGlyph({ at, on, c }: { at: number; on: boolean; c: Palette }) {
-  const ink = on ? c.accentInk : c.muted;
+/** Linhas no máximo da legenda: três botões com o desenho de 1, 2 e 3 linhas. */
+function LineLimit({ value, onChange, c }: { value: number; onChange: (n: number) => void; c: Palette }) {
   return (
-    <View style={{ width: 16, height: 22, borderRadius: 4, borderWidth: 2, borderColor: ink, justifyContent: at === 0 ? 'flex-end' : at === 1 ? 'flex-start' : 'center', paddingVertical: 2, alignItems: 'center' }}>
-      <View style={{ width: 8, height: 3, borderRadius: 1.5, backgroundColor: ink }} />
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: font.semibold, fontSize: 14, color: c.ink }}>Linhas da legenda</Text>
+        <Text style={{ fontFamily: font.regular, fontSize: 12, color: c.muted }}>Frase longa vira duas em sequência</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Linhas no máximo da legenda">
+        {LINE_OPTIONS.map((n) => {
+          const on = value === n;
+          return (
+            <Pressable
+              key={n}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                onChange(n);
+              }}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: on }}
+              accessibilityLabel={n === 1 ? '1 linha' : `${n} linhas`}
+              style={({ pressed }) => [
+                { flex: 1, minHeight: 56, borderRadius: 14, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accentSoft : c.surface, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <View style={{ height: 15, gap: 3, alignItems: 'center', justifyContent: 'center' }}>
+                {Array.from({ length: n }, (_, i) => (
+                  <View key={i} style={{ width: i === n - 1 && n > 1 ? 16 : 24, height: 3, borderRadius: 1.5, backgroundColor: on ? c.accentInk : c.muted }} />
+                ))}
+              </View>
+              <Text style={{ fontFamily: on ? font.semibold : font.medium, fontSize: 12, color: on ? c.accentInk : c.muted }}>{n === 1 ? '1 linha' : `${n} linhas`}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -356,12 +379,12 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
   const tooBig = estimate > WA_LIMIT;
   const length = to - from;
   const inRange = (cues ?? []).filter((q) => q.end > from && q.start < to);
-  const sample = inRange[0] ?? { start: posterTime - 1, end: posterTime + 1.5, text: capSource.kind === 'manual' ? 'Escreva sua legenda' : 'Sua legenda aqui' };
   const lookName = CAPTION_LOOKS.find((l) => l.id === lookOf(capStyle))?.label ?? 'Personalizada';
   const motionName = MOTIONS.find((m) => m.id === (capStyle.motion ?? 'none'))?.label ?? '';
   const ratio = source && source.width > 0 && source.height > 0 ? source.width / source.height : 16 / 9;
   const pw = ratio >= 1 ? 112 : 64;
   const ph = Math.round(pw / ratio);
+  const sample = shownCues(inRange.slice(0, 1), capStyle, pw, ph)[0] ?? { start: posterTime - 1, end: posterTime + 1.5, text: capSource.kind === 'manual' ? 'Escreva sua legenda' : 'Sua legenda aqui' };
   const fr = placement({ fit: 'fill', zoom: framing.zoom, panX: framing.panX, panY: framing.panY, rotate: 0 }, source ?? { width: 16, height: 9 }, pw, ph);
   const posterStyle = { position: 'absolute' as const, left: fr.x, top: fr.y, width: fr.sw, height: fr.sh };
 
@@ -647,15 +670,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                             <Feather name="chevron-right" size={20} color={c.muted} />
                           </Pressable>
 
-                          <SnapSlider
-                            title="Altura da legenda"
-                            value={captionHeight(capStyle)}
-                            onChange={(h) => setStyle(withCaptionHeight(capStyle, h))}
-                            valueText={heightName}
-                            accessibilityLabel="Altura da legenda no vídeo"
-                            c={c}
-                            stops={HEIGHT_STOPS.map((h) => ({ value: h.value, label: h.label, glyph: (on) => <HeightGlyph at={h.value} on={on} c={c} /> }))}
-                          />
+                          <LineLimit value={maxLinesOf(capStyle)} onChange={(maxLines) => setStyle({ ...capStyle, maxLines })} c={c} />
 
                           {capSource.kind === 'transcribe' && !cues && !status ? (
                             <Reveal>
