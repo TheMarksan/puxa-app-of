@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
+import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, BackHandler, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,11 +16,10 @@ import { exportProject } from '../editor/exporter';
 import { FONTS } from '../editor/fonts';
 import { cachedThumb, loadThumbs, sourceFromFile, toUri } from '../editor/media';
 import { AUDIO_BITRATE, estimateBytes, plannedBitrate } from '../editor/render';
-import { chooseTrack, hasModel, MODELS, SPOKEN, transcribe, youtubeCues, type CaptionProgress, type Engine, type WhisperModel } from '../editor/subtitles';
+import { chooseTrack, hasModel, MODELS, SPOKEN, transcribe, warmup, youtubeCues, type CaptionProgress, type Engine, type WhisperModel } from '../editor/subtitles';
 import { defaultClip, outputSize, placement } from '../editor/timeline';
 import type { AudioTrack, CaptionStyle, Cue, MediaSource, Project } from '../editor/types';
 import { CaptionLayer } from '../editor/ui/CaptionLayer';
-import { videoFill } from '../editor/ui/kit';
 import { bytes, clock } from '../format';
 import { ms } from '../motion';
 import { getSettings, setSettings } from '../settings';
@@ -32,6 +31,7 @@ import { CaptionStudio, ORIGINAL, type Framing, type StudioTab } from './Caption
 import { DubPanel, useDubPreview } from './DubPanel';
 import { ModeTiles, Reveal, ToolToggle, useSheetDrag, type Mode } from './SheetParts';
 import { clampCorner, defaultDesign, EMOJIS, type StickerDesign } from '../stickers/sticker';
+import { SendPreview } from './SendPreview';
 import { StickerPanel } from './StickerPanel';
 import { MIN_CLIP, Trimmer } from './Trimmer';
 
@@ -55,7 +55,8 @@ const savedTranscription = (hasKey: boolean): Transcription => {
   return { engine: hasKey ? (st.transcriber ?? 'elevenlabs') : 'device', model: st.whisperModel ?? 'small', lang: st.spokenLanguage ?? 'auto' };
 };
 
-type CueEntry = { cues: Cue[]; span?: [number, number] };
+/** [partial]: transcrição ainda andando (a prévia mostra o que já saiu). */
+type CueEntry = { cues: Cue[]; span?: [number, number]; partial?: boolean };
 
 type Props = {
   file: DoneEvent;
@@ -162,6 +163,8 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
   const [busy, setBusy] = useState<{ label: string; fraction: number | null } | null>(null);
   const signal = useRef({ cancelled: false });
   const loading = useRef(new Set<string>());
+  /** Buscas em andamento: pedir de novo (enviar no meio da transcrição) espera a mesma. */
+  const inflight = useRef(new Map<string, Promise<Cue[]>>());
   const [, bump] = useState(0);
 
   const locked = !!busy || !!stickerCancel || !!dubCancel;
@@ -219,17 +222,6 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
   const filmstrip = source ? thumbTimes.map((t) => cachedThumb(source.path, t)).filter((x): x is string => !!x) : [];
   const poster = (source && cachedThumb(source.path, posterTime)) || info.thumbnail;
 
-  // A prévia do envio toca só o trecho escolhido
-  useEffect(() => {
-    const sub = player.addListener('timeUpdate', ({ currentTime }) => {
-      if (as === 'video' && mode === 'clip' && !studio && player.playing && currentTime >= range.end) {
-        player.pause();
-        seek(player, range.start);
-      }
-    });
-    return () => sub.remove();
-  }, [player, as, mode, range, studio]);
-
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -242,6 +234,12 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
     });
     return () => sub.remove();
   }, [busy, onClose, visible, studio, stickerCancel, dubCancel]);
+
+  // Com as opções da transcrição abertas, o modelo já vai carregando (a transcrição começa na hora)
+  const warmModel = withCaptions && capSource.kind === 'transcribe' && capSource.engine === 'device' ? capSource.model : null;
+  useEffect(() => {
+    if (warmModel) warmup(warmModel);
+  }, [warmModel]);
 
   // A letra segue o lado menor do vídeo. Vídeo deitado costuma ser visto com o celular em pé,
   // ocupando só a largura da tela: a legenda precisa ser proporcionalmente maior para ser lida.
@@ -261,19 +259,39 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
       if (!dub) throw new Error('Dublagem ainda não feita.');
       return dub.result.cues.map((q) => ({ ...q, start: q.start + dub.from, end: q.end + dub.from }));
     }
-    if (hit && (src.kind === 'youtube' || (hit.span && hit.span[0] <= span[0] + 0.05 && hit.span[1] >= span[1] - 0.05))) return hit.cues;
-    if (src.kind === 'youtube') {
-      const pick = chooseTrack(info.captions, src.pt);
-      if (!pick) throw new Error('Este vídeo não tem legenda no YouTube.');
-      const r = await youtubeCues(info.id, pick.track, pick.translate, progress);
-      setCache((m) => ({ ...m, [k]: { cues: r.cues } }));
-      return r.cues;
+    if (hit && !hit.partial && (src.kind === 'youtube' || (hit.span && hit.span[0] <= span[0] + 0.05 && hit.span[1] >= span[1] - 0.05))) return hit.cues;
+    const running = inflight.current.get(k);
+    if (running) return running;
+    const job = (async () => {
+      if (src.kind === 'youtube') {
+        const pick = chooseTrack(info.captions, src.pt);
+        if (!pick) throw new Error('Este vídeo não tem legenda no YouTube.');
+        const r = await youtubeCues(info.id, pick.track, pick.translate, progress);
+        setCache((m) => ({ ...m, [k]: { cues: r.cues } }));
+        return r.cues;
+      }
+      // A transcrição cobre só o trecho que vai ser enviado; as legendas aparecem enquanto saem
+      const shift = (list: Cue[]) => list.map((q) => ({ ...q, start: q.start + span[0], end: q.end + span[0] }));
+      const r = await transcribe(
+        { path: file.path, from: span[0], to: span[1], engine: src.engine, model: src.model, language: src.lang, toPortuguese: src.pt },
+        progress,
+        signal.current,
+        (part) => setCache((m) => ({ ...m, [k]: { cues: shift(part), span, partial: true } })),
+      );
+      const list = shift(r.cues);
+      setCache((m) => ({ ...m, [k]: { cues: list, span } }));
+      return list;
+    })();
+    inflight.current.set(k, job);
+    try {
+      return await job;
+    } catch (e) {
+      // Cancelou ou falhou: some o que tinha saído pela metade
+      setCache((m) => (m[k]?.partial ? Object.fromEntries(Object.entries(m).filter(([x]) => x !== k)) : m));
+      throw e;
+    } finally {
+      inflight.current.delete(k);
     }
-    // A transcrição cobre só o trecho que vai ser enviado
-    const r = await transcribe({ path: file.path, from: span[0], to: span[1], engine: src.engine, model: src.model, language: src.lang, toPortuguese: src.pt }, progress, signal.current);
-    const list = r.cues.map((q) => ({ ...q, start: q.start + span[0], end: q.end + span[0] }));
-    setCache((m) => ({ ...m, [k]: { cues: list, span } }));
-    return list;
   };
 
   /** Busca em segundo plano (YouTube é rápido; a transcrição só começa quando a pessoa pede). */
@@ -293,12 +311,15 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
       });
   };
 
+  /** Transcrição que pode começar sozinha: no celular com o modelo já baixado (nada a esperar nem a gastar). */
+  const readyToTranscribe = (src: CapSource) => src.kind === 'transcribe' && src.engine === 'device' && hasModel(src.model);
+
   const pickSource = (src: CapSource) => {
     setCapSource(src);
     if (src.kind === 'manual') {
       if (!cache.manual) setCache((m) => ({ ...m, manual: { cues: [] } }));
       openStudio('cues');
-    } else prefetch(src);
+    } else prefetch(src, readyToTranscribe(src) || (src.kind === 'transcribe' && src.engine === 'elevenlabs'));
   };
 
   const openStudio = (tab: StudioTab) => {
@@ -438,7 +459,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
     setWithCaptions(on);
     // Dublado: a legenda já sai com o texto da dublagem
     if (on && dubbed && capSource.kind !== 'manual') setCapSource({ kind: 'dub' });
-    else if (on) prefetch(capSource);
+    else if (on) prefetch(capSource, readyToTranscribe(capSource));
   };
 
   return (
@@ -513,32 +534,22 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
               {as === 'video' ? (
                 <Reveal key="video">
                   <View style={s.stack}>
-                    <View style={s.video}>
-                      <VideoView player={player} style={videoFill} contentFit="contain" nativeControls={false} surfaceType="textureView" />
-                      <Pressable
-                        style={s.playOver}
-                        onPress={() => {
-                          if (player.playing) {
-                            player.pause();
-                            dubPlayer.pause();
-                          } else if (dubbed) listen(true);
-                          else {
-                            if (mode === 'clip' && (player.currentTime < range.start || player.currentTime >= range.end - 0.2)) seek(player, range.start);
-                            player.play();
-                          }
-                        }}
-                        accessibilityLabel={dubbed ? 'Tocar a prévia dublada' : 'Tocar prévia'}
-                      >
-                        <View style={s.playBtn}>
-                          <Feather name="play" size={20} color="#fff" style={{ marginLeft: 3 }} />
-                        </View>
-                      </Pressable>
-                      <View pointerEvents="none" style={s.chip}>
-                        <Text style={s.chipText}>
-                          {clock(length)} · {bytes(estimate)}
-                        </Text>
-                      </View>
-                    </View>
+                    <SendPreview
+                      player={player}
+                      source={source}
+                      range={{ start: from, end: to }}
+                      framing={framing}
+                      captions={withCaptions ? { cues: cues ?? [], style: capStyle } : null}
+                      chip={`${clock(length)} · ${bytes(estimate)}`}
+                      onToggle={() => {
+                        if (player.playing) {
+                          player.pause();
+                          dubPlayer.pause();
+                        } else if (dubbed) listen(true);
+                        else player.play();
+                      }}
+                      onOpenStudio={source ? () => openStudio(withCaptions ? 'look' : 'frame') : undefined}
+                    />
 
                     <View style={s.tools}>
                       <ToolToggle
@@ -800,6 +811,9 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                     onClose();
                     router.push(`/figurinhas/${folderId}`);
                   }}
+                  source={source}
+                  captions={withCaptions && cues?.length ? { cues, style: capStyle } : null}
+                  startAt={mode === 'clip' ? range.start : undefined}
                 />
               )}
             </ScrollView>
@@ -820,13 +834,10 @@ const makeStyles = (c: Palette) =>
     header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     title: { fontFamily: font.bold, fontSize: 21, color: c.ink, letterSpacing: -0.3 },
     subtitle: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 1 },
-    video: { aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
     photo: { aspectRatio: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: c.dark ? '#000' : c.bg },
     trOpts: { gap: 10, padding: 12, borderRadius: 14, backgroundColor: c.bg, marginBottom: 10 },
     trRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     trLabel: { width: 58, fontFamily: font.semibold, fontSize: 13, color: c.muted },
-    playOver: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-    playBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
     chip: { position: 'absolute', left: 10, bottom: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
     chipText: { fontFamily: font.semibold, fontSize: 13, color: '#fff', fontVariant: ['tabular-nums'] },
     tools: { flexDirection: 'row', justifyContent: 'space-around' },

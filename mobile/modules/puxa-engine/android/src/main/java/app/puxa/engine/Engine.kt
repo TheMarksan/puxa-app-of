@@ -25,6 +25,7 @@ import org.schabi.newpipe.extractor.localization.ContentCountry
 import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
@@ -115,8 +116,27 @@ object Engine {
     else -> PuxaException("unavailable", "Vídeo indisponível. Ele pode ter sido removido, ou o link está incompleto.", e)
   }
 
-  private fun bestAudio(info: StreamInfo): AudioStream? =
-    info.audioStreams.filter { it.format == MediaFormat.M4A && it.isUrl }.maxByOrNull { it.averageBitrate }
+  /**
+   * Faixas de áudio M4A no idioma original. Vídeos dublados (inclusive pela dublagem automática
+   * do YouTube) trazem uma faixa por idioma, todas com o mesmo itag; sem este filtro o app pegava
+   * a de maior bitrate, que muitas vezes era a dublagem em inglês.
+   */
+  private fun originalAudio(info: StreamInfo): List<AudioStream> {
+    val m4a = info.audioStreams.filter { it.format == MediaFormat.M4A && it.isUrl }
+    if (m4a.map { it.audioTrackId }.distinct().size <= 1) return m4a
+    val original = m4a.filter { it.audioTrackType == AudioTrackType.ORIGINAL }
+    if (original.isNotEmpty()) return original
+    // Sem a marca de original: o nome da faixa costuma trazer "original"
+    val named = m4a.filter { it.audioTrackName?.contains("original", ignoreCase = true) == true }
+    if (named.isNotEmpty()) return named
+    val notDubbed = m4a.filter { it.audioTrackType != AudioTrackType.DUBBED && it.audioTrackType != AudioTrackType.DESCRIPTIVE }
+    if (notDubbed.isNotEmpty() && notDubbed.size < m4a.size) return notDubbed
+    // Nada indica qual é a original: fica a primeira faixa da lista (a padrão do vídeo)
+    val first = m4a.first().audioTrackId
+    return m4a.filter { it.audioTrackId == first }
+  }
+
+  private fun bestAudio(info: StreamInfo): AudioStream? = originalAudio(info).maxByOrNull { it.averageBitrate }
 
   private fun videoChoices(info: StreamInfo): List<VideoStream> =
     info.videoOnlyStreams
@@ -135,7 +155,7 @@ object Engine {
     if (info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM) {
       throw PuxaException("live", "Transmissões ao vivo só podem ser baixadas depois que terminam.")
     }
-    val m4a = info.audioStreams.filter { it.format == MediaFormat.M4A && it.isUrl }
+    val m4a = originalAudio(info)
       .distinctBy { it.averageBitrate }
       .sortedByDescending { it.averageBitrate }
     val best = bestAudio(info)
@@ -209,7 +229,8 @@ object Engine {
     workDir.mkdirs()
 
     suspend fun pick(i: StreamInfo): List<Pair<String, Long>> {
-      val audio = if (kind == "a" || kind == "m") i.audioStreams.firstOrNull { it.itag == itag } ?: bestAudio(i) else bestAudio(i)
+      // Sempre a faixa original: o mesmo itag existe em cada idioma dublado
+      val audio = if (kind == "a" || kind == "m") originalAudio(i).firstOrNull { it.itag == itag } ?: bestAudio(i) else bestAudio(i)
       audio ?: throw PuxaException("format_unavailable", "Essa qualidade não está mais disponível. Escolha outra.")
       if (kind == "a" || kind == "m") return listOf(audio.content to len(audio))
       val v = i.videoOnlyStreams.firstOrNull { it.itag == itag }

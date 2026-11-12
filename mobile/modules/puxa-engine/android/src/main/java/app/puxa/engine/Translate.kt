@@ -45,19 +45,39 @@ object Translate {
   }
 
   /** Baixa [url] para [dest] (via arquivo .part), informando bytes recebidos e o total. */
+  /**
+   * Baixa [url] para [dest] mostrando o progresso. Se a conexão cair, o que já veio fica guardado
+   * (arquivo .part) e a próxima tentativa continua de onde parou, em vez de começar do zero.
+   */
   fun fetch(url: String, dest: File, cancelled: () -> Boolean, onProgress: (Long, Long) -> Unit) {
     dest.parentFile?.mkdirs()
     val part = File(dest.path + ".part")
-    val req = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+    val have = if (part.exists()) part.length() else 0L
+    val builder = Request.Builder().url(url).header("User-Agent", USER_AGENT)
+    if (have > 0) builder.header("Range", "bytes=$have-")
+    val req = builder.build()
     try {
       http.newBuilder().readTimeout(60, TimeUnit.SECONDS).build().newCall(req).execute().use { r ->
+        if (r.code == 416) {
+          // O servidor diz que já veio tudo: o .part é o arquivo inteiro
+          if (!part.renameTo(dest)) {
+            part.copyTo(dest, overwrite = true)
+            part.delete()
+          }
+          onProgress(have, have)
+          return
+        }
         if (!r.isSuccessful) throw PuxaException("network", "O download falhou (erro ${r.code}).")
         val body = r.body ?: throw PuxaException("network", "O download veio vazio.")
-        val total = body.contentLength()
-        var got = 0L
+        // 206: continua do ponto; 200: o servidor mandou tudo de novo, começa do zero
+        val resume = r.code == 206 && have > 0
+        val base = if (resume) have else 0L
+        val length = body.contentLength()
+        val total = if (length > 0) base + length else -1L
+        var got = base
         var last = 0L
         body.byteStream().use { input ->
-          part.outputStream().use { out ->
+          java.io.FileOutputStream(part, resume).use { out ->
             val buf = ByteArray(256 shl 10)
             while (true) {
               if (cancelled()) throw PuxaException("cancelled", "Download cancelado.")
@@ -73,7 +93,7 @@ object Translate {
             }
           }
         }
-        if (total > 0 && got != total) throw PuxaException("network", "O download veio incompleto. Tente de novo.")
+        if (total > 0 && got != total) throw PuxaException("network", "O download parou antes do fim. Toque de novo para continuar de onde parou.")
         onProgress(got, if (total > 0) total else got)
       }
       if (!part.renameTo(dest)) {
@@ -81,11 +101,12 @@ object Translate {
         part.delete()
       }
     } catch (e: PuxaException) {
-      part.delete()
+      // Cancelado ou incompleto: o .part fica para continuar depois (cancelar de propósito apaga)
+      if (e.code == "cancelled") part.delete()
       throw e
     } catch (e: IOException) {
-      part.delete()
-      throw PuxaException("network", "A conexão caiu durante o download. Tente de novo.", e)
+      throw PuxaException("network", "A conexão caiu durante o download. Toque de novo para continuar de onde parou.", e)
     }
   }
+
 }
