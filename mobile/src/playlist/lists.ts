@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { newId } from '../editor/timeline';
 import { COLORS, isColor, nextColor, type ListColor } from './colors';
+import { dropCover } from './covers';
 import { moved } from './queue';
 import { getTracks, onTracksChange, type Track } from './store';
 
@@ -12,7 +13,8 @@ import { getTracks, onTracksChange, type Track } from './store';
  * aparece como "Todas as músicas"); cada playlist guarda só a ordem dos ids dela.
  */
 
-export type Playlist = { id: string; name: string; color: ListColor; trackIds: string[]; created: number };
+/** [cover]: imagem escolhida pela pessoa (caminho no celular); sem ela, a capa é o pôster de cor. */
+export type Playlist = { id: string; name: string; color: ListColor; trackIds: string[]; created: number; cover?: string | null };
 
 /** "Todas as músicas": a biblioteca inteira, na ordem em que entraram. */
 export const ALL = 'all';
@@ -29,7 +31,12 @@ function load(): Playlist[] {
     if (!Array.isArray(list)) return [];
     return list
       .filter((p) => p && p.id && typeof p.name === 'string')
-      .map((p) => ({ ...p, color: isColor(p.color) ? p.color : 'azul', trackIds: Array.isArray(p.trackIds) ? p.trackIds.filter((x) => typeof x === 'string') : [] }));
+      .map((p) => ({
+        ...p,
+        color: isColor(p.color) ? p.color : 'azul',
+        trackIds: Array.isArray(p.trackIds) ? p.trackIds.filter((x) => typeof x === 'string') : [],
+        cover: typeof p.cover === 'string' ? p.cover : null,
+      }));
   } catch {
     return [];
   }
@@ -74,11 +81,11 @@ export function useLists(): Playlist[] {
 
 export const findList = (id: string | null | undefined) => (id ? (lists.find((p) => p.id === id) ?? null) : null);
 
-/** Nome e cor de uma lista, inclusive "Todas as músicas". */
-export function listLook(id: string): { name: string; color: ListColor } {
-  if (id === ALL) return { name: ALL_NAME, color: 'grafite' };
+/** Nome, cor e capa de uma lista, inclusive "Todas as músicas". */
+export function listLook(id: string): { name: string; color: ListColor; cover: string | null } {
+  if (id === ALL) return { name: ALL_NAME, color: 'grafite', cover: null };
   const p = findList(id);
-  return p ? { name: p.name, color: p.color } : { name: ALL_NAME, color: 'grafite' };
+  return p ? { name: p.name, color: p.color, cover: p.cover ?? null } : { name: ALL_NAME, color: 'grafite', cover: null };
 }
 
 export const colorOf = (id: string) => COLORS[listLook(id).color];
@@ -95,19 +102,23 @@ export function tracksOf(id: string, all: Track[] = getTracks()): Track[] {
 /** Ids das músicas já baixadas de uma lista: é isso que toca. */
 export const readyIds = (id: string) => tracksOf(id).filter((t) => t.status === 'ready' && t.path).map((t) => t.id);
 
-export function createList(name: string, color?: ListColor): Playlist {
-  const p: Playlist = { id: newId('pl'), name: name.trim().slice(0, 40) || 'Nova playlist', color: color ?? nextColor(lists.map((x) => x.color)), trackIds: [], created: Date.now() };
+export function createList(name: string, color?: ListColor, cover?: string | null): Playlist {
+  const p: Playlist = { id: newId('pl'), name: name.trim().slice(0, 40) || 'Nova playlist', color: color ?? nextColor(lists.map((x) => x.color)), trackIds: [], created: Date.now(), cover: cover ?? null };
   lists = [...lists, p];
   emit();
   return p;
 }
 
-export function updateList(id: string, patch: Partial<Pick<Playlist, 'name' | 'color'>>) {
+export function updateList(id: string, patch: Partial<Pick<Playlist, 'name' | 'color' | 'cover'>>) {
+  const old = findList(id);
+  // A capa trocada (ou tirada) sai do celular
+  if (old?.cover && 'cover' in patch && patch.cover !== old.cover) dropCover(old.cover);
   lists = lists.map((p) => (p.id === id ? { ...p, ...patch, name: (patch.name ?? p.name).trim().slice(0, 40) || p.name } : p));
   emit();
 }
 
 export function deleteList(id: string) {
+  dropCover(findList(id)?.cover);
   lists = lists.filter((p) => p.id !== id);
   emit();
 }

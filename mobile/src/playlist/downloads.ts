@@ -164,7 +164,7 @@ async function finish(trackId: string, path: string, size: number, duration: num
   const ext = (path.split('.').pop() || 'm4a').toLowerCase();
   const dest = new File(dir, `${trackId}.${ext}`);
   if (dest.exists) dest.delete();
-  new File(`file://${path}`).move(dest);
+  await new File(`file://${path}`).move(dest);
   let thumbnail = t.thumbnail;
   if (thumbnail && /^https?:/.test(thumbnail)) {
     try {

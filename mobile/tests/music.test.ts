@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { coverPad, motifOf, nextColor, titleSize } from '../src/playlist/colors';
+import { artworkArgs } from '../src/playlist/artworkArgs';
+import { colorFromPixels, coverPad, motifOf, nextColor, titleSize } from '../src/playlist/colors';
 import { activeLine, cleanTitle, parseLrc, pickBest, similarity, type LrclibRecord } from '../src/playlist/lyrics';
 import { arrange, moved, neighbor, plan, stuckAtEnd, wrapped } from '../src/playlist/queue';
 
@@ -127,4 +128,30 @@ test('busca da letra: nome parecido, duração perto e com tempo vence', () => {
   assert.equal(pickBest(list, { track: 'Yellow', artist: 'Coldplay', duration: 269 })?.id, 2);
   assert.equal(pickBest([rec({ trackName: 'Outra coisa' })], { track: 'Yellow', artist: 'Coldplay', duration: 266 }), null);
   assert.ok(similarity('Hips Don’t Lie', 'Hips Dont Lie') > 0.6);
+});
+
+test('cor da playlist a partir da imagem', () => {
+  const rep = (r: number, g: number, b: number, n = 64) => Array.from({ length: n }, () => [r, g, b]).flat();
+  assert.equal(colorFromPixels(rep(200, 40, 30)), 'coral');
+  assert.equal(colorFromPixels(rep(30, 60, 200)), 'azul');
+  assert.equal(colorFromPixels(rep(20, 150, 90)), 'verde');
+  assert.equal(colorFromPixels(rep(120, 120, 120)), 'grafite');
+  // Foto escura com um detalhe colorido: a cor do detalhe
+  assert.equal(colorFromPixels([...rep(10, 10, 10, 50), ...rep(220, 60, 140, 14)]), 'rosa');
+  assert.equal(colorFromPixels([]), 'grafite');
+});
+
+test('arte da notificação: quadro na cor da playlist com a capa no meio', () => {
+  const a = artworkArgs({ color: '#EE4B32', art: '/x/capa.jpg', out: '/x/arte.jpg' });
+  assert.ok(a.includes('color=c=0xEE4B32:s=720x720:d=1'));
+  const graph = a[a.indexOf('-filter_complex') + 1];
+  // Miniatura 4:3 do YouTube perde as faixas pretas; recorte quadrado; cantos arredondados
+  assert.match(graph, /between\(iw\/ih\\,1\.30\\,1\.36\)/);
+  assert.match(graph, /crop=605:605/);
+  assert.match(graph, /overlay=58:58/);
+  assert.deepEqual(a.slice(-1), ['/x/arte.jpg']);
+  const plain = artworkArgs({ color: '#2B2F36', art: null, out: '/x/a.jpg' });
+  assert.ok(!plain.includes('-filter_complex'));
+  const dark = artworkArgs({ color: '#F5C518', art: null, out: '/x/a.jpg', mark: '/x/seta.png', darkMark: true });
+  assert.match(dark[dark.indexOf('-filter_complex') + 1], /lutrgb=r=negval/);
 });

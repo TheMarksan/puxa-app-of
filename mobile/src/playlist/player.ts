@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 import { NAMES } from '../sources';
+import { makeArtwork, readyArtwork } from './artwork';
 import { ALL, listLook, onListsChange, readyIds } from './lists';
 import { askNotifications } from './permissions';
 import { arrange, neighbor, plan, stuckAtEnd, wrapped, type LoopMode, type Sample } from './queue';
@@ -95,13 +96,34 @@ const trackOf = (id: string | null) => (id ? (getTracks().find((x) => x.id === i
 const source = (t: Track) => ({ uri: uri(t)!, name: t.title });
 const ids = () => (state.listId ? readyIds(state.listId) : []);
 
+/**
+ * O que a notificação mostra: nome, artista, a playlist e a arte na cor dela (quando já foi
+ * montada; antes disso, a capa simples, e a arte entra logo em seguida).
+ */
 function metadata(t: Track) {
+  const listId = state.listId ?? ALL;
+  const cover = listLook(listId).cover;
   return {
     title: t.title,
     artist: t.artist || (t.source ? (NAMES[t.source as 'instagram' | 'x'] ?? 'YouTube') : 'Puxa'),
-    albumTitle: state.listId ? listLook(state.listId).name : 'Puxa',
-    artworkUrl: artwork(t),
+    albumTitle: listLook(listId).name,
+    artworkUrl: readyArtwork(t, listId) ?? artwork(t) ?? (cover ? (cover.startsWith('/') ? `file://${cover}` : cover) : undefined),
   };
+}
+
+/** Monta a arte da música (se ainda não existe) e troca na notificação quando fica pronta. */
+function brandArtwork(t: Track) {
+  const listId = state.listId ?? ALL;
+  if (readyArtwork(t, listId)) return;
+  makeArtwork(t, listId).then((uri) => {
+    if (!uri || state.trackId !== t.id || !lockScreen) return;
+    const p: AudioPlaylist | AudioPlayer | null = mode === 'solo' ? solo : list;
+    try {
+      p?.updateLockScreenMetadata(metadata(t));
+    } catch {
+      // sem notificação
+    }
+  });
 }
 
 /** Toca com a tela desligada e pede o áudio só para si (os controles da notificação dependem disso). */
@@ -141,6 +163,7 @@ function dropList() {
 
 /** Liga os controles da notificação e da tela de bloqueio para esta música. */
 function showControls(p: AudioPlaylist | AudioPlayer, t: Track, withSkips: boolean) {
+  brandArtwork(t);
   try {
     if (!lockScreen) {
       p.setActiveForLockScreen(true, metadata(t), withSkips ? { showNextTrack: true, showPreviousTrack: true } : { showSeekForward: true, showSeekBackward: true });
@@ -235,6 +258,11 @@ function build(startId: string, at: number, play: boolean): boolean {
       } catch {
         // sem notificação
       }
+      brandArtwork(t);
+      // A próxima já vai ficando pronta
+      const n = neighbor(order, ids(), t.id, 1, state.loop, state.shuffle);
+      const nt = trackOf(n);
+      if (nt && state.listId) makeArtwork(nt, state.listId);
     }
   });
   const first = tracks[0];

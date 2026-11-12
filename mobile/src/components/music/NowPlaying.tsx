@@ -99,7 +99,7 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
         ) : (
           <ScrollView contentContainerStyle={[st.body, { paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
             <View style={[st.artWrap, { width: art, height: art }]}>
-              {t.thumbnail ? <TrackArt uri={imageUri(t.thumbnail)} size={art} radius={22} tint={k.bg} /> : <PlaylistCover name={t.title} color={look.color} size={art} radius={22} />}
+              {t.thumbnail ? <TrackArt uri={imageUri(t.thumbnail)} size={art} radius={22} tint={k.bg} /> : <PlaylistCover name={t.title} color={look.color} size={art} radius={22} image={look.cover} />}
             </View>
             <View style={st.titles}>
               <Text style={st.title} numberOfLines={2}>

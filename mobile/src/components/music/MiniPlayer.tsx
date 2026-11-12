@@ -23,7 +23,8 @@ export function MiniPlayer({ onHeight }: { onHeight?: (h: number) => void }) {
   const [open, setOpen] = useState(false);
   const t = tracks.find((x) => x.id === p.trackId) ?? null;
   if (!t) return null;
-  const k = COLORS[listLook(p.listId ?? ALL).color];
+  const look = listLook(p.listId ?? ALL);
+  const k = COLORS[look.color];
   const sub = k.ink === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.62)';
   const progress = p.duration > 0 ? Math.min(1, p.time / p.duration) : 0;
   return (
@@ -35,7 +36,7 @@ export function MiniPlayer({ onHeight }: { onHeight?: (h: number) => void }) {
           accessibilityRole="button"
           accessibilityLabel={`Tocando ${t.title}. Abrir o player`}
         >
-          <TrackArt uri={imageUri(t.thumbnail)} size={44} radius={10} tint={k.deep} />
+          <TrackArt uri={imageUri(t.thumbnail ?? look.cover)} size={44} radius={10} tint={k.deep} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={[s.title, { color: k.ink }]} numberOfLines={1}>
               {t.title}

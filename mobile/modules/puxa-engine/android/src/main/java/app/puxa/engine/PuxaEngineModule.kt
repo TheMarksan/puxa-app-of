@@ -57,12 +57,29 @@ class PuxaEngineModule : Module() {
   private val mediaRoot: File
     get() = File(context.filesDir, "puxa-media").apply { mkdirs() }
 
+  /**
+   * O canal da notificação do player é criado pela biblioteca de áudio com o nome técnico
+   * "expo_audio_channel". Criando (ou recriando) o mesmo canal antes, com nome e descrição em
+   * português, é assim que ele aparece nas configurações de notificação do app.
+   */
+  private fun nameMediaChannel() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    runCatching {
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+      val channel = android.app.NotificationChannel("expo_audio_channel", "Player de música", android.app.NotificationManager.IMPORTANCE_LOW)
+      channel.description = "Controles das músicas da Playlist (tocar, pausar, próxima)"
+      channel.setShowBadge(false)
+      manager.createNotificationChannel(channel)
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("PuxaEngine")
 
     Events("onProgress", "onDone", "onError", "onSharedText", "onRenderProgress", "onFetchProgress")
 
     OnCreate {
+      nameMediaChannel()
       scope.launch {
         Engine.init()
         // Arquivos de dias anteriores não têm mais uso

@@ -60,7 +60,7 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
                 accessibilityState={{ checked: on }}
                 accessibilityLabel={`${p.name}, ${p.trackIds.length} músicas`}
               >
-                <PlaylistCover name={p.name} color={p.color} size={52} radius={12} />
+                <PlaylistCover name={p.name} color={p.color} size={52} radius={12} image={p.cover} />
                 <View style={s.rowText}>
                   <Text style={[s.name, { color: c.ink }]} numberOfLines={1}>
                     {p.name}
@@ -85,8 +85,8 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
       <ListEditor
         visible={creating}
         onClose={() => setCreating(false)}
-        onSave={(name, color) => {
-          const p = createList(name, color);
+        onSave={(name, color, cover) => {
+          const p = createList(name, color, cover);
           if (trackId) addToList(p.id, [trackId]);
           setCreating(false);
         }}

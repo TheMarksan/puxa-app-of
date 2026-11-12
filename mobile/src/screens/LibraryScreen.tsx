@@ -119,7 +119,7 @@ export function LibraryScreen() {
                 accessibilityLabel={`${p.name}, ${count(ts.length)}${playing ? ', tocando' : ''}`}
               >
                 <View>
-                  <PlaylistCover name={p.name} color={p.color} size={tile} radius={22} />
+                  <PlaylistCover name={p.name} color={p.color} size={tile} radius={22} image={p.cover} />
                   {playing ? (
                     <View style={[s.live, { backgroundColor: COLORS[p.color].ink }]}>
                       <Feather name="volume-2" size={14} color={COLORS[p.color].bg} />
@@ -154,8 +154,8 @@ export function LibraryScreen() {
       <ListEditor
         visible={creating}
         onClose={() => setCreating(false)}
-        onSave={(name, color) => {
-          const p = createList(name, color);
+        onSave={(name, color, cover) => {
+          const p = createList(name, color, cover);
           setCreating(false);
           router.push(`/playlist/${p.id}`);
         }}

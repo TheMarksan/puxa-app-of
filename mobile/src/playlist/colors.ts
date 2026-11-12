@@ -59,3 +59,59 @@ export function titleSize(name: string, side: number): number {
   const byLines = (side * 0.62) / (Math.min(3, words.length) * 1.08);
   return Math.max(7, Math.min(side * 0.34, byWidth, byLines));
 }
+
+/** Matiz (0 a 360), saturação e luminosidade (0 a 1) de uma cor. */
+export function hsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const R = r / 255;
+  const G = g / 255;
+  const B = b / 255;
+  const max = Math.max(R, G, B);
+  const min = Math.min(R, G, B);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = max === R ? ((G - B) / d) % 6 : max === G ? (B - R) / d + 2 : (R - G) / d + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return { h, s, l };
+}
+
+const hex = (c: string) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) as [number, number, number];
+
+/**
+ * Cor da playlist que combina com uma imagem: a matiz que mais aparece entre os pontos coloridos
+ * (pesando pela saturação), levada para a cor mais perto da paleta. Imagem sem cor (preto e
+ * branco, cinza) fica no grafite.
+ */
+export function colorFromPixels(rgb: ArrayLike<number>): ListColor {
+  let x = 0;
+  let y = 0;
+  let weight = 0;
+  let n = 0;
+  for (let i = 0; i + 2 < rgb.length; i += 3) {
+    const c = hsl(rgb[i], rgb[i + 1], rgb[i + 2]);
+    n++;
+    // Pontos quase pretos ou quase brancos não contam como cor
+    const w = c.s * (1 - Math.abs(2 * c.l - 1));
+    if (w <= 0.05) continue;
+    const a = (c.h * Math.PI) / 180;
+    x += w * Math.cos(a);
+    y += w * Math.sin(a);
+    weight += w;
+  }
+  if (!n || weight / n < 0.08 || Math.hypot(x, y) / n < 0.06) return 'grafite';
+  const hue = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  let best: ListColor = 'azul';
+  let gap = Infinity;
+  for (const id of COLOR_IDS) {
+    if (id === 'grafite') continue;
+    const [r, g, b] = hex(COLORS[id].bg);
+    const d = Math.abs(((hsl(r, g, b).h - hue + 540) % 360) - 180);
+    if (d < gap) {
+      gap = d;
+      best = id;
+    }
+  }
+  return best;
+}

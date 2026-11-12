@@ -9,8 +9,17 @@ const POSTER_FONT = 'Anton_400Regular';
  * Capa de playlist: um pôster de cor chapada, com o nome em letra condensada e um desenho de
  * fundo que sai do nome (anéis, listras, pontos ou um sol).
  */
-export function PlaylistCover({ name, color, size, radius = 18, label }: { name: string; color: ListColor; size: number; radius?: number; label?: string }) {
+export function PlaylistCover({ name, color, size, radius = 18, label, image }: { name: string; color: ListColor; size: number; radius?: number; label?: string; image?: string | null }) {
   const k = COLORS[color];
+  if (image) {
+    // Capa escolhida pela pessoa: a imagem inteira, com uma faixa da cor da playlist embaixo
+    const band = Math.max(3, Math.round(size * 0.035));
+    return (
+      <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: k.bg, overflow: 'hidden' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Image source={{ uri: imageUri(image) }} style={{ position: 'absolute', left: 0, top: 0, width: size, height: size - band }} resizeMode="cover" />
+      </View>
+    );
+  }
   const motif = motifOf(name);
   const fs = titleSize(name, size);
   const pad = coverPad(size);

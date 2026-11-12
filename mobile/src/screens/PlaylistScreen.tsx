@@ -2,7 +2,7 @@ import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine from '../../modules/puxa-engine';
@@ -158,8 +158,13 @@ export function PlaylistScreen() {
               </Pressable>
             ) : null}
           </View>
+          {look.cover ? (
+            <Pressable onPress={() => setEditing(true)} style={s.heroArt} accessibilityRole="button" accessibilityLabel="Trocar a capa">
+              <Image source={{ uri: imageUri(look.cover) }} style={{ width: 148, height: 148 }} resizeMode="cover" />
+            </Pressable>
+          ) : null}
           <Text style={[s.kicker, { color: k.ink }]}>{own ? 'PLAYLIST' : 'BIBLIOTECA'}</Text>
-          <Text style={[s.heroTitle, { color: k.ink }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
+          <Text style={[s.heroTitle, { color: k.ink }, look.cover && { fontSize: 44, lineHeight: 50 }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
             {look.name}
           </Text>
           <Text style={[s.heroMeta, { color: k.ink }]}>
@@ -221,7 +226,7 @@ export function PlaylistScreen() {
             </View>
           ) : (
             <View style={s.empty}>
-              <PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={20} />
+              <PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={20} image={look.cover} />
               <Text style={s.emptyTitle}>{own ? 'Playlist vazia' : 'Nenhuma música ainda'}</Text>
               <Text style={s.emptyBody}>
                 {own ? 'Cole links aqui em cima ou escolha músicas que já estão no celular.' : 'Cole um link aqui em cima ou, no Baixar, toque em Playlist. As músicas tocam com a tela desligada.'}
@@ -259,10 +264,10 @@ export function PlaylistScreen() {
         <>
           <ListEditor
             visible={editing}
-            initial={{ name: own.name, color: own.color }}
+            initial={{ name: own.name, color: own.color, cover: own.cover }}
             onClose={() => setEditing(false)}
-            onSave={(name, color) => {
-              updateList(own.id, { name, color });
+            onSave={(name, color, cover) => {
+              updateList(own.id, { name, color, cover });
               setEditing(false);
             }}
           />
@@ -407,9 +412,9 @@ function ListMenu({ visible, name, onClose, onEdit, onDelete }: { visible: boole
         <Text style={{ fontFamily: font.bold, fontSize: 19, color: c.ink, paddingHorizontal: 22, paddingBottom: 8 }} numberOfLines={1}>
           {name}
         </Text>
-        <Pressable onPress={onEdit} android_ripple={{ color: c.hover }} style={menuRow} accessibilityRole="button" accessibilityLabel="Editar nome e cor">
+        <Pressable onPress={onEdit} android_ripple={{ color: c.hover }} style={menuRow} accessibilityRole="button" accessibilityLabel="Editar nome, cor e capa">
           <Feather name="edit-3" size={21} color={c.ink} />
-          <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.ink }}>Editar nome e cor</Text>
+          <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.ink }}>Editar nome, cor e capa</Text>
         </Pressable>
         <Pressable
           onPress={() => (armed ? onDelete() : setArmed(true))}
@@ -482,6 +487,7 @@ const makeStyles = (c: Palette) =>
     root: { flex: 1, backgroundColor: c.bg },
     hero: { paddingHorizontal: 20, paddingBottom: 46, overflow: 'hidden' },
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 },
+    heroArt: { width: 148, height: 148, borderRadius: 18, overflow: 'hidden', marginTop: -8, marginBottom: 18, elevation: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
     round: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     kicker: { fontFamily: 'Anton_400Regular', fontSize: 13, letterSpacing: 1.8, opacity: 0.75 },
     heroTitle: { fontFamily: 'Anton_400Regular', fontSize: 54, lineHeight: 60, textTransform: 'uppercase', marginTop: 2, includeFontPadding: false },

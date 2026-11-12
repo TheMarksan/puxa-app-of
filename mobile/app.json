@@ -2,7 +2,7 @@
   "expo": {
     "name": "Puxa",
     "slug": "puxa",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "puxa",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "app.puxa",
-      "versionCode": 10,
+      "versionCode": 11,
       "adaptiveIcon": {
         "backgroundColor": "#2547D0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -61,6 +61,13 @@
         }
       ],
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "./plugins/with-puxa-android",
       "expo-router",
       "expo-video",
