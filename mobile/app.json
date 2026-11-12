@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Puxa",
+    "slug": "puxa",
+    "version": "1.5.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "puxa",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F4F5F7",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F4F5F7"
+    },
+    "android": {
+      "package": "app.puxa",
+      "versionCode": 9,
+      "adaptiveIcon": {
+        "backgroundColor": "#2547D0",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "useLegacyPackaging": true,
+            "extraMavenRepos": [
+              "https://jitpack.io"
+            ],
+            "buildArchs": [
+              "arm64-v8a"
+            ],
+            "extraProguardRules": "# NewPipeExtractor: o decifrador do YouTube roda no Rhino, que usa reflexão\n-keep class org.schabi.newpipe.extractor.** { *; }\n-keep class org.mozilla.javascript.** { *; }\n-keep class org.mozilla.classfile.ClassFileWriter\n-dontwarn org.mozilla.javascript.**\n-dontwarn javax.script.**\n-dontwarn java.beans.**\n-dontwarn jdk.dynalink.**\n-dontwarn javax.lang.model.**\n-dontwarn org.jsoup.**\n-dontwarn com.google.re2j.**\n-dontwarn edu.umd.cs.findbugs.annotations.**\n-dontwarn org.openjsse.**\n-dontwarn org.conscrypt.**\n-dontwarn org.bouncycastle.**\n# FFmpegKit: o código nativo chama métodos Java pelo nome\n-keep class com.arthenica.ffmpegkit.** { *; }\n-keep class com.arthenica.smartexception.** { *; }\n# whisper.rn (transcrição no aparelho)\n-keep class com.rnwhisper.** { *; }"
+          }
+        }
+      ],
+      "expo-font",
+      "./plugins/with-puxa-android",
+      "expo-router",
+      "expo-video",
+      "expo-secure-store"
+    ]
+  }
+}

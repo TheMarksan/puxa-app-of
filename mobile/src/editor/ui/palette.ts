@@ -1,0 +1,25 @@
+/** O editor é sempre escuro, como os editores de vídeo: o vídeo é o que mais aparece. */
+export const E = {
+  bg: '#0B0C0F',
+  panel: '#14161B',
+  raised: '#1D2027',
+  raised2: '#262A33',
+  line: '#2B2F38',
+  lineStrong: '#3A3F4B',
+  ink: '#F1F2F4',
+  muted: '#9AA1AC',
+  faint: '#6B7280',
+  accent: '#4F6BFF',
+  accentSoft: 'rgba(79, 107, 255, 0.18)',
+  wa: '#16A35A',
+  danger: '#FF7A6E',
+  // Cores das trilhas na linha do tempo
+  clip: '#2A3147',
+  text: '#8B5CF6',
+  sticker: '#F59E0B',
+  image: '#14B8A6',
+  facecam: '#EC4899',
+  captions: '#E5E7EB',
+  music: '#22C55E',
+  voice: '#F97316',
+};
