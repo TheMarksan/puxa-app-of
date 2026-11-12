@@ -11,6 +11,11 @@ import { type Highlight, type SocialItem, type SocialKind, type SocialPost, Sour
 
 /** Chrome de computador: o Instagram entrega a melhor qualidade de vídeo para ele. */
 export const IG_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
+/**
+ * Chrome de celular, só para a tela de login: com o de computador numa tela estreita, o Instagram
+ * mostra o convite "Abrir Instagram" (app para tablet) no lugar do formulário, e o login trava.
+ */
+export const IG_LOGIN_UA = 'Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36';
 export const ROOT = 'https://www.instagram.com';
 export const APP_ID = '936619743392459';
 export const ASBD_ID = '359341';

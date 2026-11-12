@@ -1,18 +1,18 @@
 # Puxa para Android
 
-App em React Native (Expo). A tela inicial é o **Baixar**. No começo, uma barra flutuante azul leva ao **Criar**, às **Figurinhas** e aos **Ajustes**; com um vídeo aberto ela sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
+App em React Native (Expo). A tela inicial é o **Baixar**. No começo, uma barra flutuante azul leva à **Playlist**, às **Figurinhas** e aos **Ajustes**; com um vídeo aberto ela sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
 
-- **Baixar:** vídeos e Shorts do YouTube (MP3, M4A ou MP4 até 1080p), Reels, posts, fotos e perfis do Instagram, e posts e perfis do X. Assim que o link abre, aparecem **Compartilhar**, **Figurinha**, **Baixar** e **Editar**; o arquivo baixa para o armazenamento do app quando você escolhe uma delas. Vai para o WhatsApp inteiro, só um trecho, com legenda gravada na imagem, dublado com vozes de IA ou como figurinha.
-- **Criar:** um editor de vídeo no próprio aparelho. Junta trechos de vários vídeos do YouTube e da galeria, muda formato e enquadramento, coloca transições, textos, figurinhas, legendas, trilha sonora, narração e facecam, e monta o MP4 final no celular.
+- **Baixar:** vídeos e Shorts do YouTube (MP3, M4A ou MP4 até 1080p), Reels, posts, fotos e perfis do Instagram, e posts e perfis do X. Assim que o link abre, aparecem **Compartilhar**, **Figurinha**, **Baixar** e **Playlist**; o arquivo baixa para o armazenamento do app quando você escolhe uma delas. Vai para o WhatsApp inteiro, só um trecho, com legenda gravada na imagem, dublado com vozes de IA ou como figurinha.
+- **Playlist:** cole links (um ou vários de uma vez) e cada um vira uma música guardada no celular. Toca em fila com a tela desligada, com os controles na notificação e na tela de bloqueio.
 - **Figurinhas:** pastas com nome (Memes, Família...). Cada pasta vira um pacote no WhatsApp, separado em paradas e animadas.
-- **Ajustes:** aparência (automático, claro ou escuro), contas (Instagram, só para stories e destaques, e a chave da ElevenLabs, para transcrição e dublagem na nuvem), espaço ocupado com limpeza por tipo de arquivo, e sobre o app.
+- **Ajustes:** aparência (automático, claro ou escuro), contas (Instagram, só para stories e destaques, e a chave da ElevenLabs, para transcrição e dublagem na nuvem), espaço ocupado com limpeza por tipo de arquivo, e os termos de uso.
 
 O app não tem servidor próprio: todo pedido sai do próprio celular. A extração do YouTube usa o [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor), o motor do app NewPipe, num módulo nativo em Kotlin. Como o pedido sai do IP do próprio celular (residencial ou de operadora), o YouTube libera a mídia, o que não acontece com servidores em nuvem. O Instagram e o X entregam a mídia pronta (MP4 com som ou foto): o app pede como o site faz para quem visita sem conta e, se a rede barrar esse pedido, abre a página pública num navegador invisível dentro do app e lê a mídia dali. A montagem dos vídeos usa o FFmpeg (FFmpegKit), a transcrição no celular usa o whisper.cpp e a tradução usa o ML Kit do Google, tudo no aparelho. Só a transcrição e a dublagem pela ElevenLabs saem do celular, e só quando você coloca a sua chave.
 
 ## Baixar
 
 - **Pelo app da rede:** no YouTube, no Instagram ou no X, toque em Compartilhar e escolha Puxa. O link chega no app e a busca começa sozinha. Também dá para colar o link (ou um @ do Instagram).
-- **Ações na hora:** com o link lido, o rodapé já mostra **Compartilhar** (abre o envio, com trecho, legenda e dublagem), **Figurinha**, **Baixar** (salva em `Download/Puxa`) e **Editar** (abre no Criar). Na primeira ação o arquivo baixa para o armazenamento do app, com as etapas no próprio rodapé, e as outras ações usam o mesmo arquivo. Formato (áudio ou vídeo) e qualidade ficam logo abaixo do resultado para quem quiser trocar.
+- **Ações na hora:** com o link lido, o rodapé já mostra **Compartilhar** (abre o envio, com trecho, legenda e dublagem), **Figurinha**, **Baixar** (salva em `Download/Puxa`) e **Playlist** (manda o áudio para a fila da playlist, sem prender a tela). Na primeira ação o arquivo baixa para o armazenamento do app, com as etapas no próprio rodapé, e as outras ações usam o mesmo arquivo. Formato (áudio ou vídeo) e qualidade ficam logo abaixo do resultado para quem quiser trocar.
 - **No envio:** **Enviar no WhatsApp** abre o WhatsApp direto na escolha da conversa; **Outros apps** abre o menu do Android.
 - **Instagram:** Reels, posts, carrosséis (escolha a foto ou o vídeo na tira de miniaturas), fotos e perfis abrem **sem login**, como no site para quem não tem conta. O perfil mostra as publicações recentes com foto ou vídeo; toque numa para abrir. **Stories e destaques** o Instagram só mostra para quem está logado: em Ajustes > Contas, entre pelo próprio site do Instagram dentro do app (a senha vai só para o Instagram) e o perfil passa a mostrar também os stories de agora e os destaques. O app só vê o que a sua conta já vê: conta privada, só se você segue.
 - **X:** posts com vídeo, GIF ou foto, e perfis (os posts recentes com mídia, sem repostagens), sem login.
@@ -22,10 +22,12 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - **Transcrição:** **No celular** (Whisper, sem internet depois de baixar o modelo) ou pela **ElevenLabs** (Scribe, a mais precisa, principalmente em outros idiomas, usando a sua conta). No celular há três modelos: Rápida, Precisa (padrão) e Máxima. Escolher o idioma falado, em vez de Automático, melhora bastante vídeos curtos, com música ou com sotaque. A escolha fica guardada para os próximos vídeos.
 - **Dublar:** a quarta ferramenta do envio de vídeo. A ElevenLabs transcreve separando quem fala, o app traduz e lê com duas vozes de IA (Sarah, feminina, e Liam, masculino): a primeira pessoa fica com a voz escolhida e a segunda com a outra. Cada fala é encaixada no tempo da original (acelera um pouco se precisar). Dá para ouvir antes, deixar o som original baixinho ao fundo ou tirar, e usar a legenda **Da dublagem**. Para português, inglês ou espanhol. Precisa da chave da ElevenLabs (o próprio painel pede); o botão mostra quantos créditos a dublagem deve gastar.
 - **Ajustar na tela:** abre o vídeo em tela cheia com a legenda de verdade por cima. Arraste a legenda para onde quiser: linhas rosa no centro, como no Canva, mostram quando ela está centralizada na vertical ou na horizontal. Ali ficam 10 formatos prontos (faixa, clássica, contorno, impacto, amarela, marca-texto, pílula, cartão, neon, simples), 7 animações (surgir, subir, pop, palavra a palavra, karaokê, uma palavra por vez), 15 fontes, cores, tamanho e a lista dos textos para corrigir, apagar ou criar legendas.
+- **Altura da legenda:** logo abaixo do cartão da legenda, a barra **Altura da legenda** leva a legenda de embaixo até em cima (gruda em Embaixo, No meio e Em cima, com um toque em cada um). A mesma barra fica na aba Posição do Ajustar na tela; se a legenda foi arrastada para um lado, o lado é mantido.
 - **Enquadramento:** o vídeo vai como veio (padrão) ou com zoom, arrastando para escolher a parte da imagem.
 - **Envio:** três cartões no topo escolhem o que sai: **Vídeo**, figurinha **Animada** (um trecho de até 10 s, limite do WhatsApp) ou figurinha **Parada** (um quadro, com passos de 0,1 s). No vídeo, as ferramentas **Cortar**, **Legenda** e **Zoom** abrem só quando você toca nelas; segurar o Zoom volta ao enquadramento original. Arrastar a alça da folha para baixo fecha o envio.
-- **Figurinha:** formatos desenhados com o próprio quadro do vídeo (quadrado, círculo ou inteiro) e o contorno branco; texto com posição e cor no mesmo campo; o emoji pelo qual o WhatsApp sugere a figurinha; e a **pasta** onde ela entra (ou **Nova**, ali mesmo). A prévia mostra o recorte sobre o fundo da conversa do WhatsApp; arrastar escolhe a parte do vídeo e dois dedos aproximam. Fotos do Instagram e do X também viram figurinha.
-- **Editar no modo Criar** abre o vídeo baixado num projeto novo.
+- **Figurinha:** **Recorte** (com os **cantos** ajustáveis do reto ao círculo: arraste a barra ou toque em Retos, Suaves, Redondos ou Círculo) ou **Inteiro** (o quadro todo, sem cortar), e o contorno branco; texto com posição e cor no mesmo campo; o emoji pelo qual o WhatsApp sugere a figurinha; e a **pasta** onde ela entra (ou **Nova**, ali mesmo). A prévia mostra o recorte sobre o fundo da conversa do WhatsApp; arrastar escolhe a parte do vídeo e dois dedos aproximam. Fotos do Instagram e do X também viram figurinha.
+- O formato, os cantos e o contorno escolhidos ficam guardados para a próxima figurinha.
+- **Vídeos do Instagram e do X:** esses MP4 vêm fragmentados; o app os reempacota ao baixar, então o tamanho, a duração e o primeiro quadro saem certos em todos os formatos de figurinha.
 
 ## Figurinhas
 
@@ -34,28 +36,21 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - O WhatsApp pede **pelo menos 3 figurinhas por pacote**. Enquanto houver menos, as que existem aparecem repetidas; as repetições somem quando você faz as próximas. Cada pasta guarda até 30 paradas e 30 animadas; cheia, o app pede outra pasta.
 - Na tela **Figurinhas** (barra flutuante), as pastas aparecem com a capa das últimas figurinhas. Dentro de uma pasta: renomear, apagar a pasta, adicionar ao WhatsApp e, tocando numa figurinha, mandar em outro app, mover para outra pasta ou apagar (com alguns segundos para desfazer).
 
-## Criar
+## Playlist
 
-- **Mídia:** vídeos por link do YouTube (com escolha de qualidade), vídeos e fotos da galeria. Cada clipe pode ser cortado nas alças da linha do tempo, dividido no ponto atual, duplicado, reordenado e acelerado ou desacelerado (0,25x a 4x). Fotos ganham um zoom lento.
-- **Formato:** 9:16 (Status, Reels), 1:1, 4:5, 16:9 ou o do vídeo original, em 720p ou 1080p.
-- **Enquadrar:** preencher, encaixar ou encaixar com fundo desfocado; zoom e posição arrastando e pinçando na prévia; girar 90° e espelhar. Assim o vídeo não precisa sair como veio. Vídeo deitado num formato em pé (ou o contrário) entra com fundo desfocado, para nada ficar cortado.
-- **Filtros de cor** (vívido, quente, frio, P&B, cinema, retrô). Na prévia a cor é aproximada; o vídeo exportado usa o filtro completo.
-- **Transições** entre clipes: dissolver, pelo preto, deslizar, cortina, círculo, zoom e outras, com duração ajustável.
-- **Textos, figurinhas e imagens:** arraste para posicionar (com guias de centro), use dois dedos para mudar tamanho e ângulo, e ajuste início e fim na linha do tempo. Textos têm 15 fontes, cores e fundos (caixa, faixa, pílula, contorno, neon, sombra).
-- **Legendas** do YouTube (originais ou em pt-BR), transcritas do áudio dos clipes ou escritas à mão, com os mesmos formatos, animações e fontes do envio. Na prévia, arraste a legenda (com as guias de centro) e corrija os textos no painel.
-- **Trilha sonora:** gêneros com busca de músicas "sem direitos autorais" no YouTube (ou um link colado), ouvir antes, adicionar com um toque e depois ajustar trecho, volume, entrada e saída suaves e repetição.
-- **Narração e facecam:** grava a sua voz, ou voz e câmera, enquanto o vídeo toca. Na gravação, as opções ficam numa barra baixa e a prévia do vídeo ocupa quase toda a tela, com a contagem regressiva e o tempo gravado por cima dela. A bolha da câmera fica onde você arrastar, em círculo, cantos arredondados ou quadrado, com borda e espelhamento. Com fone conectado, "Ouvir o vídeo" liga sozinho. A música abaixa sozinha quando há voz.
-- Desfazer e refazer, salvamento automático e lista de projetos. Apagar um projeto apaga as mídias dele (com alguns segundos para desfazer).
-- **Prévia:** o vídeo, a facecam, a narração e a música tocam juntos sem disputar o áudio do aparelho (antes, a trilha pausava o vídeo), e um vídeo que demora a começar não é mais reiniciado a cada quadro.
+- **Adicionar:** cole um link ou uma mensagem inteira com vários; o app pega os links do YouTube, do Instagram e do X e ignora o resto. Um link que já está na lista não entra de novo (o mesmo vídeo do YouTube em formatos diferentes de link conta como um só). No Baixar, o botão **Playlist** do rodapé manda o vídeo aberto, já com nome e capa.
+- **Baixar:** um link por vez, em fila, mesmo fora da tela da Playlist. Do YouTube vem o M4A original; do Instagram e do X, o áudio AAC do próprio vídeo, copiado sem recodificar (se não der, vira MP3). A capa fica guardada junto. Um link que falhar mostra o motivo e **Tentar de novo**; ao abrir o app, o que estava na fila continua.
+- **Tocar:** toque numa música para tocar; a fila segue a ordem da lista. O player fica embaixo, com a barra de tempo (tocar ou arrastar), anterior (volta ao começo depois de 3 s), tocar/pausar, próxima e repetir (a lista, só esta música ou nada). Com a tela desligada, a notificação e a tela de bloqueio mostram nome, capa e os controles.
+- **Cada música:** no ⋮, mandar no WhatsApp ou em outro app, salvar em `Download/Puxa`, subir, descer ou remover (apaga o arquivo).
+- Os arquivos ficam em `files/playlist` e a lista em `files/playlist.json`. Em Ajustes > Armazenamento, **Playlist** apaga tudo (com um segundo toque).
 
 ## Ajustes
 
-- **Aparência:** automático (igual ao celular), claro ou escuro, escolhidos pela miniatura do celular em cada tema. O editor continua escuro.
-- **Contas:** **Instagram** (Entrar abre o site do Instagram; Sair apaga a sessão do app) e **ElevenLabs** (a chave fica guardada com criptografia no aparelho e o app mostra os créditos que sobram). O link **Onde pego a chave?** abre a página das chaves no site da ElevenLabs.
-- **Armazenamento:** quanto o app ocupa, por tipo (baixados, temporários, projetos, figurinhas e transcrição), com o botão de limpar cada um. Projetos e figurinhas pedem um segundo toque; um download em andamento não é apagado.
-- **Sobre:** versão do app e, recolhidas, as licenças.
+- **Aparência:** automático (igual ao celular), claro ou escuro, escolhidos pela miniatura do celular em cada tema.
+- **Contas:** **Instagram** (Entrar abre o site do Instagram, carregado como no Chrome de celular para o formulário de login aparecer; Sair apaga a sessão do app) e **ElevenLabs** (a chave fica guardada com criptografia no aparelho e o app mostra os créditos que sobram). O link **Onde pego a chave?** abre a página das chaves no site da ElevenLabs.
+- **Armazenamento:** quanto o app ocupa, por tipo (baixados, temporários, playlist, figurinhas e transcrição), com o botão de limpar cada um. Playlist e figurinhas pedem um segundo toque; um download em andamento não é apagado.
+- **Sobre:** versão do app e, recolhidos, os **Termos de uso** (o que é o app, como funciona, seus dados, uso, garantia e os créditos do software livre).
 - Na tela **Figurinhas**, apagar uma figurinha dá alguns segundos para desfazer.
-- **Exportar** monta o MP4 com o codificador de vídeo do próprio celular; se o aparelho recusar, refaz com o codificador por software. No fim: WhatsApp, Salvar ou outros apps.
 
 ## Formatos e limites
 
@@ -66,9 +61,9 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - **Transcrição no celular:** na primeira vez o app baixa o modelo escolhido: Rápida (60 MB), Precisa (190 MB) ou Máxima (550 MB, a large-v3-turbo). Depois funciona sem internet. Em vídeos longos pode levar alguns minutos, conforme o celular; a Máxima pede um celular mais forte.
 - **ElevenLabs:** a transcrição e a dublagem gastam créditos da sua conta. A voz gasta cerca de 1 crédito por letra falada (uns 140 a cada 10 s de fala), e o botão de dublar mostra a estimativa antes. Sem créditos, o app avisa.
 - **Tradução no aparelho:** o primeiro uso baixa o pacote do idioma (cerca de 30 MB).
-- **Limite do WhatsApp:** acima de 16 MB ele pode mandar como documento. O envio de trecho e a opção **Caber no WhatsApp** do modo Criar (ligada nos projetos novos) ajustam a qualidade para o vídeo ficar abaixo disso; se nem assim couber (vídeos de vários minutos), o app avisa.
+- **Limite do WhatsApp:** acima de 16 MB ele pode mandar como documento. O envio de trecho ajusta a qualidade para o vídeo ficar abaixo disso; se nem assim couber (vídeos de vários minutos), o app avisa.
 - **Figurinhas:** WebP 512x512, até 100 KB a parada e 500 KB a animada, que repete sem parar. Na animada, o app começa com 8 a 15 quadros por segundo (conforme a duração) e baixa qualidade e quadros até caber; trechos curtos que sobram espaço ganham uma segunda passada com mais qualidade.
-- **Permissões:** câmera e microfone, só para a narração e a facecam. O app não pede acesso aos arquivos: a galeria abre pelo seletor do Android e o "Baixar" grava em `Download/Puxa`.
+- **Permissões:** nenhuma que o Android pergunte. Sem câmera, microfone ou acesso aos arquivos: o "Baixar" grava em `Download/Puxa`. A playlist usa o serviço de mídia do Android (tocar em segundo plano) para continuar com a tela desligada.
 
 ## Instalar o APK
 
@@ -82,18 +77,18 @@ Esse APK é assinado com a chave de depuração padrão, a mesma da versão ante
 
 ## O que testar no celular
 
-O código foi conferido aqui com verificação de tipos, lint, testes do editor, das figurinhas, dos links e respostas do Instagram e do X e da dublagem, e uma montagem de ponta a ponta com o mesmo FFmpeg 6.1.1 do app (vídeos, fotos, filtros, transições, textos, facecam, legendas, mistura de áudio e as figurinhas, conferidas nas regras do WhatsApp: 512x512, peso, repetição, duração dos quadros). O Instagram, o X e a ElevenLabs não são acessíveis daqui, então essas partes só foram testadas com respostas gravadas. Estas partes só rodam num aparelho de verdade:
+O código foi conferido aqui com verificação de tipos, lint, testes das legendas, das figurinhas, dos links e respostas do Instagram e do X, da dublagem e da playlist, e as figurinhas de ponta a ponta com o mesmo FFmpeg 6.1.1 do app (cantos de 0 ao círculo, inteiro, contorno, texto, e vídeos do X em MP4 fragmentado), conferidas nas regras do WhatsApp: 512x512, peso, repetição, duração dos quadros. A interface foi conferida na prévia web, em claro e escuro. O login do Instagram foi conferido renderizando a página com o mesmo navegador do app. O X e a ElevenLabs só foram testados com respostas gravadas. Estas partes só rodam num aparelho de verdade:
 
-1. Baixar áudio em MP3 e um vídeo em 720p; mandar no WhatsApp. Conferir que Compartilhar, Figurinha, Baixar e Editar aparecem logo que o link abre.
+1. Baixar áudio em MP3 e um vídeo em 720p; mandar no WhatsApp. Conferir que Compartilhar, Figurinha, Baixar e Playlist aparecem logo que o link abre.
 2. Instagram sem login: um Reel, um carrossel (escolher a 2ª foto), um perfil público (abrir uma publicação da lista). Um link de story sem login deve abrir o perfil com o aviso de login.
-3. Instagram com login (Ajustes > Contas > Entrar): stories de agora e um destaque de um perfil que você segue.
+3. Instagram com login (Ajustes > Contas > Entrar): o formulário aparece (não o convite "Abrir Instagram"), o login volta sozinho para os Ajustes com "Conectado", e os stories de agora e um destaque de um perfil que você segue abrem.
 4. X: um post com vídeo, um com foto, um link curto t.co e um perfil.
 5. Figurinhas: criar uma pasta no envio, fazer duas figurinhas nela, adicionar ao WhatsApp, renomear a pasta e mover uma figurinha para a Puxa.
 6. Com a chave da ElevenLabs: transcrever um vídeo em inglês pela ElevenLabs e pelo celular (modelo Precisa, idioma Inglês) e comparar; dublar um trecho de 15 s para português com o som original baixinho e mandar no WhatsApp.
 7. Mandar um trecho de vídeo com legenda do YouTube em português e outro com legenda transcrita; em "Ajustar na tela", arrastar a legenda até as guias, trocar formato, fonte e animação (karaokê e pop) e conferir que o vídeo enviado ficou igual à prévia.
-8. No Criar: dois vídeos do YouTube e uma foto, formato 9:16 com fundo desfocado, uma transição, um texto e uma música; exportar.
-9. Gravar narração e facecam (com e sem fone), conferindo que o vídeo aparece grande e toca durante a gravação; arrastar a bolha para outro canto e exportar de novo.
-10. Num vídeo baixado, fazer uma figurinha animada de 3 s com texto e uma de um quadro em círculo; tocar em Adicionar ao WhatsApp e mandar as duas numa conversa.
+8. Playlist: colar uma mensagem com dois links do YouTube e um Reel; esperar baixar, tocar, bloquear a tela e usar próxima e anterior pela notificação; trocar a ordem e remover uma.
+9. No Baixar, abrir um vídeo do X e tocar em Playlist; conferir que entra com nome e capa e que o botão vira "Na playlist".
+10. Num Reel e num vídeo do X, fazer uma figurinha animada em Recorte com cantos Retos, Suaves e Círculo, e uma em Inteiro; conferir que a prévia mostra o vídeo em todas. Fazer uma de um quadro em círculo; tocar em Adicionar ao WhatsApp e mandar numa conversa.
 11. Nos Ajustes, trocar para escuro e para claro, limpar os temporários e conferir que o Baixar continua funcionando.
 
 Se algo falhar na montagem, a tela de erro tem **Copiar detalhes técnicos**: esse texto mostra o que o FFmpeg recusou.
@@ -128,8 +123,7 @@ A pasta `android/` é gerada pelo `prebuild` e não vai para o git: ajustes nati
 Testes:
 
 ```bash
-npm test                                         # editor, figurinhas, links e respostas do Instagram e do X, dublagem
-npx tsx tests/render.e2e.ts <mídia> <saída>      # monta projetos com o ffmpeg do computador
+npm test                                         # legendas, figurinhas, links e respostas do Instagram e do X, dublagem, playlist
 npx tsx tests/sticker.e2e.ts <mídia> <saída>     # gera figurinhas e confere as regras do WhatsApp
 npx expo export -p web                           # prévia da interface no navegador (dados de exemplo)
 ```
@@ -137,10 +131,10 @@ npx expo export -p web                           # prévia da interface no naveg
 ## Estrutura
 
 ```
-src/app/                      rotas: início, criar, figurinhas (pastas e figurinhas/[id]), ajustes, instagram
-                              (login), editor/[id], render/[id]
+src/app/                      rotas: início, playlist, figurinhas (pastas e figurinhas/[id]), ajustes, instagram
+                              (login)
 src/Home.tsx                  modo Baixar: link, resultado, perfil, formato, qualidade, rodapé com as ações
-src/screens/                  telas: início, Criar (projetos), Figurinhas (pastas), pasta, Ajustes, login
+src/screens/                  telas: início, Playlist, Figurinhas (pastas), pasta, Ajustes, login
 src/settings.ts               preferências guardadas (aparência, pasta, transcrição, voz)
 src/sources/                  links: YouTube, Instagram e X (index.ts decide), leitura das respostas sem
                               React Native (instagramParse.ts, x.ts, json.ts), navegador invisível (harvest.ts)
@@ -149,26 +143,27 @@ src/ai/                       ElevenLabs (chave, transcrição Scribe, vozes), p
 src/components/               Dock (ações), FloatingBar e QuickMenu, Social (perfil, tiras de posts e
                               stories), Harvester, SendSheet (áudio), VideoSendSheet (vídeo, foto, trecho,
                               legenda, dublagem e figurinha), DubPanel, StickerPanel, CaptionStudio, Trimmer
+src/playlist/                 playlist: lista guardada (store.ts), fila de downloads (downloads.ts), player com
+                              a notificação (player.ts) e leitura dos links sem React Native (links.ts)
 src/stickers/                 figurinhas: geometria e comandos do FFmpeg (sticker.ts), tentativas até caber
                               no limite (make.ts), pastas (folders.ts) e a ponte com o aparelho (device.ts)
-src/editor/                   modo Criar, sem React Native nos arquivos de lógica:
-  types.ts, timeline.ts       modelo do projeto e geometria (a mesma na prévia e no vídeo final)
-  render.ts                   projeto → comando do FFmpeg (filter_complex)
+src/editor/                   montagem do vídeo do envio, sem React Native nos arquivos de lógica:
+  types.ts, timeline.ts       modelo do vídeo e geometria (a mesma na prévia e no vídeo final)
+  render.ts, exporter.ts      vídeo → comando do FFmpeg (filter_complex) e a montagem no aparelho
   captions.ts, subtitles.ts   legendas do YouTube, transcrição (whisper.rn) e tradução
   captionLayout.ts            posição da legenda (fixa ou arrastada) e os formatos prontos
   captionMotion.ts            animações das legendas, iguais na prévia e no vídeo final
-  store.ts, actions.ts        estado com desfazer, salvamento automático
-  ui/                         editor, prévia, linha do tempo, painéis e tela de exportação
+  ui/                         camada da legenda, controles e estilos usados no envio
 modules/puxa-engine/          módulo nativo (Kotlin)
   Engine.kt                   NewPipeExtractor, streams, download em blocos, busca, legendas
-  Direct.kt                   download direto da mídia do Instagram e do X (com retomada) e MP3
+  Direct.kt                   download direto da mídia do Instagram e do X (com retomada, reempacotado), MP3 e M4A
   Media.kt                    remux, corte e picos da onda
   Render.kt                   FFmpegKit, miniaturas e desenho das camadas em PNG
   Translate.kt                tradução no aparelho (ML Kit) e downloads de modelos
   Stickers.kt                 pastas, pacotes de figurinhas e o ContentProvider que o WhatsApp lê
   Storage.kt                  espaço ocupado por tipo e limpeza (Ajustes)
 plugins/with-puxa-android.js  menu Compartilhar, desugaring do NewPipeExtractor e WebP animado
-tests/                        testes do editor e montagem de ponta a ponta
+tests/                        testes de unidade e figurinhas de ponta a ponta
 ```
 
 ## Quando algo falha
@@ -186,12 +181,11 @@ As mensagens aparecem em português no próprio app. As mais comuns:
 - **O Instagram e o X também mudam.** Os pedidos e os identificadores das consultas ficam em `src/sources/instagram.ts`, `src/sources/instagramParse.ts` e `src/sources/x.ts`.
 - **ElevenLabs:** **"não aceitou a chave"** (confira ou gere outra nos Ajustes), **"os créditos acabaram neste mês"** (espere a renovação ou mude de plano) e **"está cheia agora"** (tente de novo em instantes).
 
-## Licenças e direitos
+## Licenças
 
 - **NewPipeExtractor** é GPL-3.0. Se for distribuir o app publicamente, o código do app também precisa ser publicado sob a GPL-3.0. O arquivo `LICENSE` atual veio do modelo do Expo e deve ser trocado nesse caso.
 - **FFmpeg / FFmpegKit** (build `ffmpeg-kit-16kb` 6.1.1, compilado com `--enable-gpl`) é GPL-3.0, com LAME (MP3), OpenH264 e libwebp (figurinhas).
 - **whisper.cpp / whisper.rn** e os modelos Whisper são MIT. **ML Kit** segue os termos do Google. **React Native WebView** e **expo-secure-store** são MIT.
 - **ElevenLabs:** a transcrição e as vozes seguem os termos da ElevenLabs e usam a conta de quem coloca a chave.
 - **Fontes** (Archivo, Montserrat, Poppins, Nunito, Fredoka, Bebas Neue, Anton, Oswald, Lora, Playfair Display, Caveat, Permanent Marker, Pacifico, Bangers, Space Mono) são SIL Open Font License, menos Permanent Marker, que é Apache 2.0.
-- **Músicas:** "sem direitos autorais" no YouTube nem sempre quer dizer livre de tudo; muitas pedem crédito ao autor. Confira a descrição do vídeo antes de publicar.
-- Os Termos de Serviço do YouTube, do Instagram e do X não permitem baixar conteúdo sem autorização, fora os recursos oficiais. Use para vídeos seus, com licença livre ou com permissão de quem fez. O app só abre o que a rede já mostra publicamente ou para a sua conta.
+- Dentro do app, os Termos de uso (Ajustes > Sobre) citam esses componentes de software livre e as licenças de cada um.

@@ -2,7 +2,7 @@ import { parseInstagram } from './instagramParse';
 import type { SocialItem, SocialPost, SocialProfile } from './social';
 import { parseX } from './x';
 
-/** Só para a prévia web (sem rede social de verdade): posts e perfil de exemplo com as mídias locais. */
+/** Só para a prévia web (sem rede social de verdade): posts e perfil de exemplo, com contas fictícias e as mídias locais. */
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -37,7 +37,7 @@ const photo = (id: string, name: 'sea' | 'sunset', thumb: number): SocialItem =>
 
 const STORIES = [video('s1', 'sea', 2, 8), photo('s2', 'sunset', 6), video('s3', 'sea', 5, 8), photo('s4', 'sea', 7)];
 
-const base = { authorName: 'Praia do Francês', avatar: '/preview/thumbs/sunset-3.jpg', headers: {} };
+const base = { authorName: 'Mar Aberto', avatar: '/preview/thumbs/sunset-3.jpg', headers: {} };
 
 const POSTS = (source: 'instagram' | 'x', author: string): SocialPost[] => [
   { ...base, source, kind: 'reel', id: 'r1', link: '', title: 'O mar mais azul do Nordeste 🌊', author, items: [video('r1', 'sea', 3, 8)], initial: 0 },
@@ -55,13 +55,13 @@ export async function previewResolve(text: string): Promise<{ type: 'post'; post
   if (x?.type === 'profile') {
     return {
       type: 'profile',
-      profile: { source: 'x', id: '9', username: x.username, fullName: 'Orla de Boa', avatar: '/preview/thumbs/sunset-6.jpg', isPrivate: false, posts: POSTS('x', x.username), stories: null, highlights: null, headers: {} },
+      profile: { source: 'x', id: '9', username: x.username, fullName: 'Fim de Tarde', avatar: '/preview/thumbs/sunset-6.jpg', isPrivate: false, posts: POSTS('x', x.username), stories: null, highlights: null, headers: {} },
     };
   }
   if (x) {
     return {
       type: 'post',
-      post: { ...base, source: 'x', kind: 'tweet', id: '1', link: text, title: 'Fim de tarde na orla, ninguém queria ir embora', author: 'orladeboa', items: [video('x1', 'sunset', 5, 10)], initial: 0 },
+      post: { ...base, source: 'x', kind: 'tweet', id: '1', link: text, title: 'Fim de tarde na orla, ninguém queria ir embora', author: 'fimdetarde_demo', items: [video('x1', 'sunset', 5, 10)], initial: 0 },
     };
   }
   if (ig?.type === 'profile') {
@@ -71,7 +71,7 @@ export async function previewResolve(text: string): Promise<{ type: 'post'; post
         source: 'instagram',
         id: '1',
         username: ig.username,
-        fullName: 'Praia do Francês',
+        fullName: 'Mar Aberto',
         avatar: '/preview/thumbs/sunset-3.jpg',
         isPrivate: false,
         posts: POSTS('instagram', ig.username),
@@ -89,7 +89,7 @@ export async function previewResolve(text: string): Promise<{ type: 'post'; post
     };
   }
   if (ig?.type === 'story' || ig?.type === 'highlight') {
-    return { type: 'post', post: { ...base, source: 'instagram', kind: ig.type, id: '2', link: text, title: 'Story de @praiadofrances', author: 'praiadofrances', items: STORIES, initial: 0 } };
+    return { type: 'post', post: { ...base, source: 'instagram', kind: ig.type, id: '2', link: text, title: 'Story de @mar.aberto.demo', author: 'mar.aberto.demo', items: STORIES, initial: 0 } };
   }
   const carousel = /\/p\//.test(text);
   return {
@@ -101,7 +101,7 @@ export async function previewResolve(text: string): Promise<{ type: 'post'; post
       id: '3',
       link: text,
       title: carousel ? 'Três jeitos de ver o mesmo mar' : 'O mar mais azul do Nordeste 🌊',
-      author: 'praiadofrances',
+      author: 'mar.aberto.demo',
       items: carousel ? [video('c1', 'sea', 1, 8), photo('c2', 'sunset', 4), video('c3', 'sunset', 9, 10)] : [video('r1', 'sea', 3, 8)],
       initial: 0,
     },
@@ -111,5 +111,5 @@ export async function previewResolve(text: string): Promise<{ type: 'post'; post
 /** Destaque de exemplo (prévia web). */
 export async function previewHighlight(id: string, title: string): Promise<SocialPost> {
   await sleep(500);
-  return { ...base, source: 'instagram', kind: 'highlight', id, link: '', title, author: 'praiadofrances', items: [...STORIES].reverse(), initial: 0 };
+  return { ...base, source: 'instagram', kind: 'highlight', id, link: '', title, author: 'mar.aberto.demo', items: [...STORIES].reverse(), initial: 0 };
 }

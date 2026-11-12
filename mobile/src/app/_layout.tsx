@@ -9,6 +9,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Harvester } from '../components/Harvester';
 import { ToastProvider } from '../components/Toasts';
 import { FONT_MAP } from '../editor/fonts';
+import { resumeQueue } from '../playlist/downloads';
+import { preparePlayer } from '../playlist/player';
 import { applyTheme, getSettings } from '../settings';
 import { usePalette } from '../theme';
 
@@ -18,6 +20,12 @@ if (getSettings().theme !== 'system') applyTheme(getSettings().theme);
 export default function RootLayout() {
   const c = usePalette();
   const [loaded] = useFonts({ Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold, ...FONT_MAP });
+
+  // A playlist volta de onde parou: termina os downloads e deixa os controles prontos
+  useEffect(() => {
+    resumeQueue();
+    preparePlayer();
+  }, []);
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(c.bg).catch(() => {});

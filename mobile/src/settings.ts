@@ -19,6 +19,10 @@ export type Settings = {
   spokenLanguage?: string;
   /** Voz da dublagem (id da ElevenLabs). */
   voice?: string;
+  /** Último formato da figurinha: recorte ou inteiro, e o arredondamento dos cantos (0 a 1). */
+  stickerShape?: 'crop' | 'fit';
+  stickerCorner?: number;
+  stickerOutline?: boolean;
 };
 
 const DEFAULTS: Settings = { theme: 'system' };

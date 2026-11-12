@@ -91,6 +91,6 @@ export async function loadHighlight(h: Highlight, username: string): Promise<Soc
   return { ...post, title: h.title || post.title, author: post.author === 'instagram' ? username : post.author };
 }
 
-export { IG_UA, instagramLoggedIn } from './instagram';
+export { IG_LOGIN_UA, IG_UA, instagramLoggedIn } from './instagram';
 export { itemInfo, NAMES, SourceError } from './social';
 export type { Highlight, InstagramProfile, SocialItem, SocialPost, SocialProfile } from './social';

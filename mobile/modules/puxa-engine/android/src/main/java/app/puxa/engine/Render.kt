@@ -109,17 +109,43 @@ object Render {
       val hasAudio = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
       var w = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
       var h = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-      val rot = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+      var rot = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+      var duration = dur
+      var video = hasVideo
+      // Arquivo que o leitor do Android não entende por inteiro (MP4 fragmentado): pergunta ao FFprobe
+      if (w <= 0 || h <= 0 || duration <= 0) {
+        ffprobe(path)?.let { p ->
+          if (p.width > 0 && p.height > 0) { w = p.width; h = p.height; rot = p.rotation; video = true }
+          if (duration <= 0) duration = p.duration
+        }
+      }
       if (rot % 180 != 0) { val t = w; w = h; h = t }
       return mapOf(
-        "kind" to if (hasVideo) "video" else "audio",
-        "duration" to dur, "width" to w, "height" to h,
-        "hasAudio" to hasAudio, "hasVideo" to hasVideo, "rotation" to rot,
+        "kind" to if (video) "video" else "audio",
+        "duration" to duration, "width" to w, "height" to h,
+        "hasAudio" to hasAudio, "hasVideo" to video, "rotation" to rot,
       )
     } finally {
       r.release()
     }
   }
+
+  private data class Probed(val width: Int, val height: Int, val rotation: Int, val duration: Double)
+
+  private fun ffprobe(path: String): Probed? = try {
+    val info = com.arthenica.ffmpegkit.FFprobeKit.getMediaInformation(path)?.mediaInformation
+    val v = info?.streams?.firstOrNull { it.type == "video" }
+    if (info == null) null else {
+      val tags = v?.tags
+      var rot = tags?.optString("rotate")?.toIntOrNull() ?: 0
+      val side = v?.allProperties?.optJSONArray("side_data_list")
+      if (side != null) for (i in 0 until side.length()) {
+        val d = side.optJSONObject(i) ?: continue
+        if (d.has("rotation")) rot = d.optInt("rotation")
+      }
+      Probed(v?.width?.toInt() ?: 0, v?.height?.toInt() ?: 0, ((rot % 360) + 360) % 360, info.duration?.toDoubleOrNull() ?: 0.0)
+    }
+  } catch (_: Throwable) { null }
 
   private fun exifRotation(path: String): Int = try {
     when (ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {

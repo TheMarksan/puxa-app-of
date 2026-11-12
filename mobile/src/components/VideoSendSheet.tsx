@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DoneEvent, VideoInfo } from '../../modules/puxa-engine';
 import type { DubResult } from '../ai/dub';
 import { useElevenKey } from '../ai/key';
-import { CAPTION_LOOKS, defaultCaptionStyle, lookOf } from '../editor/captionLayout';
+import { CAPTION_LOOKS, captionHeight, defaultCaptionStyle, lookOf, withCaptionHeight } from '../editor/captionLayout';
 import { MOTIONS } from '../editor/captionMotion';
 import { slice } from '../editor/captions';
 import { exportProject } from '../editor/exporter';
@@ -27,10 +27,12 @@ import { ease, font, Palette, usePalette } from '../theme';
 import { BackButton } from './BackButton';
 import { Button } from './Button';
 import { Pill } from './Pill';
+import { heightName } from '../editor/ui/CaptionControls';
 import { CaptionStudio, ORIGINAL, type Framing, type StudioTab } from './CaptionStudio';
 import { DubPanel, useDubPreview } from './DubPanel';
 import { ModeTiles, Reveal, ToolToggle, useSheetDrag, type Mode } from './SheetParts';
-import { defaultDesign, EMOJIS, type StickerDesign } from '../stickers/sticker';
+import { clampCorner, defaultDesign, EMOJIS, type StickerDesign } from '../stickers/sticker';
+import { SnapSlider } from './SnapSlider';
 import { StickerPanel } from './StickerPanel';
 import { MIN_CLIP, Trimmer } from './Trimmer';
 
@@ -76,18 +78,45 @@ export type SendAs = 'video' | 'animated' | 'still' | 'photo';
  * dublagem com vozes de IA. Ou como figurinha do WhatsApp: animada (um trecho) ou parada (um
  * quadro). Fotos (Instagram, X) vão como foto ou figurinha parada.
  */
+const HEIGHT_STOPS = [
+  { value: 0, label: 'Embaixo' },
+  { value: 0.5, label: 'No meio' },
+  { value: 1, label: 'Em cima' },
+];
+
+/** Quadrinho com a faixa da legenda na altura daquele ponto. */
+function HeightGlyph({ at, on, c }: { at: number; on: boolean; c: Palette }) {
+  const ink = on ? c.accentInk : c.muted;
+  return (
+    <View style={{ width: 16, height: 22, borderRadius: 4, borderWidth: 2, borderColor: ink, justifyContent: at === 0 ? 'flex-end' : at === 1 ? 'flex-start' : 'center', paddingVertical: 2, alignItems: 'center' }}>
+      <View style={{ width: 8, height: 3, borderRadius: 1.5, backgroundColor: ink }} />
+    </View>
+  );
+}
+
 export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onShare, onError, onNotice }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(visible);
   const slide = useState(() => new Animated.Value(0))[0];
-  const duration = Math.max(MIN_CLIP, file.duration);
+  const [source, setSource] = useState<MediaSource | null>(null);
+  // Arquivo que veio sem duração (link direto de rede social): vale a do próprio arquivo ou a do post
+  const duration = Math.max(MIN_CLIP, file.duration > 0 ? file.duration : source?.duration || info.duration || 0);
   const router = useRouter();
   const image = file.mime.startsWith('image');
   const [as, setAs] = useState<SendAs>(openAs);
   const [stickerCancel, setStickerCancel] = useState<(() => void) | null>(null);
-  const [stickerDesign, setStickerDesign] = useState<StickerDesign>(defaultDesign);
+  // A figurinha começa no último formato usado (recorte ou inteiro, cantos e contorno)
+  const [stickerDesign, setStickerDesignState] = useState<StickerDesign>(() => {
+    const st = getSettings();
+    return { ...defaultDesign(), ...(st.stickerShape ? { shape: st.stickerShape } : null), ...(st.stickerCorner != null ? { corner: clampCorner(st.stickerCorner) } : null), ...(st.stickerOutline != null ? { outline: st.stickerOutline } : null) };
+  });
+  const setStickerDesign = (d: StickerDesign) => {
+    setStickerDesignState(d);
+    const st = getSettings();
+    if (st.stickerShape !== d.shape || st.stickerCorner !== d.corner || st.stickerOutline !== d.outline) setSettings({ stickerShape: d.shape, stickerCorner: d.corner, stickerOutline: d.outline });
+  };
   const [stickerEmoji, setStickerEmoji] = useState(EMOJIS[0]);
   const [mode, setMode] = useState<'whole' | 'clip'>('whole');
   const [range, setRange] = useState(() => ({ start: 0, end: Math.min(duration, 30) }));
@@ -110,7 +139,6 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
   const [busy, setBusy] = useState<{ label: string; fraction: number | null } | null>(null);
   const signal = useRef({ cancelled: false });
   const loading = useRef(new Set<string>());
-  const [source, setSource] = useState<MediaSource | null>(null);
   const [, bump] = useState(0);
 
   const locked = !!busy || !!stickerCancel || !!dubCancel;
@@ -120,6 +148,16 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
     p.muted = false;
     p.timeUpdateEventInterval = 0.1;
   });
+
+  // Tamanho pelo próprio player, se o arquivo não disse o dele
+  const [trackSize, setTrackSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const sub = player.addListener('videoTrackChange', ({ videoTrack }) => {
+      const z = videoTrack?.size;
+      if (z && z.width > 0 && z.height > 0) setTrackSize({ width: z.width, height: z.height });
+    });
+    return () => sub.remove();
+  }, [player]);
 
   if (visible && !mounted) setMounted(true);
   // Cada vez que abre, abre no modo pedido (Compartilhar ou Figurinha)
@@ -609,6 +647,16 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                             <Feather name="chevron-right" size={20} color={c.muted} />
                           </Pressable>
 
+                          <SnapSlider
+                            title="Altura da legenda"
+                            value={captionHeight(capStyle)}
+                            onChange={(h) => setStyle(withCaptionHeight(capStyle, h))}
+                            valueText={heightName}
+                            accessibilityLabel="Altura da legenda no vídeo"
+                            c={c}
+                            stops={HEIGHT_STOPS.map((h) => ({ value: h.value, label: h.label, glyph: (on) => <HeightGlyph at={h.value} on={on} c={c} /> }))}
+                          />
+
                           {capSource.kind === 'transcribe' && !cues && !status ? (
                             <Reveal>
                               <View style={s.trOpts}>
@@ -721,7 +769,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                   player={player}
                   file={file}
                   image={image}
-                  size={source ? { width: source.width, height: source.height } : null}
+                  size={source && source.width > 0 && source.height > 0 ? { width: source.width, height: source.height } : trackSize}
                   duration={duration}
                   filmstrip={filmstrip}
                   thumbAt={(t) => (source ? cachedThumb(source.path, thumbTimes[Math.min(11, Math.max(0, Math.floor((t / duration) * 12)))]) : undefined)}

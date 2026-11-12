@@ -56,6 +56,28 @@ export function captionPlacement(style: CaptionStyle, W: number, H: number): Cap
   return { x: 0, y: box.y - margin, width: W, height: box.height + 2 * margin, margin, valign: box.valign, maxWidth: Math.round(W * 0.86) };
 }
 
+/**
+ * Altura da legenda numa barra de 0 (embaixo) a 1 (em cima). As pontas e o meio são as posições
+ * fixas (que crescem para dentro do quadro com mais linhas); entre elas, a legenda fica solta
+ * naquela altura, como se tivesse sido arrastada.
+ */
+const LOW = 0.88;
+const HIGH = 0.12;
+
+export function captionHeight(style: Pick<CaptionStyle, 'position' | 'x' | 'y'>): number {
+  if (isFree(style)) return clamp((LOW - clampCaptionY(style.y!)) / (LOW - HIGH), 0, 1);
+  return style.position === 'top' ? 1 : style.position === 'middle' ? 0.5 : 0;
+}
+
+export function withCaptionHeight(style: CaptionStyle, h: number): CaptionStyle {
+  const v = clamp(h, 0, 1);
+  const { x, y: _y, ...rest } = style;
+  const centered = x == null || Math.abs(x - 0.5) < 0.001;
+  const preset = v <= 0.001 ? 'bottom' : Math.abs(v - 0.5) <= 0.001 ? 'middle' : v >= 0.999 ? 'top' : null;
+  if (preset && centered) return { ...rest, position: preset };
+  return { ...rest, x: x ?? 0.5, y: clampCaptionY(LOW - v * (LOW - HIGH)) };
+}
+
 /** Centro do texto quando a legenda ainda está numa posição fixa (para começar a arrastar dali). */
 export function captionCenter(style: CaptionStyle, boxHeight: number, W: number, H: number): { x: number; y: number } {
   if (isFree(style)) return { x: clampCaptionX(style.x!), y: clampCaptionY(style.y!) };

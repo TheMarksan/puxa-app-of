@@ -23,7 +23,7 @@ import {
 import { jsonsOf } from './json';
 import { type SocialKind, type SocialPost, type SocialProfile, SourceError } from './social';
 
-export { IG_UA, parseInstagram } from './instagramParse';
+export { IG_LOGIN_UA, IG_UA, parseInstagram } from './instagramParse';
 
 /**
  * Instagram pela rede: a API do site do Instagram com a conta da própria pessoa (login no WebView

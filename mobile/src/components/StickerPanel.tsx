@@ -15,6 +15,8 @@ import { lastFolderId, MAX_PER_PACK, packOf, putFolder, rememberFolder, roomIn, 
 import type { StickerError, StickerResult } from '../stickers/make';
 import {
   CANVAS,
+  clampCorner,
+  CORNERS,
   DEFAULT_ANIMATED,
   EMOJIS,
   MAX_ANIMATED,
@@ -28,6 +30,7 @@ import {
 import { ease, font, type Palette, usePalette } from '../theme';
 import { Button, Press } from './Button';
 import { Reveal } from './SheetParts';
+import { SnapSlider } from './SnapSlider';
 import { Trimmer } from './Trimmer';
 
 /** Fundo da conversa do WhatsApp: a figurinha aparece como vai ficar lá (e o contorno branco aparece). */
@@ -214,8 +217,7 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
   const P = Math.min(box, 300);
   const hasText = !!design.text.trim();
   const shapes: { id: StickerShape; label: string }[] = [
-    { id: 'square', label: 'Quadrado' },
-    { id: 'circle', label: 'Círculo' },
+    { id: 'crop', label: 'Recorte' },
     { id: 'fit', label: 'Inteiro' },
   ];
 
@@ -229,14 +231,16 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
         <View style={s.swatches} accessibilityRole="radiogroup" accessibilityLabel="Formato da figurinha">
           {shapes.map((sh) => (
             <Swatch key={sh.id} label={sh.label} active={design.shape === sh.id} onPress={() => patch({ shape: sh.id })} c={c} role="radio">
-              <ShapeThumb shape={sh.id} thumb={thumb} size={size} outline={design.outline} c={c} />
+              <ShapeThumb shape={sh.id} corner={design.corner} thumb={thumb} size={size} outline={design.outline} c={c} />
             </Swatch>
           ))}
           <View style={s.swatchSep} />
           <Swatch label="Contorno" active={design.outline} onPress={() => patch({ outline: !design.outline })} c={c} role="switch">
-            <View style={[s.ring, { borderColor: design.outline ? '#FFFFFF' : 'transparent', backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]} />
+            <View style={[s.ring, { borderRadius: 4 + 13 * clampCorner(design.corner), borderColor: design.outline ? '#FFFFFF' : 'transparent', backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]} />
           </Swatch>
         </View>
+
+        <CornerSlider value={clampCorner(design.corner)} onChange={(corner) => patch({ corner })} c={c} />
 
         {image ? null : (
         <View style={s.card}>
@@ -412,13 +416,13 @@ function Swatch({ label, active, onPress, children, c, role }: { label: string; 
   );
 }
 
-/** O próprio quadro do vídeo no formato: quadrado arredondado, círculo ou inteiro. */
-function ShapeThumb({ shape, thumb, size, outline, c }: { shape: StickerShape; thumb: string | undefined; size: { width: number; height: number } | null; outline: boolean; c: Palette }) {
-  const ar = size && size.height > 0 ? size.width / size.height : 16 / 9;
+/** O próprio quadro do vídeo no formato: recorte quadrado ou inteiro, com os cantos escolhidos. */
+function ShapeThumb({ shape, corner, thumb, size, outline, c }: { shape: StickerShape; corner: number; thumb: string | undefined; size: { width: number; height: number } | null; outline: boolean; c: Palette }) {
+  const ar = size && size.width > 0 && size.height > 0 ? size.width / size.height : 16 / 9;
   const S = 38;
   const w = shape === 'fit' ? (ar >= 1 ? 44 : Math.round(44 * ar)) : S;
   const h = shape === 'fit' ? (ar >= 1 ? Math.round(44 / ar) : 44) : S;
-  const radius = shape === 'circle' ? S / 2 : shape === 'square' ? 9 : 5;
+  const radius = (clampCorner(corner) * Math.min(w, h)) / 2;
   return (
     <View style={{ width: w, height: h, borderRadius: radius, overflow: 'hidden', borderWidth: outline ? 2 : 0, borderColor: '#FFFFFF', backgroundColor: c.dark ? '#2C3036' : '#C9CDD2' }}>
       {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
@@ -454,6 +458,35 @@ function IconToggle({ icon, dot, label, onPress, disabled, c }: { icon?: keyof t
       {icon ? <Feather name={icon} size={19} color={c.ink} /> : null}
       {dot ? <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: dot, borderWidth: 2, borderColor: c.dark ? '#000' : '#16191D' }} /> : null}
     </Pressable>
+  );
+}
+
+const CORNER_NAMES = ['Retos', 'Suaves', 'Redondos', 'Círculo'];
+const cornerName = (v: number) => {
+  if (v >= 0.995) return 'Círculo';
+  const i = CORNERS.findIndex((p) => Math.abs(p - v) < 0.02);
+  return i >= 0 ? CORNER_NAMES[i] : `${Math.round(v * 100)}%`;
+};
+
+/**
+ * Arredondamento dos cantos, de reto a círculo: arrastar a bolinha (gruda nos atalhos) ou tocar
+ * num dos quatro desenhos embaixo.
+ */
+function CornerSlider({ value, onChange, c }: { value: number; onChange: (v: number) => void; c: Palette }) {
+  return (
+    <SnapSlider
+      title="Cantos"
+      value={value}
+      onChange={onChange}
+      valueText={cornerName}
+      accessibilityLabel="Arredondamento dos cantos"
+      c={c}
+      stops={CORNERS.map((p, i) => ({
+        value: p,
+        label: CORNER_NAMES[i],
+        glyph: (on) => <View style={{ width: 22, height: 22, borderRadius: 11 * p, borderWidth: 2, borderColor: on ? c.accentInk : c.muted }} />,
+      }))}
+    />
   );
 }
 

@@ -35,7 +35,7 @@ type PreviewFolder = { id: string; name: string; created: number; stickers: Stic
 class PuxaEnginePreview extends NativeModule<PuxaEngineEvents> {
   private timers = new Map<string, ReturnType<typeof setInterval>>();
   private folders: PreviewFolder[] = [{ id: 'puxa', name: 'Puxa', created: 0, stickers: [], added: {} }];
-  private usage: StorageUsage = { downloads: 38_400_000, temp: 12_900_000, projects: 164_000_000, stickers: 0, models: 59_700_000 };
+  private usage: StorageUsage = { downloads: 38_400_000, temp: 12_900_000, playlist: 164_000_000, stickers: 0, models: 59_700_000 };
 
   private view(f: PreviewFolder): StickerFolder {
     const pack = (animated: boolean) => {
@@ -199,7 +199,8 @@ class PuxaEnginePreview extends NativeModule<PuxaEngineEvents> {
     this.timers.set(jobId, timer);
   }
 
-  async startUrlDownload(jobId: string, url: string, _headers: Record<string, string>, kind: 'video' | 'audio' | 'image', title: string): Promise<void> {
+  async startUrlDownload(jobId: string, url: string, _headers: Record<string, string>, asked: 'video' | 'audio' | 'm4a' | 'image', title: string): Promise<void> {
+    const kind = asked === 'm4a' ? 'audio' : asked;
     const total = kind === 'image' ? 420_000 : 3_900_000;
     let downloaded = 0;
     const timer = setInterval(() => {
@@ -300,9 +301,10 @@ class PuxaEnginePreview extends NativeModule<PuxaEngineEvents> {
     ];
   }
 
-  async captionText(): Promise<string> {
+  async captionText(_videoId: string, _index: number, translateTo: string | null): Promise<string> {
     await sleep(400);
-    return TTML;
+    // Pedido em português: a tradução automática do YouTube
+    return translateTo === 'pt' ? Object.entries(PT).reduce((x, [en, pt]) => x.replace(`>${en}<`, `>${pt}<`), TTML) : TTML;
   }
 
   async translate(lines: string[]): Promise<string[]> {

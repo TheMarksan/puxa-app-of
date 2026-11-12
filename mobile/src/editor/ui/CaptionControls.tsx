@@ -3,10 +3,10 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { clock as fmtClock } from '../../format';
-import { CAPTION_LOOKS, isFree, lookOf } from '../captionLayout';
+import { CAPTION_LOOKS, captionHeight, isFree, lookOf, withCaptionHeight } from '../captionLayout';
 import { MOTIONS } from '../captionMotion';
 import type { CaptionMotion, CaptionStyle, Cue } from '../types';
-import { Chip, Row, ui } from './kit';
+import { Chip, Row, Section, Slider, ui } from './kit';
 import { E } from './palette';
 import { TextVisual } from './TextVisual';
 
@@ -67,6 +67,14 @@ export function MotionPicker({ value, onPick }: { value: CaptionMotion | undefin
   );
 }
 
+/** Nome da altura da legenda (as pontas e o meio têm nome; o resto, a porcentagem). */
+export function heightName(h: number): string {
+  if (h <= 0.005) return 'Embaixo';
+  if (Math.abs(h - 0.5) <= 0.005) return 'No meio';
+  if (h >= 0.995) return 'Em cima';
+  return `${Math.round(h * 100)}%`;
+}
+
 /** Em cima, no meio, embaixo, ou onde a pessoa arrastou. */
 export function PositionPicker({ style, onChange }: { style: CaptionStyle; onChange: (s: CaptionStyle) => void }) {
   const free = isFree(style);
@@ -83,6 +91,9 @@ export function PositionPicker({ style, onChange }: { style: CaptionStyle; onCha
         {free ? <Chip icon="move" label="Arrastada" active onPress={() => {}} /> : null}
         {free && style.x !== 0.5 ? <Chip icon="align-center" label="Centralizar" onPress={() => onChange({ ...style, x: 0.5 })} /> : null}
       </Row>
+      <Section label="Altura">
+        <Slider value={captionHeight(style)} min={0} max={1} step={0.01} marks={[0, 0.5, 1]} format={heightName} onChange={(h) => onChange(withCaptionHeight(style, h))} />
+      </Section>
       <Text style={[ui.body, styles.hint]}>Arraste a legenda na prévia para pôr onde quiser; as linhas rosa mostram quando ela está no centro.</Text>
     </>
   );

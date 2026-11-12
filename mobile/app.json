@@ -2,7 +2,7 @@
   "expo": {
     "name": "Puxa",
     "slug": "puxa",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "puxa",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "app.puxa",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#2547D0",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,38 +25,22 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.INTERNET",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.INTERNET"
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
       [
         "expo-audio",
         {
-          "microphonePermission": "O Puxa usa o microfone para gravar a sua narração.",
-          "recordAudioAndroid": true,
-          "enableBackgroundPlayback": false
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "O Puxa usa a câmera para gravar a sua facecam.",
-          "microphonePermission": "O Puxa usa o microfone para gravar a sua narração.",
-          "recordAudioAndroid": true,
-          "barcodeScannerEnabled": false
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "O Puxa abre fotos e vídeos que você escolher para o modo Criar."
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": true
         }
       ],
       [

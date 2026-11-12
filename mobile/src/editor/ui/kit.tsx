@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: E.accent, borderColor: E.accent },
   chipText: { fontFamily: 'Archivo_600SemiBold', fontSize: 14, color: E.ink },
   chipDetail: { fontFamily: 'Archivo_400Regular', fontSize: 12, color: E.muted },
-  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   sliderHit: { flex: 1, height: 36, justifyContent: 'center' },
   track: { height: 4, borderRadius: 2, backgroundColor: E.lineStrong, overflow: 'hidden' },
   fill: { height: 4, borderRadius: 2, backgroundColor: E.accent },

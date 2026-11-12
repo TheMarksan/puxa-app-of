@@ -105,8 +105,10 @@ class PuxaEngineModule : Module() {
     AsyncFunction("startUrlDownload") { jobId: String, url: String, headers: Map<String, String>, kind: String, title: String, persistent: Boolean ->
       runJob(jobId, persistent) { state, work, setStage ->
         val out = Direct.prepare(state, url, headers, kind, title, work, setStage)
-        val name = Engine.safeTitle(title, if (kind == "image") "foto" else if (kind == "audio") "audio" else "video")
-        Done(out.file, "$name.${out.file.extension}", out.mime, 0.0)
+        val name = Engine.safeTitle(title, if (kind == "image") "foto" else if (kind == "audio" || kind == "m4a") "audio" else "video")
+        // Duração real do arquivo: o painel de envio usa para o trecho e para a figurinha animada
+        val seconds = if (kind == "image") 0.0 else runCatching { (Render.probe(out.file.path)["duration"] as? Number)?.toDouble() ?: 0.0 }.getOrDefault(0.0)
+        Done(out.file, "$name.${out.file.extension}", out.mime, seconds)
       }
     }
 

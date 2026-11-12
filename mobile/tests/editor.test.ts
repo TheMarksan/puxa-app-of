@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { captionCenter, captionPlacement, defaultCaptionStyle } from '../src/editor/captionLayout';
+import { captionCenter, captionHeight, captionPlacement, defaultCaptionStyle, withCaptionHeight } from '../src/editor/captionLayout';
 import { frameAt, frameSegments, wordSpans } from '../src/editor/captionMotion';
 import { chunk, fromWhisper, mapToTimeline, parseTTML, slice, tidy } from '../src/editor/captions';
 import { captionList, estimateBytes, n, planOverlays, plannedBitrate, videoBitrate, WHATSAPP_BYTES } from '../src/editor/render';
@@ -185,4 +185,43 @@ test('legenda arrastada: centro onde foi solta e linha mais curta perto da borda
   const c = captionCenter(defaultCaptionStyle(), 80, 720, 1280);
   assert.equal(c.x, 0.5);
   assert.ok(c.y > 0.8 && c.y < 0.95);
+});
+
+test('altura da legenda: pontas e meio são as posições fixas', () => {
+  const base = defaultCaptionStyle();
+  assert.equal(captionHeight(base), 0);
+  assert.equal(withCaptionHeight(base, 1).position, 'top');
+  assert.equal(withCaptionHeight(base, 0.5).position, 'middle');
+  const back = withCaptionHeight(withCaptionHeight(base, 0.3), 0);
+  assert.equal(back.position, 'bottom');
+  assert.equal(back.x, undefined);
+  assert.equal(back.y, undefined);
+});
+
+test('altura da legenda: no meio do caminho fica solta, e a ida e volta bate', () => {
+  const base = defaultCaptionStyle();
+  for (const h of [0.1, 0.25, 0.7, 0.93]) {
+    const st = withCaptionHeight(base, h);
+    assert.equal(st.x, 0.5);
+    assert.ok(Math.abs(captionHeight(st) - h) < 1e-9, `altura ${h}`);
+  }
+  // Mais alto = centro mais perto do topo do quadro
+  const W = 720;
+  const H = 1280;
+  const low = captionCenter(withCaptionHeight(base, 0.2), 60, W, H).y;
+  const high = captionCenter(withCaptionHeight(base, 0.8), 60, W, H).y;
+  assert.ok(high < low);
+  // E a faixa desenhada continua dentro do quadro nas duas pontas soltas
+  for (const h of [0.01, 0.99]) {
+    const p = captionPlacement(withCaptionHeight(base, h), W, H);
+    const center = p.y + p.height / 2;
+    assert.ok(center > 0 && center < H);
+  }
+});
+
+test('altura da legenda: arrastada para o lado mantém o lado ao mudar a altura', () => {
+  const dragged = { ...defaultCaptionStyle(), x: 0.3, y: 0.4 };
+  const st = withCaptionHeight(dragged, 0);
+  assert.equal(st.x, 0.3);
+  assert.ok(Math.abs(st.y! - 0.88) < 1e-9);
 });

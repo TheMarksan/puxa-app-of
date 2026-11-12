@@ -9,7 +9,7 @@ declare class PuxaEngineModule extends NativeModule<PuxaEngineEvents> {
   /** Com [persistent], o arquivo fica na pasta de mídia dos projetos (não é limpo depois de 24 h). */
   startDownload(jobId: string, videoId: string, optionId: string, persistent: boolean): Promise<void>;
   /** Mídia de link direto (Instagram, X): mesmo andamento por eventos. [kind] audio converte para MP3. */
-  startUrlDownload(jobId: string, url: string, headers: Record<string, string>, kind: 'video' | 'audio' | 'image', title: string, persistent: boolean): Promise<void>;
+  startUrlDownload(jobId: string, url: string, headers: Record<string, string>, kind: 'video' | 'audio' | 'm4a' | 'image', title: string, persistent: boolean): Promise<void>;
   cancel(jobId: string): void;
   waveform(path: string, buckets: number): Promise<number[]>;
   trim(path: string, start: number, end: number, filename: string): Promise<ClipResult>;

@@ -133,7 +133,9 @@ function FolderRow({ f, c, s, onPress }: { f: StickerFolder; c: Palette; s: Styl
         {cover.length ? (
           cover.map((st) => <Image key={st.file} source={{ uri: toUri(st.path) }} style={cover.length === 1 ? s.coverOne : s.coverTile} resizeMode="contain" />)
         ) : (
-          <Feather name="folder" size={26} color={c.muted} />
+          <View style={s.coverEmpty}>
+            <Feather name="folder" size={26} color={c.muted} />
+          </View>
         )}
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
@@ -171,7 +173,8 @@ const makeStyles = (c: Palette) =>
     emptyTitle: { fontFamily: font.bold, fontSize: 18, color: c.ink },
     emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center', marginBottom: 6 },
     folder: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, overflow: 'hidden' },
-    cover: { width: 72, height: 72, borderRadius: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 4 },
+    cover: { width: 72, height: 72, borderRadius: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', alignContent: 'center', justifyContent: 'center', overflow: 'hidden', padding: 4 },
+    coverEmpty: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
     coverTile: { width: 32, height: 32 },
     coverOne: { width: 60, height: 60 },
     folderName: { fontFamily: font.bold, fontSize: 17, color: c.ink },

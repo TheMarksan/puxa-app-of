@@ -8,7 +8,8 @@ import java.io.File
  *
  * - downloads: o que foi baixado no Baixar (cache/puxa/<preparo>); some sozinho depois de 24 h.
  * - temp: o resto do cache (vídeos montados, cópias para envio, miniaturas, gravações cruas).
- * - projects: projetos do Criar e as mídias deles.
+ * - playlist: as músicas da Playlist.
+ * - temp também leva o que sobrou do antigo modo Criar (projetos e mídias).
  * - stickers: as figurinhas feitas no app.
  * - models: o modelo de transcrição da fala.
  */
@@ -23,14 +24,15 @@ object Storage {
 
   fun usage(ctx: Context): Map<String, Double> {
     val downloads = downloadDirs(ctx).sumOf { size(it) }
-    val temp = (size(ctx.cacheDir) - downloads).coerceAtLeast(0)
-    val projects = size(File(ctx.filesDir, "puxa-media")) + size(File(ctx.filesDir, "projects"))
+    val legacy = size(File(ctx.filesDir, "puxa-media")) + size(File(ctx.filesDir, "projects"))
+    val temp = (size(ctx.cacheDir) - downloads).coerceAtLeast(0) + legacy
+    val playlist = size(File(ctx.filesDir, "playlist"))
     val stickers = size(File(ctx.filesDir, "stickers"))
     val models = size(File(ctx.filesDir, "whisper"))
     return mapOf(
       "downloads" to downloads.toDouble(),
       "temp" to temp.toDouble(),
-      "projects" to projects.toDouble(),
+      "playlist" to playlist.toDouble(),
       "stickers" to stickers.toDouble(),
       "models" to models.toDouble(),
     )
@@ -47,10 +49,12 @@ object Storage {
           if (f == puxa(ctx)) f.listFiles()?.filter { it !in downloads }?.forEach { it.deleteRecursively() }
           else f.deleteRecursively()
         }
-      }
-      "projects" -> {
         File(ctx.filesDir, "puxa-media").deleteRecursively()
         File(ctx.filesDir, "projects").deleteRecursively()
+      }
+      "playlist" -> {
+        File(ctx.filesDir, "playlist").deleteRecursively()
+        File(ctx.filesDir, "playlist.json").delete()
       }
       "stickers" -> File(ctx.filesDir, "stickers").deleteRecursively()
       "models" -> File(ctx.filesDir, "whisper").deleteRecursively()

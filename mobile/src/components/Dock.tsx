@@ -9,7 +9,7 @@ import { ease, font, Palette, usePalette } from '../theme';
 import { Button, Press } from './Button';
 
 /** O que a pessoa pediu: o arquivo é baixado por baixo e a ação acontece quando ele fica pronto. */
-export type Intent = 'share' | 'sticker' | 'save' | 'edit';
+export type Intent = 'share' | 'sticker' | 'save';
 
 export type DockState =
   | {
@@ -19,11 +19,12 @@ export type DockState =
       /** O que vai ser baixado (quando ainda não está): "Vídeo 720p · 5,4 MB". */
       detail: string;
       image: boolean;
-      /** Vídeo pode ir para o modo Criar. */
-      canEdit: boolean;
+      /** Tem áudio para virar música da playlist. */
+      canPlaylist: boolean;
+      /** Já está na playlist. */
+      listed: boolean;
       saved: boolean;
       saving: boolean;
-      editing: boolean;
       disabled?: boolean;
     }
   | { kind: 'preparing'; intent: Intent | null; video: boolean; stage: Stage; downloaded: number; total: number; speed: number; eta: number | null }
@@ -32,18 +33,19 @@ export type DockState =
 type Props = {
   state: DockState;
   onAction: (intent: Intent) => void;
+  onPlaylist: () => void;
   onCancel: () => void;
   onRetry: () => void;
 };
 
-const ENDS: Record<Intent, string> = { share: 'Enviar', sticker: 'Figurinha', save: 'Salvar', edit: 'Editar' };
+const ENDS: Record<Intent, string> = { share: 'Enviar', sticker: 'Figurinha', save: 'Salvar' };
 
 /**
- * Rodapé fixo: as ações (Compartilhar, Figurinha, Baixar e, em vídeo, Editar) já aparecem com o
- * link lido. O arquivo vai para o armazenamento do app por baixo, e a ação acontece quando ele
+ * Rodapé fixo: as ações (Compartilhar, Figurinha, Baixar e Playlist) já aparecem com o link
+ * lido. O arquivo vai para o armazenamento do app por baixo, e a ação acontece quando ele
  * fica pronto; Baixar guarda uma cópia em Download/Puxa.
  */
-export function Dock({ state, onAction, onCancel, onRetry }: Props) {
+export function Dock({ state, onAction, onPlaylist, onCancel, onRetry }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const swap = useState(() => new Animated.Value(1))[0];
@@ -62,7 +64,7 @@ export function Dock({ state, onAction, onCancel, onRetry }: Props) {
   return (
     <Animated.View style={style}>
       {state.kind === 'actions' ? (
-        <Actions state={state} onAction={onAction} s={s} c={c} />
+        <Actions state={state} onAction={onAction} onPlaylist={onPlaylist} s={s} c={c} />
       ) : state.kind === 'preparing' ? (
         <Preparing state={state} onCancel={onCancel} s={s} c={c} />
       ) : (
@@ -83,7 +85,7 @@ export function Dock({ state, onAction, onCancel, onRetry }: Props) {
   );
 }
 
-function Actions({ state, onAction, s, c }: { state: Extract<DockState, { kind: 'actions' }>; onAction: (i: Intent) => void; s: Styles; c: Palette }) {
+function Actions({ state, onAction, onPlaylist, s, c }: { state: Extract<DockState, { kind: 'actions' }>; onAction: (i: Intent) => void; onPlaylist: () => void; s: Styles; c: Palette }) {
   const f = state.ready;
   const kind = f ? (f.mime === 'audio/mpeg' ? 'Áudio MP3' : f.mime.startsWith('audio') ? 'Áudio M4A' : f.mime.startsWith('image') ? 'Foto' : 'Vídeo MP4') : '';
   const meta = f ? [kind, f.mime.startsWith('image') ? null : clock(f.duration), bytes(f.size), state.saved ? 'Salvo' : null].filter(Boolean).join(' · ') : state.detail;
@@ -109,7 +111,16 @@ function Actions({ state, onAction, s, c }: { state: Extract<DockState, { kind: 
           s={s}
           c={c}
         />
-        {state.canEdit ? <Secondary icon="scissors" label="Editar" busy={state.editing} onPress={() => onAction('edit')} disabled={state.disabled} s={s} c={c} /> : null}
+        {state.canPlaylist ? (
+          <Secondary
+            icon={state.listed ? 'check' : 'music'}
+            label={state.listed ? 'Na playlist' : 'Playlist'}
+            tint={state.listed ? c.accentInk : undefined}
+            onPress={onPlaylist}
+            s={s}
+            c={c}
+          />
+        ) : null}
       </View>
     </View>
   );

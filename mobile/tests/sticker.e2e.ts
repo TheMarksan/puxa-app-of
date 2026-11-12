@@ -31,14 +31,21 @@ type Case = { name: string; file: string; kind: StickerRequest['kind']; start: n
 
 const cases: Case[] = [
   { name: 'animada-quadrado-3s', file: 'rick360.mp4', kind: 'animated', start: 30, duration: 3, design: {} },
-  { name: 'animada-circulo-6s', file: 'rick360.mp4', kind: 'animated', start: 60, duration: 6, design: { shape: 'circle', crop: { zoom: 1.4, panX: 0, panY: -0.2 } } },
+  { name: 'animada-circulo-6s', file: 'rick360.mp4', kind: 'animated', start: 60, duration: 6, design: { corner: 1, crop: { zoom: 1.4, panX: 0, panY: -0.2 } } },
+  { name: 'animada-cantos-retos-4s', file: 'rick360.mp4', kind: 'animated', start: 10, duration: 4, design: { corner: 0 } },
+  { name: 'animada-cantos-60-sem-contorno', file: 'portrait.mp4', kind: 'animated', start: 0, duration: 3, design: { corner: 0.6, outline: false } },
+  { name: 'animada-inteiro-pilula', file: 'landscape.mp4', kind: 'animated', start: 0, duration: 3, design: { shape: 'fit', corner: 1 } },
+  // Como chega do X e do Instagram: MP4 fragmentado em retrato, depois de reempacotado como no aparelho
+  { name: 'animada-x-retrato-circulo', file: 'social.mp4', kind: 'animated', start: 0.5, duration: 4, design: { corner: 1 } },
+  { name: 'animada-x-retrato-quadrado-texto', file: 'social.mp4', kind: 'animated', start: 0, duration: 5, design: { corner: 0.28, text: 'olha isso', crop: { zoom: 1.2, panX: 0, panY: 0.4 } } },
+  { name: 'parada-x-retrato-cantos-0', file: 'social.mp4', kind: 'still', start: 2, duration: 0, design: { corner: 0 } },
   { name: 'animada-inteiro-10s-texto', file: 'rick360.mp4', kind: 'animated', start: 90, duration: 10, design: { shape: 'fit', text: 'quando o pix cai', textPosition: 'bottom' } },
   { name: 'animada-retrato-5s', file: 'portrait.mp4', kind: 'animated', start: 0, duration: 5, design: { outline: false } },
   // Pior caso para o peso: ruído em todos os quadros (obriga a descer qualidade e quadros por segundo)
   { name: 'animada-ruido-4s', file: 'facecam.mp4', kind: 'animated', start: 0, duration: 4, design: {} },
   { name: 'parada-quadrado-texto', file: 'rick360.mp4', kind: 'still', start: 45, duration: 0, design: { text: 'nunca vou te abandonar', textPosition: 'top', textColor: 'yellow' } },
   { name: 'parada-inteiro-sem-contorno', file: 'landscape.mp4', kind: 'still', start: 2, duration: 0, design: { shape: 'fit', outline: false } },
-  { name: 'parada-circulo', file: 'facecam.mp4', kind: 'still', start: 1, duration: 0, design: { shape: 'circle' } },
+  { name: 'parada-circulo', file: 'facecam.mp4', kind: 'still', start: 1, duration: 0, design: { corner: 1 } },
 ];
 
 const PY = `
@@ -92,7 +99,7 @@ print(json.dumps({'size': canvas or list(im.size), 'frames': max(1, len(durs)), 
       if (info.minFrame < 8) problems.push(`quadro de ${info.minFrame} ms (mínimo 8)`);
     }
     if (problems.length) failures++;
-    report.push({ case: c.name, kb: Math.round(res.size / 1024), quality: res.quality, fps: res.fps, attempts: res.attempts, ms: Date.now() - t0, ...info, problems });
+    report.push({ case: c.name, webp: res.webp, kb: Math.round(res.size / 1024), quality: res.quality, fps: res.fps, attempts: res.attempts, ms: Date.now() - t0, ...info, problems });
     console.log(
       `${problems.length ? 'FALHOU' : 'ok    '} ${c.name}: ${Math.round(res.size / 1024)} KB, q${res.quality}${res.fps ? ` ${res.fps} fps` : ''}, ${res.attempts} tentativa(s), ${info.frames} quadro(s), ${info.duration} ms, ${Date.now() - t0} ms de trabalho ${problems.join('; ')}`,
     );
@@ -105,17 +112,15 @@ print(json.dumps({'size': canvas or list(im.size), 'frames': max(1, len(durs)), 
 import json, sys, os
 from PIL import Image, ImageDraw
 rows = json.load(open(sys.argv[1])); root = sys.argv[2]
-tile = 256; cols = len(rows)
-sheet = Image.new('RGBA', (tile * cols, tile), (255, 255, 255, 255))
+tile = 200; per = 7; cols = min(per, len(rows)); lines = (len(rows) + per - 1) // per
+sheet = Image.new('RGBA', (tile * cols, tile * lines), (255, 255, 255, 255))
 d = ImageDraw.Draw(sheet)
-for i in range(cols):
-    for y in range(0, tile, 16):
-        for x in range(0, tile, 16):
-            if (x // 16 + y // 16) % 2: d.rectangle([i*tile + x, y, i*tile + x + 15, y + 15], fill=(222, 222, 222, 255))
+for y in range(0, tile * lines, 16):
+    for x in range(0, tile * cols, 16):
+        if (x // 16 + y // 16) % 2: d.rectangle([x, y, x + 15, y + 15], fill=(222, 222, 222, 255))
 for i, r in enumerate(rows):
-    p = [f for f in os.listdir(os.path.join(root, r['case'])) if f.startswith('figurinha') and f.endswith('.webp')]
-    p.sort(); im = Image.open(os.path.join(root, r['case'], p[-1])).convert('RGBA').resize((tile, tile))
-    sheet.alpha_composite(im, (i * tile, 0))
+    im = Image.open(r['webp']).convert('RGBA').resize((tile, tile))
+    sheet.alpha_composite(im, ((i % per) * tile, (i // per) * tile))
 sheet.save(os.path.join(root, 'figurinhas.png'))
 `,
     join(outRoot, 'relatorio.json'),

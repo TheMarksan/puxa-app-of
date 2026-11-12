@@ -16,9 +16,9 @@ import { SendSheet } from './components/SendSheet';
 import { MediaStrip, ProfileHeader } from './components/Social';
 import { VideoSendSheet, type SendAs } from './components/VideoSendSheet';
 import { useToast } from './components/Toasts';
-import { forgetThumbs, importFile } from './editor/media';
-import { createProject, saveProject } from './editor/store';
-import { defaultClip } from './editor/timeline';
+import { forgetThumbs } from './editor/media';
+import { addFromInfo } from './playlist/downloads';
+import { sameLink, useTracks } from './playlist/store';
 import { onAccountChanged, onStorageCleared } from './events';
 import { bytes, stem } from './format';
 import { ms } from './motion';
@@ -78,6 +78,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const tracks = useTracks();
   const router = useRouter();
 
   // Link recebido pelo menu Compartilhar quando o app abriu por ele
@@ -99,7 +100,6 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const [files, setFiles] = useState<Record<string, DoneEvent>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [audioSheet, setAudioSheet] = useState<{ file: DoneEvent } | null>(null);
@@ -414,37 +414,27 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
     [toast],
   );
 
-  /** Leva o vídeo para um projeto novo do modo Criar (já em 9:16 com fundo desfocado). */
-  const editInCreate = useCallback(
-    async (f: DoneEvent, i: VideoInfo) => {
-      setEditing(true);
-      try {
-        const youtube = !i.source || i.source === 'youtube';
-        const src = await importFile(`file://${f.path}`, youtube ? 'youtube' : 'gallery', i.title);
-        const named = youtube ? { ...src, youtubeId: i.id, thumbnail: i.thumbnail } : { ...src, thumbnail: i.thumbnail };
-        const p = createProject(i.title.slice(0, 50));
-        const clip = defaultClip(named);
-        if (named.width > named.height) clip.fit = 'blur';
-        saveProject({ ...p, sources: { [named.id]: named }, clips: [clip] });
-        router.push(`/editor/${p.id}`);
-      } catch (e) {
-        toast.show({ title: 'Não deu para abrir no modo Criar', body: (e as Error).message, tone: 'error' });
-      } finally {
-        setEditing(false);
-      }
-    },
-    [router, toast],
-  );
+  /** Link de cada vídeo: o do post ganha o número do item, para cada vídeo do carrossel ser uma música. */
+  const trackLink = (i: VideoInfo) => (post && post.items.length > 1 ? `${link.trim()}#${i.id}` : link.trim() || (i.source ? i.id : `https://www.youtube.com/watch?v=${i.id}`));
+
+  /** Manda o áudio do vídeo aberto para a playlist (baixa por baixo, sem prender a tela). */
+  const toPlaylist = () => {
+    if (!info) return;
+    const { duplicate } = addFromInfo(info, trackLink(info));
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    toast.show({
+      title: duplicate ? 'Já está na playlist' : 'Na playlist',
+      body: duplicate ? undefined : 'O áudio vai sendo baixado. Dá para continuar usando o app.',
+      tone: duplicate ? 'info' : 'success',
+      action: { label: 'Abrir', onPress: () => router.push('/playlist') },
+    });
+  };
 
   /** Faz a ação com o arquivo já no aparelho. */
   const perform = useCallback(
     (intent: Intent, f: DoneEvent, k: string, i: VideoInfo) => {
       if (intent === 'save') {
         save(f, k);
-        return;
-      }
-      if (intent === 'edit') {
-        editInCreate(f, i);
         return;
       }
       const image = f.mime.startsWith('image');
@@ -461,7 +451,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
       setSheet({ file: f, info: i, as: image ? 'photo' : 'video' });
       setSheetVisible(true);
     },
-    [editInCreate, save],
+    [save],
   );
   const performRef = useRef(perform);
   useEffect(() => {
@@ -472,7 +462,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const optionFor = (intent: Intent): string | null => {
     if (!info) return null;
     if (info.image) return choice.image;
-    if (intent === 'sticker' || intent === 'edit') return format === 'video' ? choice.video : (choice.video ?? info.options.video[0]?.id ?? null);
+    if (intent === 'sticker') return format === 'video' ? choice.video : (choice.video ?? info.options.video[0]?.id ?? null);
     return optionId;
   };
 
@@ -562,10 +552,10 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
       ready: file ?? null,
       detail: [`${what} ${option?.label ?? ''}`.trim(), bytes(option?.size)].filter(Boolean).join(' · '),
       image: !!info.image,
-      canEdit: !info.image && info.options.video.length > 0,
+      canPlaylist: !info.image && (!!info.direct?.['u:mp3'] || info.options.audio.length > 0),
+      listed: tracks.some((t) => sameLink(t.link, trackLink(info))),
       saved: !!(key && saved[key]),
       saving,
-      editing,
       disabled: !option,
     };
   })();
@@ -781,7 +771,6 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
                 ) : null}
               </>
             ) : null}
-            <Text style={s.legal}>Baixe só o que você tem direito de usar. O app fala direto com a rede do link, sem servidor no meio.</Text>
           </>
         ) : null}
       </ScrollView>
@@ -798,6 +787,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
           <Dock
             state={dock}
             onAction={act}
+            onPlaylist={toPlaylist}
             onCancel={cancel}
             onRetry={() => {
               if (job?.status !== 'error') return;
@@ -885,7 +875,6 @@ const makeStyles = (c: Palette) =>
     strong: { fontFamily: font.semibold, color: c.ink },
     section: { marginTop: 22 },
     notice: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, padding: 14, borderRadius: radius.list, borderWidth: 1, borderColor: c.line },
-    legal: { fontFamily: font.regular, fontSize: 13, lineHeight: 18, color: c.muted, marginTop: 18 },
     barWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
     dock: {
       position: 'absolute',

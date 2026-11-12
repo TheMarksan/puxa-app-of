@@ -4,13 +4,16 @@
  * animação de até 10 s com quadros de pelo menos 8 ms, repetindo sem parar.
  */
 
-export type StickerShape = 'square' | 'fit' | 'circle';
+/** "crop": recorte quadrado do vídeo (os cantos vão de retos a círculo). "fit": o quadro inteiro. */
+export type StickerShape = 'crop' | 'fit';
 export type StickerKind = 'animated' | 'still';
 export type StickerCrop = { zoom: number; panX: number; panY: number };
 export type StickerTextColor = 'white' | 'yellow';
 export type StickerDesign = {
   shape: StickerShape;
   crop: StickerCrop;
+  /** Arredondamento dos cantos: 0 é reto, 1 é círculo (ou pílula, no quadro inteiro). */
+  corner: number;
   outline: boolean;
   text: string;
   textPosition: 'top' | 'bottom';
@@ -26,11 +29,16 @@ export const MIN_ANIMATED = 1;
 export const DEFAULT_ANIMATED = 3;
 const SAFE_DURATION = 9.8;
 
-export const SHAPES: { id: StickerShape; label: string; icon: 'square' | 'maximize' | 'circle' }[] = [
-  { id: 'square', label: 'Quadrado', icon: 'square' },
-  { id: 'circle', label: 'Círculo', icon: 'circle' },
-  { id: 'fit', label: 'Inteiro', icon: 'maximize' },
+export const SHAPES: { id: StickerShape; label: string }[] = [
+  { id: 'crop', label: 'Recorte' },
+  { id: 'fit', label: 'Inteiro' },
 ];
+
+/** Atalhos do arredondamento: reto, suave, bem redondo e círculo. */
+export const CORNERS = [0, 0.28, 0.6, 1];
+export const DEFAULT_CORNER = 0.28;
+
+export const clampCorner = (v: number) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULT_CORNER);
 
 export const TEXT_COLORS: Record<StickerTextColor, string> = { white: '#FFFFFF', yellow: '#FFD60A' };
 
@@ -38,7 +46,7 @@ export const TEXT_COLORS: Record<StickerTextColor, string> = { white: '#FFFFFF',
 export const EMOJIS = ['😂', '😍', '😮', '😢', '😡', '👍', '🔥', '❤️', '🙏', '😎', '🤔', '🎉'];
 
 export function defaultDesign(): StickerDesign {
-  return { shape: 'square', crop: { zoom: 1, panX: 0, panY: 0 }, outline: true, text: '', textPosition: 'bottom', textColor: 'white' };
+  return { shape: 'crop', crop: { zoom: 1, panX: 0, panY: 0 }, corner: DEFAULT_CORNER, outline: true, text: '', textPosition: 'bottom', textColor: 'white' };
 }
 
 const even = (v: number) => Math.max(2, Math.round(v / 2) * 2);
@@ -58,7 +66,7 @@ export type StickerLayout = {
 const BORDER = 12;
 const MARGIN = 8;
 
-export function stickerLayout(d: Pick<StickerDesign, 'shape' | 'crop' | 'outline'>, src: { width: number; height: number }): StickerLayout {
+export function stickerLayout(d: Pick<StickerDesign, 'shape' | 'crop' | 'outline'> & { corner?: number }, src: { width: number; height: number }): StickerLayout {
   const W = Math.max(2, src.width);
   const H = Math.max(2, src.height);
   const B = d.outline ? BORDER : 0;
@@ -82,12 +90,15 @@ export function stickerLayout(d: Pick<StickerDesign, 'shape' | 'crop' | 'outline
       h: cs,
     };
   }
-  const radius = d.shape === 'circle' ? w / 2 : d.shape === 'square' ? Math.round(w * 0.14) : Math.round(Math.min(w, h) * 0.1);
+  // Cantos: fração da metade do lado menor (1 = círculo no recorte, pílula no quadro inteiro)
+  const corner = clampCorner(d.corner ?? DEFAULT_CORNER);
+  const radius = corner >= 0.995 ? Math.min(w, h) / 2 : Math.round((corner * Math.min(w, h)) / 2);
   const x = (CANVAS - w) / 2;
   const y = (CANVAS - h) / 2;
   return {
     content: { x, y, w, h, radius },
-    border: B ? { x: x - B, y: y - B, w: w + 2 * B, h: h + 2 * B, radius: radius + B, width: B } : null,
+    // Cantos retos ficam retos também no contorno
+    border: B ? { x: x - B, y: y - B, w: w + 2 * B, h: h + 2 * B, radius: radius > 0 ? radius + B : 0, width: B } : null,
     crop,
   };
 }
@@ -104,6 +115,7 @@ function n(v: number): string {
  * com meio pixel de suavização na borda. Mesma conta para a máscara e para o contorno.
  */
 function roundedAlpha(w: number, h: number, r: number): string {
+  if (r < 1) return `255*lte(abs(X-${n((w - 1) / 2)})\\,${n((w - 1) / 2 + 0.01)})*lte(abs(Y-${n((h - 1) / 2)})\\,${n((h - 1) / 2 + 0.01)})`;
   const hw = n(w / 2 - r);
   const hh = n(h / 2 - r);
   return `255*clip(${n(r)}+0.5-hypot(max(abs(X-${n((w - 1) / 2)})-${hw}\\,0)\\,max(abs(Y-${n((h - 1) / 2)})-${hh}\\,0))\\,0\\,1)`;
@@ -142,6 +154,7 @@ function roundedAlphaAt(b: Box): string {
   const hh = n(b.h / 2 - b.radius);
   const cx = n(b.x + (b.w - 1) / 2);
   const cy = n(b.y + (b.h - 1) / 2);
+  if (b.radius < 1) return `255*lte(abs(X-${cx})\\,${n((b.w - 1) / 2 + 0.01)})*lte(abs(Y-${cy})\\,${n((b.h - 1) / 2 + 0.01)})`;
   return `255*clip(${n(b.radius)}+0.5-hypot(max(abs(X-${cx})-${hw}\\,0)\\,max(abs(Y-${cy})-${hh}\\,0))\\,0\\,1)`;
 }
 
@@ -177,7 +190,9 @@ function graph(d: StickerDesign, l: StickerLayout, inputs: Inputs, fps: number |
   const { content: c, crop } = l;
   const parts: string[] = [];
   const fit = crop ? `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${c.w}:${c.h}:flags=lanczos` : `scale=${c.w}:${c.h}:flags=lanczos`;
-  parts.push(`[0:v]${fps ? `fps=${n(fps)},` : ''}${fit},setsar=1,format=rgba[v]`);
+  // O vídeo começa no tempo zero, como o fundo e a máscara. Sem isso, arquivo com início deslocado
+  // (comum no que vem do X e do Instagram) deixava o primeiro quadro, ou a figurinha parada, vazio.
+  parts.push(`[0:v]setpts=PTS-STARTPTS,${fps ? `fps=${n(fps)},` : ''}${fit},setsar=1,format=rgba[v]`);
   let k = 1;
   let video = 'v';
   if (inputs.mask) {

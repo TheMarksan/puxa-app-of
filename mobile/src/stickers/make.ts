@@ -85,7 +85,7 @@ export async function buildSticker(req: StickerRequest, io: StickerIO): Promise<
       if (size <= STILL_LIMIT * 0.98) return { webp: out, poster, size, quality, fps: null, attempts };
       check(io);
     }
-    throw new StickerError('too_big', 'A figurinha ficou pesada demais para o WhatsApp. Tente o formato Círculo ou outro quadro.');
+    throw new StickerError('too_big', 'A figurinha ficou pesada demais para o WhatsApp. Arredonde mais os cantos ou escolha outro quadro.');
   }
 
   // Animada: começa pelo que costuma caber e desce até ficar abaixo de 500 KB

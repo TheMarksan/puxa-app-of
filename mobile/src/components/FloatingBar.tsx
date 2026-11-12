@@ -9,7 +9,7 @@ import { ease, font, type Palette, usePalette } from '../theme';
 export type BarItem = { key: string; icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void };
 
 /**
- * Barra flutuante na cor principal, com os atalhos para Criar, Figurinhas e Ajustes. Aparece no
+ * Barra flutuante na cor principal, com os atalhos para Playlist, Figurinhas e Ajustes. Aparece no
  * começo do app e sai de cena (para baixo, mais rápido do que entra) quando há um vídeo aberto,
  * o teclado está na tela ou um envio está em andamento.
  */

@@ -1,6 +1,3 @@
-import { Directory, File } from 'expo-file-system';
-import type { ImagePickerAsset } from 'expo-image-picker';
-
 import PuxaEngine, { type DoneEvent, type ProgressEvent, type VideoInfo } from '../../modules/puxa-engine';
 import { newId } from './timeline';
 import type { MediaSource } from './types';
@@ -78,25 +75,6 @@ export async function sourceFromFile(path: string, extra: Partial<MediaSource> =
     origin: extra.origin ?? 'gallery',
     ...extra,
   };
-}
-
-/** Copia algo escolhido na galeria (ou gravado) para a pasta de mídia, para não sumir com o cache. */
-export async function importFile(uri: string, origin: MediaSource['origin'], title?: string): Promise<MediaSource> {
-  const folder = new Directory(toUri(dirs().media), 'imports');
-  if (!folder.exists) folder.create({ intermediates: true, idempotent: true });
-  const ext = (uri.split('?')[0].split('.').pop() || 'bin').toLowerCase().slice(0, 5);
-  const dest = new File(folder, `${newId('m')}.${ext}`);
-  await new File(uri).copy(dest);
-  return sourceFromFile(toPath(dest.uri), { origin, title });
-}
-
-export async function importPicked(assets: ImagePickerAsset[]): Promise<MediaSource[]> {
-  const out: MediaSource[] = [];
-  for (const a of assets) {
-    const name = a.fileName ?? (a.type === 'video' ? 'Vídeo da galeria' : 'Foto da galeria');
-    out.push(await importFile(a.uri, 'gallery', name));
-  }
-  return out;
 }
 
 // ---------- Miniaturas e ondas (com cache em memória) ----------

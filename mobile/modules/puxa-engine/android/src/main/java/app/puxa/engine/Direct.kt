@@ -17,7 +17,7 @@ object Direct {
   /** Resultado: o arquivo e o tipo dele. */
   data class Out(val file: File, val mime: String)
 
-  /** [kind]: "video" (MP4 como veio), "audio" (MP3 tirado do vídeo) ou "image". */
+  /** [kind]: "video" (MP4 como veio), "audio" (MP3 tirado do vídeo), "m4a" (o áudio do vídeo, sem recodificar) ou "image". */
   suspend fun prepare(
     job: JobState,
     url: String,
@@ -45,6 +45,32 @@ object Direct {
       return Out(out, if (ext == "jpg") "image/jpeg" else "image/$ext")
     }
 
+    if (kind == "m4a") {
+      // Para a playlist: copia o AAC do vídeo como está (rápido e sem perder qualidade)
+      onStage("processing")
+      val out = File(workDir, "media.m4a")
+      val r = Render.ffmpeg(job.id, listOf("-y", "-v", "error", "-i", raw.path, "-vn", "-map", "0:a:0", "-c:a", "copy", "-movflags", "+faststart", "-metadata", "title=$title", out.path)) { _, _ -> }
+      if (job.cancelled || r.cancelled) {
+        raw.delete()
+        throw CancellationException("cancelado")
+      }
+      if (r.ok && out.length() > 0) {
+        raw.delete()
+        return Out(out, "audio/mp4")
+      }
+      out.delete()
+      // Áudio que não cabe em M4A: converte para MP3
+      val mp3 = File(workDir, "media.mp3")
+      val r2 = try {
+        Render.ffmpeg(job.id, listOf("-y", "-v", "error", "-i", raw.path, "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3", "-metadata", "title=$title", mp3.path)) { _, _ -> }
+      } finally {
+        raw.delete()
+      }
+      if (job.cancelled || r2.cancelled) throw CancellationException("cancelado")
+      if (!r2.ok) throw PuxaException("process_failed", "Este vídeo não tem áudio para virar música.")
+      return Out(mp3, "audio/mpeg")
+    }
+
     if (kind == "audio") {
       onStage("processing")
       val out = File(workDir, "media.mp3")
@@ -58,8 +84,22 @@ object Direct {
       return Out(out, "audio/mpeg")
     }
 
+    // O X e o Instagram entregam MP4 fragmentado: o leitor do Android não acha o tamanho nem a
+    // duração dele (e a figurinha recortada saía vazia). Reempacotar sem recodificar resolve.
+    onStage("processing")
     val out = File(workDir, "media.mp4")
-    raw.renameTo(out)
+    val r = Render.ffmpeg(
+      job.id,
+      listOf("-y", "-v", "error", "-i", raw.path, "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", out.path),
+    ) { _, _ -> }
+    if (job.cancelled || r.cancelled) {
+      raw.delete()
+      throw CancellationException("cancelado")
+    }
+    if (r.ok && out.length() > 0) raw.delete() else {
+      out.delete()
+      raw.renameTo(out)
+    }
     return Out(out, "video/mp4")
   }
 

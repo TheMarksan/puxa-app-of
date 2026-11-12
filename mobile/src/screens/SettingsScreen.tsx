@@ -25,20 +25,19 @@ type Row = { kind: StorageKind; icon: keyof typeof Feather.glyphMap; title: stri
 const ROWS: Row[] = [
   { kind: 'downloads', icon: 'download', title: 'Baixados', action: 'Apagar', color: '#2547D0' },
   { kind: 'temp', icon: 'clock', title: 'Temporários', action: 'Limpar', color: '#0E9F6E' },
-  { kind: 'projects', icon: 'film', title: 'Projetos', action: 'Apagar', confirm: true, color: '#C2410C' },
+  { kind: 'playlist', icon: 'music', title: 'Playlist', action: 'Apagar', confirm: true, color: '#C2410C' },
   { kind: 'stickers', icon: 'smile', title: 'Figurinhas', action: 'Apagar', confirm: true, color: '#DB2777' },
   { kind: 'models', icon: 'mic', title: 'Transcrição', action: 'Apagar', color: '#7C3AED' },
 ];
 
-const LICENSES: [string, string][] = [
-  ['NewPipe Extractor', 'GPLv3'],
-  ['FFmpeg e FFmpegKit', 'GPL'],
-  ['whisper.cpp', 'MIT'],
-  ['React Native WebView', 'MIT'],
-  ['ML Kit', 'Google'],
-  ['Expo e React Native', 'MIT'],
-  ['Google Fonts', 'OFL'],
-  ['Feather', 'MIT'],
+/** Termos de uso: curtos, em linguagem do dia a dia. */
+const TERMS: { title: string; body: string }[] = [
+  { title: 'O que é o Puxa', body: 'Um app independente, sem ligação com YouTube, Instagram, X, WhatsApp ou ElevenLabs. Os nomes dessas marcas aparecem só para dizer de onde vem cada link.' },
+  { title: 'Como funciona', body: 'O app fala direto com o site do link, do seu celular. Não existe servidor do Puxa no meio: nada do que você baixa passa por nós.' },
+  { title: 'Seus dados', body: 'Downloads, figurinhas e a playlist ficam só no aparelho. O login do Instagram é o mesmo de um navegador e sai quando você toca em Sair. A chave da ElevenLabs fica guardada no aparelho e só vai para a ElevenLabs.' },
+  { title: 'Uso', body: 'Você é responsável pelo que baixa, guarda e compartilha, seguindo as regras de cada rede e a lei do seu país.' },
+  { title: 'Sem garantia', body: 'O Puxa é oferecido como está. As redes mudam sem aviso e algum link pode parar de funcionar até a próxima versão.' },
+  { title: 'Software livre', body: 'O Puxa usa NewPipe Extractor (GPLv3), FFmpeg (GPL), whisper.cpp (MIT), Expo e React Native (MIT), entre outros, cada um sob a própria licença.' },
 ];
 
 const THEMES: { value: ThemePref; label: string }[] = [
@@ -57,7 +56,7 @@ export function SettingsScreen() {
   const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [working, setWorking] = useState<StorageKind | null>(null);
   const [confirming, setConfirming] = useState<StorageKind | null>(null);
-  const [licenses, setLicenses] = useState(false);
+  const [terms, setTerms] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const [instagram, setInstagram] = useState(() => instagramLoggedIn());
@@ -117,7 +116,7 @@ export function SettingsScreen() {
 
   const clear = async (row: Row) => {
     if (row.confirm && confirming !== row.kind) {
-      // Projetos e figurinhas pedem um segundo toque
+      // Playlist e figurinhas pedem um segundo toque
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       setConfirming(row.kind);
       if (timer.current) clearTimeout(timer.current);
@@ -175,14 +174,21 @@ export function SettingsScreen() {
         </View>
 
         <Text style={s.section}>Contas</Text>
-        <View style={s.card}>
-          <View style={s.row}>
-            <Feather name="instagram" size={18} color={c.muted} />
-            <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={s.list}>
+          <View style={s.account}>
+            <View style={[s.tile, { backgroundColor: c.dark ? '#3A1F2E' : '#FCE7F3' }]}>
+              <Feather name="instagram" size={20} color={c.dark ? '#F9A8D4' : '#BE185D'} />
+            </View>
+            <View style={s.accountText}>
               <Text style={s.rowTitle} numberOfLines={1}>
                 Instagram
               </Text>
-              <Text style={s.rowSub}>{instagram ? 'Conectado' : 'Para stories e destaques'}</Text>
+              <View style={s.status}>
+                {instagram ? <View style={[s.statusDot, { backgroundColor: c.waInk }]} /> : null}
+                <Text style={s.rowSub} numberOfLines={1}>
+                  {instagram ? 'Conectado' : 'Para stories e destaques'}
+                </Text>
+              </View>
             </View>
             <Pressable
               onPress={() => (instagram ? leaveInstagram() : router.push('/instagram'))}
@@ -194,19 +200,25 @@ export function SettingsScreen() {
               <Text style={[s.btnText, !instagram && { color: c.onAccent }]}>{instagram ? 'Sair' : 'Entrar'}</Text>
             </Pressable>
           </View>
-          <View style={[s.row, s.rowLine]}>
-            <Feather name="zap" size={18} color={c.muted} />
-            <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={s.divider} />
+          <View style={s.account}>
+            <View style={[s.tile, { backgroundColor: c.dark ? '#2A2430' : '#F1EEF6' }]}>
+              <Feather name="zap" size={20} color={c.dark ? '#C4B5FD' : '#6D28D9'} />
+            </View>
+            <View style={s.accountText}>
               <Text style={s.rowTitle} numberOfLines={1}>
                 ElevenLabs
               </Text>
-              <Text style={s.rowSub} numberOfLines={1}>
-                {key
-                  ? credits && credits.limit > 0
-                    ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando`
-                    : `Chave •••• ${key.slice(-4)}`
-                  : 'Transcrição precisa e dublagem'}
-              </Text>
+              <View style={s.status}>
+                {key ? <View style={[s.statusDot, { backgroundColor: c.waInk }]} /> : null}
+                <Text style={s.rowSub} numberOfLines={1}>
+                  {key
+                    ? credits && credits.limit > 0
+                      ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando`
+                      : `Chave •••• ${key.slice(-4)}`
+                    : 'Transcrição precisa e dublagem'}
+                </Text>
+              </View>
             </View>
             {key ? (
               <Pressable
@@ -276,7 +288,7 @@ export function SettingsScreen() {
                 </Text>
                 <Text style={s.rowSize}>{usage ? bytes(size) || 'vazio' : ''}</Text>
                 {working === r.kind ? (
-                  <ActivityIndicator color={c.accent} style={{ width: 92 }} />
+                  <ActivityIndicator color={c.accent} style={{ width: 84 }} />
                 ) : (
                   <Pressable
                     onPress={() => clear(r)}
@@ -308,28 +320,28 @@ export function SettingsScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => setLicenses((v) => !v)}
+            onPress={() => setTerms((v) => !v)}
             style={({ pressed }) => [s.row, s.rowLine, pressed && { opacity: 0.7 }]}
             accessibilityRole="button"
-            accessibilityState={{ expanded: licenses }}
+            accessibilityState={{ expanded: terms }}
           >
-            <Text style={[s.rowTitle, { flex: 1 }]}>Licenças</Text>
-            <Feather name={licenses ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
+            <Feather name="file-text" size={18} color={c.muted} />
+            <Text style={s.rowTitle}>Termos de uso</Text>
+            <Feather name={terms ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
           </Pressable>
-          {licenses ? (
+          {terms ? (
             <Reveal>
-              <View style={{ paddingBottom: 4 }}>
-                {LICENSES.map(([name, kind]) => (
-                  <View key={name} style={s.license}>
-                    <Text style={s.licenseName}>{name}</Text>
-                    <Text style={s.licenseKind}>{kind}</Text>
+              <View style={s.terms}>
+                {TERMS.map((t) => (
+                  <View key={t.title} style={{ gap: 3 }}>
+                    <Text style={s.termTitle}>{t.title}</Text>
+                    <Text style={s.termBody}>{t.body}</Text>
                   </View>
                 ))}
               </View>
             </Reveal>
           ) : null}
         </View>
-        <Text style={s.note}>Baixe só o que você tem direito de usar.</Text>
       </ScrollView>
     </View>
   );
@@ -386,22 +398,28 @@ const makeStyles = (c: Palette) =>
     rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
     dot: { width: 8, height: 8, borderRadius: 4 },
     rowTitle: { flex: 1, fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    rowSub: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 1 },
+    rowSub: { flexShrink: 1, fontFamily: font.regular, fontSize: 13, color: c.muted },
     btnAccent: { backgroundColor: c.accent, borderColor: c.accent },
-    keyBox: { gap: 8, paddingBottom: 4 },
+    keyBox: { gap: 6, marginLeft: 52, paddingBottom: 14 },
     keyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    keyInput: { flex: 1, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.bg, fontFamily: font.medium, fontSize: 15, color: c.ink },
-    link: { fontFamily: font.semibold, fontSize: 13, color: c.accentInk, paddingVertical: 4 },
+    keyInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.bg, fontFamily: font.medium, fontSize: 15, color: c.ink },
+    link: { alignSelf: 'flex-start', fontFamily: font.semibold, fontSize: 13, color: c.accentInk, paddingVertical: 6 },
     rowSize: { fontFamily: font.regular, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    btn: { minWidth: 92, height: 40, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center' },
+    btn: { minWidth: 84, height: 40, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center' },
     btnDanger: { backgroundColor: c.danger, borderColor: c.danger },
     btnText: { fontFamily: font.semibold, fontSize: 14, color: c.ink },
     about: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
     logo: { width: 40, height: 40, borderRadius: 11, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
     appName: { flex: 1, fontFamily: font.black, fontSize: 19, color: c.ink, letterSpacing: -0.4 },
     version: { fontFamily: font.medium, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    license: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
-    licenseName: { fontFamily: font.regular, fontSize: 14, color: c.ink },
-    licenseKind: { fontFamily: font.medium, fontSize: 14, color: c.muted },
-    note: { fontFamily: font.regular, fontSize: 13, color: c.muted, textAlign: 'center', marginTop: 16 },
+    terms: { gap: 14, paddingTop: 4, paddingBottom: 12 },
+    termTitle: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
+    termBody: { fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: c.muted },
+    list: { borderRadius: radius.list + 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 14 },
+    account: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 68 },
+    tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    accountText: { flex: 1, minWidth: 0, gap: 2 },
+    status: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    statusDot: { width: 7, height: 7, borderRadius: 4 },
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.line, marginLeft: 52 },
   });

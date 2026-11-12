@@ -10,7 +10,7 @@ import { QuickMenu } from '../components/QuickMenu';
 import { Home } from '../Home';
 import { font, type Palette, usePalette } from '../theme';
 
-/** Tela inicial: o Baixar. Criar, Figurinhas e Ajustes ficam na barra flutuante (ou no menu do topo). */
+/** Tela inicial: o Baixar. Playlist, Figurinhas e Ajustes ficam na barra flutuante (ou no menu do topo). */
 export function HomeScreen() {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
@@ -20,7 +20,7 @@ export function HomeScreen() {
   const [barShown, setBarShown] = useState(true);
 
   const items: BarItem[] = [
-    { key: 'criar', icon: 'plus-square', label: 'Criar', onPress: () => router.push('/criar') },
+    { key: 'playlist', icon: 'music', label: 'Playlist', onPress: () => router.push('/playlist') },
     { key: 'figurinhas', icon: 'smile', label: 'Figurinhas', onPress: () => router.push('/figurinhas') },
     { key: 'ajustes', icon: 'settings', label: 'Ajustes', onPress: () => router.push('/ajustes') },
   ];

@@ -117,5 +117,5 @@ export type StickerFolder = {
   stickers: StickerItem[];
 };
 
-export type StorageKind = 'downloads' | 'temp' | 'projects' | 'stickers' | 'models';
+export type StorageKind = 'downloads' | 'temp' | 'playlist' | 'stickers' | 'models';
 export type StorageUsage = Record<StorageKind, number>;

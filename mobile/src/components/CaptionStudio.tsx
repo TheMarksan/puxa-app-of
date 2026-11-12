@@ -10,7 +10,7 @@ import { CaptionLayer, Guides, NO_GUIDES, type GuideState } from '../editor/ui/C
 import { CueList, LookPicker, MotionPicker, PositionPicker } from '../editor/ui/CaptionControls';
 import { Chip, Row, Section, Slider, Swatches, Toggle, ui, videoFill } from '../editor/ui/kit';
 import { E } from '../editor/ui/palette';
-import { StyleEditor } from '../editor/ui/panels/LayerPanels';
+import { StyleEditor } from '../editor/ui/StyleEditor';
 import { clamp, placement } from '../editor/timeline';
 import type { CaptionStyle, Cue, MediaSource } from '../editor/types';
 

@@ -9,7 +9,7 @@ import { ease, font, type Palette, usePalette } from '../theme';
 import type { BarItem } from './FloatingBar';
 
 /**
- * Atalho do topo para Criar, Figurinhas e Ajustes enquanto a barra flutuante está fora de cena
+ * Atalho do topo para Playlist, Figurinhas e Ajustes enquanto a barra flutuante está fora de cena
  * (com um vídeo aberto): os destinos continuam a um toque, sem a barra cobrir o rodapé.
  */
 export function QuickMenu({ items, visible }: { items: BarItem[]; visible: boolean }) {
@@ -51,7 +51,7 @@ export function QuickMenu({ items, visible }: { items: BarItem[]; visible: boole
           hitSlop={8}
           style={({ pressed }) => [s.button, pressed && { opacity: 0.7 }]}
           accessibilityRole="button"
-          accessibilityLabel="Menu: Criar, Figurinhas e Ajustes"
+          accessibilityLabel="Menu: Playlist, Figurinhas e Ajustes"
           accessibilityState={{ expanded: open }}
         >
           <Feather name="grid" size={19} color={c.ink} />
