@@ -9,7 +9,7 @@ Backend em Python (FastAPI + yt-dlp + ffmpeg). Frontend em HTML, CSS e JavaScrip
 O app fica em [`mobile/`](mobile/) (React Native com Expo). Baixa do YouTube, do Instagram e do X direto no celular, faz figurinhas para o WhatsApp, grava legenda no vídeo e transforma links em músicas na Playlist. Como desenvolver e gerar o APK: [`mobile/README.md`](mobile/README.md).
 
 - **Baixar o APK:** na página [Releases](https://github.com/TheMarksan/puxa-app-of/releases/latest), em Assets.
-- **Versões:** cada versão do app tem uma tag (`v1.0.0`, `v1.4.0`, `v1.5.0`...). Para ver o que mudou entre duas: `git diff v1.5.1 v1.5.2 -- mobile`.
+- **Versões:** cada versão do app é um commit com o número no título (`App Android 1.5.2: ...`); `git log --oneline -- mobile` lista todas, e as tags `vX.Y.Z` marcam as que saíram em Releases. Para ver o que mudou entre duas: `git diff v1.5.1 v1.5.2 -- mobile`.
 - **Nova versão:** suba `version` e `android.versionCode` em `mobile/app.json`, faça o commit, crie a tag (`git tag -a v1.5.3 -m "Puxa para Android 1.5.3"`), envie com `git push --follow-tags` e publique o APK numa nova release.
 
 ## Estrutura
