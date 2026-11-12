@@ -23,6 +23,8 @@ export const MEDIA_HEADERS = { Referer: `${ROOT}/`, 'User-Agent': IG_UA };
 
 // ---------- Links ----------
 
+const sameName = (a: unknown, b: string) => typeof a === 'string' && a.toLowerCase() === b.toLowerCase();
+
 export type IgLink =
   | { type: 'media'; shortcode: string; kind: SocialKind }
   | { type: 'story'; username: string; storyId: string | null }
@@ -220,17 +222,71 @@ export function parseReelPost(reel: IgReel, opts: { kind: 'story' | 'highlight';
   };
 }
 
-export function parseHighlights(tray: unknown): Highlight[] {
-  const list = (tray as { tray?: unknown[] })?.tray ?? [];
-  return list
-    .map((h) => h as { id?: string | number; title?: string; media_count?: number; cover_media?: { cropped_image_version?: { url?: string }; full_image_version?: { url?: string } } })
-    .map((h) => ({
-      id: String(h.id ?? '').replace(/^highlight:/, ''),
-      title: h.title ?? '',
-      cover: h.cover_media?.cropped_image_version?.url ?? h.cover_media?.full_image_version?.url ?? '',
-      count: h.media_count ?? 0,
-    }))
-    .filter((h) => /^\d+$/.test(h.id));
+type IgHighlightNode = {
+  id?: string | number;
+  title?: string;
+  media_count?: number;
+  owner_username?: string;
+  cover_media?: { cropped_image_version?: { url?: string }; full_image_version?: { url?: string } } | null;
+  cover_media_cropped_thumbnail_url?: string;
+};
+
+const highlightOf = (h: IgHighlightNode): Highlight => ({
+  id: String(h.id ?? '').replace(/^highlight:/, ''),
+  title: h.title ?? '',
+  cover: h.cover_media?.cropped_image_version?.url ?? h.cover_media?.full_image_version?.url ?? h.cover_media_cropped_thumbnail_url ?? '',
+  count: h.media_count ?? 0,
+});
+
+/**
+ * Destaques de um perfil, em qualquer formato que o Instagram devolver: a bandeja da API
+ * (tray), a lista do GraphQL com a conta (highlights) ou a da página para visitantes
+ * (lox_highlights_connection). [username]: só os dessa conta, quando o formato diz o dono.
+ */
+export function parseHighlights(tray: unknown, username?: string): Highlight[] {
+  const nodes = collect(
+    tray,
+    (o) =>
+      typeof o.title === 'string' &&
+      /^(highlight:)?\d+$/.test(String(o.id ?? '')) &&
+      ('cover_media' in o || 'cover_media_cropped_thumbnail_url' in o || o.__typename === 'XIGHighlightReel' || 'media_count' in o),
+  ) as IgHighlightNode[];
+  const seen = new Set<string>();
+  const out: Highlight[] = [];
+  for (const n of nodes) {
+    if (username && n.owner_username && !sameName(n.owner_username, username)) continue;
+    const h = highlightOf(n);
+    if (!/^\d+$/.test(h.id) || seen.has(h.id)) continue;
+    seen.add(h.id);
+    out.push(h);
+  }
+  return out;
+}
+
+const isMedia = (o: unknown) => !!o && typeof o === 'object' && ('video_versions' in (o as object) || 'image_versions2' in (o as object));
+
+/**
+ * O reel (stories de uma conta ou um destaque) dentro do que a página do Instagram buscou:
+ * um objeto com a lista "items" de mídias. A página de stories também carrega os das próximas
+ * contas, então só vale o que bate com a conta ou com o destaque pedido.
+ */
+export function findReel(jsons: unknown[], want: { username?: string; userId?: string; highlightId?: string }): IgReel | null {
+  const reels: IgReel[] = [];
+  for (const j of jsons) {
+    for (const o of collect(j, (x) => Array.isArray(x.items) && (x.items as unknown[]).some(isMedia))) reels.push(o as IgReel);
+  }
+  const hit = reels.find((r) => {
+    const id = String(r.id ?? '');
+    if (want.highlightId) return id === `highlight:${want.highlightId}` || id === want.highlightId;
+    if (want.userId && (id === want.userId || String(r.user?.pk ?? r.user?.id ?? '') === want.userId)) return true;
+    if (want.username && sameName(r.user?.username, want.username)) return true;
+    // Item sem o reel em volta dizendo de quem é: vale o dono do primeiro item
+    const first = (r.items ?? [])[0];
+    return !!want.username && sameName(first?.user?.username ?? first?.owner?.username, want.username);
+  });
+  if (!hit) return null;
+  const items = (hit.items ?? []).filter(isMedia);
+  return { ...hit, items, user: hit.user ?? items[0]?.user ?? items[0]?.owner };
 }
 
 
@@ -355,9 +411,8 @@ export function polarisPost(n: IgPolarisNode, owner: IgUser): SocialPost | null 
   };
 }
 
-export type IgProfileData = { user: IgUser & { id: string }; posts: SocialPost[] };
+export type IgProfileData = { user: IgUser & { id: string; latest_reel_media?: number | null }; posts: SocialPost[]; highlights: Highlight[] };
 
-const sameName = (a: unknown, b: string) => typeof a === 'string' && a.toLowerCase() === b.toLowerCase();
 
 /**
  * Perfil a partir do que o Instagram devolver: a API do perfil (web_profile_info), a linha do
@@ -410,9 +465,10 @@ export function parseProfileData(jsons: unknown[], username: string): IgProfileD
     }
   }
   if (!user) return null;
+  const highlights = jsons.flatMap((j) => parseHighlights(j, username)).filter((h, i, all) => all.findIndex((x) => x.id === h.id) === i);
   // As datas só vêm nos formatos completos; sem data, fica a ordem em que o Instagram mostrou
   if (posts.every((p) => p.items[0]?.takenAt != null)) posts.sort((a, b) => (b.items[0]?.takenAt ?? 0) - (a.items[0]?.takenAt ?? 0));
-  return { user, posts };
+  return { user, posts, highlights };
 }
 
 /** Um post (pelo código) dentro do que a página do post devolveu. */

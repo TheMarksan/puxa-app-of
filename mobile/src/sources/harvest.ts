@@ -19,6 +19,8 @@ export type HarvestJob = {
   pattern: string;
   html: boolean;
   userAgent: string;
+  /** Texto de um botão para tocar depois de carregar (o "Ver story" da página de stories). */
+  tap?: string;
 };
 
 type Running = HarvestJob & { got: Captured[]; enough: (c: Captured[]) => boolean; done: (c: Captured[]) => void; timer: ReturnType<typeof setTimeout> };
@@ -54,7 +56,7 @@ export function harvesterMounted(on: boolean) {
   mounted += on ? 1 : -1;
 }
 
-export function harvest(o: { url: string; pattern: RegExp; enough: (c: Captured[]) => boolean; timeoutMs?: number; html?: boolean; userAgent?: string }): Promise<Captured[]> {
+export function harvest(o: { url: string; pattern: RegExp; enough: (c: Captured[]) => boolean; timeoutMs?: number; html?: boolean; userAgent?: string; tap?: RegExp }): Promise<Captured[]> {
   if (Platform.OS === 'web' || mounted <= 0) return Promise.resolve([]);
   return new Promise((resolve) => {
     const id = ++seq;
@@ -64,6 +66,7 @@ export function harvest(o: { url: string; pattern: RegExp; enough: (c: Captured[
       pattern: o.pattern.source,
       html: !!o.html,
       userAgent: o.userAgent ?? MOBILE_UA,
+      tap: o.tap?.source,
       got: [],
       enough: o.enough,
       done: resolve,
@@ -98,7 +101,7 @@ const subscribe = (l: () => void) => {
     listeners.delete(l);
   };
 };
-const snapshot = (): HarvestJob | null => (current ? { id: current.id, url: current.url, pattern: current.pattern, html: current.html, userAgent: current.userAgent } : null);
+const snapshot = (): HarvestJob | null => (current ? { id: current.id, url: current.url, pattern: current.pattern, html: current.html, userAgent: current.userAgent, tap: current.tap } : null);
 let last: HarvestJob | null = null;
 const stable = () => {
   const s = snapshot();
@@ -110,41 +113,4 @@ export function useHarvestJob(): HarvestJob | null {
   return useSyncExternalStore(subscribe, stable, stable);
 }
 
-/**
- * Script que entra antes da página: copia as respostas de fetch e XHR cujo endereço bate com o
- * padrão e, se pedido, o HTML no fim do carregamento (Instagram põe dados dentro da página).
- */
-export function hookScript(pattern: string, html: boolean): string {
-  return `(function(){
-  if (window.__puxaHook) return; window.__puxaHook = true;
-  var RE = new RegExp(${JSON.stringify(pattern)});
-  function send(u, b, h) { try { window.ReactNativeWebView.postMessage(JSON.stringify({ url: String(u || ''), body: String(b || ''), html: !!h })); } catch (e) {} }
-  try {
-    var of = window.fetch;
-    if (of) window.fetch = function(input) {
-      var u = typeof input === 'string' ? input : (input && input.url) || String(input || '');
-      var p = of.apply(this, arguments);
-      try { p.then(function(res) { try { if (RE.test(u)) res.clone().text().then(function(t) { send(u, t); }).catch(function(){}); } catch (e) {} }).catch(function(){}); } catch (e) {}
-      return p;
-    };
-  } catch (e) {}
-  try {
-    var oo = XMLHttpRequest.prototype.open, os = XMLHttpRequest.prototype.send;
-    XMLHttpRequest.prototype.open = function(m, u) { this.__puxaUrl = u; return oo.apply(this, arguments); };
-    XMLHttpRequest.prototype.send = function() {
-      var x = this;
-      try {
-        x.addEventListener('load', function() {
-          try {
-            if (!RE.test(String(x.__puxaUrl))) return;
-            var t = x.responseType === '' || x.responseType === 'text' ? x.responseText : x.responseType === 'json' ? JSON.stringify(x.response) : null;
-            if (t) send(x.__puxaUrl, t);
-          } catch (e) {}
-        });
-      } catch (e) {}
-      return os.apply(this, arguments);
-    };
-  } catch (e) {}
-  ${html ? "window.addEventListener('load', function() { setTimeout(function() { try { send(location.href, document.documentElement.outerHTML, true); } catch (e) {} }, 1200); });" : ''}
-})(); true;`;
-}
+export { hookScript } from './hook';

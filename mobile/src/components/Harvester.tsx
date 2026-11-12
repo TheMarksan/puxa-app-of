@@ -21,7 +21,7 @@ export function Harvester() {
         key={job.id}
         source={{ uri: job.url }}
         userAgent={job.userAgent}
-        injectedJavaScriptBeforeContentLoaded={hookScript(job.pattern, job.html)}
+        injectedJavaScriptBeforeContentLoaded={hookScript(job.pattern, job.html, job.tap)}
         onMessage={(e) => report(job.id, e.nativeEvent.data)}
         onError={() => fail(job.id)}
         onHttpError={(e) => {

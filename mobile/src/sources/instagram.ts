@@ -6,6 +6,8 @@ import {
   APP_ID,
   ASBD_ID,
   findMediaPost,
+  findReel,
+  IG_LOGIN_UA,
   IG_UA,
   MEDIA_HEADERS,
   parseHighlights,
@@ -179,7 +181,7 @@ export async function fetchMedia(shortcode: string, link: string, kind: SocialKi
   );
 }
 
-export async function fetchUser(username: string, f: Fetch = fetch): Promise<IgUser & { id: string }> {
+export async function fetchUser(username: string, f: Fetch = fetch, usePage = true): Promise<IgUser & { id: string }> {
   try {
     const json = await api(`/users/web_profile_info/?username=${encodeURIComponent(username)}`, f);
     const u = (json.data as { user?: IgUser } | undefined)?.user;
@@ -195,7 +197,7 @@ export async function fetchUser(username: string, f: Fetch = fetch): Promise<IgU
   const id = /"profile_id":"(\d+)"/.exec(html)?.[1] ?? /"page_id":"profilePage_(\d+)"/.exec(html)?.[1] ?? /"user_id":"(\d+)"/.exec(html)?.[1];
   if (id) return { id, username };
   // Plano C: a página aberta no navegador invisível (com a mesma sessão do app)
-  const page = await profileFromPage(username);
+  const page = usePage ? await profileFromPage(username) : null;
   if (page) return page.user;
   throw new SourceError('unavailable', `Não achei a conta @${username} no Instagram. Confira o nome e tente de novo.`);
 }
@@ -206,17 +208,58 @@ export async function fetchReel(reelId: string, f: Fetch = fetch): Promise<IgRee
   return reels?.[reelId] ?? (json.reels_media as IgReel[] | undefined)?.[0] ?? { items: [] };
 }
 
+/**
+ * A página de stories (ou de um destaque) aberta no navegador invisível com a sessão do app: o
+ * próprio site busca os stories, e o app lê o que veio. Vale quando o pedido direto falha.
+ */
+async function reelFromPage(url: string, want: { username?: string; userId?: string; highlightId?: string }): Promise<IgReel | null> {
+  const got = await harvest({
+    url,
+    pattern: /\/graphql\/query|\/api\/graphql|\/api\/v1\/feed\//,
+    html: true,
+    userAgent: IG_LOGIN_UA,
+    timeoutMs: 14_000,
+    // A página de stories às vezes pede um toque antes de tocar ("Ver story")
+    tap: /^(ver|view|assistir|watch)( (o |a )?(story|stories|destaque|highlight))?$/,
+    enough: (c) => !!findReel(c.flatMap(jsonsOf), want)?.items?.length,
+  }).catch(() => [] as Captured[]);
+  return findReel(got.flatMap(jsonsOf), want);
+}
+
+const storiesUrl = (username: string) => `${ROOT}/stories/${encodeURIComponent(username)}/`;
+
 export async function fetchStories(link: string, username: string, storyId: string | null, f: Fetch = fetch): Promise<SocialPost> {
   if (!instagramLoggedIn()) throw new SourceError('login', 'Para baixar stories, entre na sua conta do Instagram pelo Puxa. O app só vê o que a sua conta já vê.');
-  const user = await fetchUser(username, f);
-  const reel = await fetchReel(user.id, f);
-  if (!reel.items?.length && user.is_private) throw new SourceError('private', `@${username} tem conta privada: só quem segue vê os stories.`);
-  return parseReelPost({ ...reel, user: reel.user ?? user }, { kind: 'story', id: user.id, link, storyId, username });
+  let user: (IgUser & { id: string }) | null = null;
+  let reel: IgReel | null = null;
+  try {
+    user = await fetchUser(username, f, false);
+    const r = await fetchReel(user.id, f);
+    if (r.items?.length) reel = r;
+  } catch (e) {
+    if (e instanceof SourceError && e.code === 'checkpoint') throw e;
+  }
+  // O pedido direto falhou ou veio vazio: a página de stories, como no navegador
+  if (!reel) reel = await reelFromPage(storiesUrl(username), { username, userId: user?.id });
+  if (!reel?.items?.length) {
+    if (user?.is_private) throw new SourceError('private', `@${username} tem conta privada: só quem segue vê os stories.`);
+    throw new SourceError('empty', `Não achei stories de @${username} agora. Eles ficam 24 horas; se ainda estiverem no ar, tente de novo em instantes.`);
+  }
+  const owner = reel.user ?? user ?? { username };
+  return parseReelPost({ ...reel, user: owner }, { kind: 'story', id: user?.id ?? String(owner.pk ?? owner.id ?? username), link, storyId, username });
 }
 
 export async function fetchHighlight(link: string, highlightId: string, storyId: string | null, f: Fetch = fetch): Promise<SocialPost> {
   if (!instagramLoggedIn()) throw new SourceError('login', 'Para baixar destaques, entre na sua conta do Instagram pelo Puxa.');
-  const reel = await fetchReel(`highlight:${highlightId}`, f);
+  let reel: IgReel | null = null;
+  try {
+    const r = await fetchReel(`highlight:${highlightId}`, f);
+    if (r.items?.length) reel = r;
+  } catch (e) {
+    if (e instanceof SourceError && e.code === 'checkpoint') throw e;
+  }
+  if (!reel) reel = await reelFromPage(`${ROOT}/stories/highlights/${highlightId}/`, { highlightId });
+  if (!reel?.items?.length) throw new SourceError('empty', 'Não consegui abrir este destaque agora. Tente de novo em instantes.');
   return parseReelPost(reel, { kind: 'highlight', id: highlightId, link, storyId });
 }
 
@@ -226,7 +269,8 @@ async function profileFromPage(username: string): Promise<IgProfileData | null> 
     url: `${ROOT}/${encodeURIComponent(username)}/`,
     pattern: /web_profile_info|\/graphql\/query|\/api\/graphql/,
     html: true,
-    userAgent: IG_UA,
+    // Com a conta: o Chrome de celular do login (a sessão nasceu com ele)
+    userAgent: instagramLoggedIn() ? IG_LOGIN_UA : IG_UA,
     enough: (c) => (parseProfileData(c.flatMap(jsonsOf), username)?.posts.length ?? 0) > 0,
   }).catch(() => [] as Captured[]);
   return parseProfileData(got.flatMap(jsonsOf), username);
@@ -271,15 +315,18 @@ export async function fetchProfile(username: string, f: Fetch = fetch): Promise<
     headers: MEDIA_HEADERS,
   };
   if (!instagramLoggedIn()) return base;
-  const [reel, tray] = await Promise.all([
-    fetchReel(user.id, f).catch(() => ({ items: [] }) as IgReel),
-    api(`/highlights/${user.id}/highlights_tray/`, f).catch(() => null),
-  ]);
-  return {
-    ...base,
-    stories: (reel.items ?? []).map(parseItem).filter(usable),
-    highlights: tray ? parseHighlights(tray) : [],
-  };
+  const [reel, tray] = await Promise.all([fetchReel(user.id, f).catch(() => null), api(`/highlights/${user.id}/highlights_tray/`, f).catch(() => null)]);
+  // Destaques: a bandeja da API ou, se ela falhar, a lista que a própria página do perfil traz
+  let highlights = tray ? parseHighlights(tray, base.username) : [];
+  if (!tray) highlights = data.highlights.length ? data.highlights : ((await profileFromPage(username))?.highlights ?? []);
+  // Stories: o pedido direto ou, se ele falhar, a página de stories (só se a conta tiver algum no ar)
+  let stories = reel ? (reel.items ?? []).map(parseItem).filter(usable) : null;
+  if (stories === null) {
+    const hasRing = user.latest_reel_media == null || user.latest_reel_media > 0;
+    const fromPage = hasRing ? await reelFromPage(storiesUrl(base.username), { username: base.username, userId: user.id }) : null;
+    stories = (fromPage?.items ?? []).map(parseItem).filter(usable);
+  }
+  return { ...base, stories, highlights };
 }
 
 /** Post de um perfil que veio sem o link de algum vídeo: busca o post inteiro pelo código. */

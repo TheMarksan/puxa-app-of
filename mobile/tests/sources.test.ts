@@ -399,3 +399,57 @@ test('post parcial da grade não conta como completo, mesmo sendo foto', async (
   assert.equal(isComplete({ ...base, items: [img], partial: true }), false);
   assert.equal(isComplete({ ...base, items: [{ ...img, kind: 'video', image: null }] }), false);
 });
+
+// Stories e destaques lidos da página do Instagram (com a conta): o formato do GraphQL do site.
+test('stories pela página: pega só o reel da conta pedida (a página traz os das próximas também)', async () => {
+  const { findReel } = await import('../src/sources/instagramParse');
+  const json = {
+    data: {
+      xdt_api__v1__feed__reels_media: {
+        reels_media: [
+          { id: '111', user: { pk: '111', username: 'outra.conta' }, items: [{ pk: '1', image_versions2: { candidates: [{ url: 'https://cdn/a.jpg', width: 1080, height: 1920 }] }, taken_at: 1 }] },
+          {
+            id: '555',
+            user: { pk: '555', username: 'mar.aberto' },
+            items: [
+              { pk: '2', media_type: 2, video_versions: [{ url: 'https://cdn/v.mp4', width: 720, height: 1280 }], image_versions2: { candidates: [{ url: 'https://cdn/t.jpg', width: 720, height: 1280 }] }, taken_at: 2 },
+              { pk: '3', image_versions2: { candidates: [{ url: 'https://cdn/f.jpg', width: 1080, height: 1920 }] }, taken_at: 3 },
+            ],
+          },
+        ],
+      },
+    },
+  };
+  const r = findReel([json], { username: 'Mar.Aberto' });
+  assert.equal(r?.id, '555');
+  const post = parseReelPost(r!, { kind: 'story', id: '555', link: 'https://www.instagram.com/stories/mar.aberto/', storyId: '3', username: 'mar.aberto' });
+  assert.deepEqual(post.items.map((i) => i.kind), ['video', 'image']);
+  assert.equal(post.initial, 1);
+  assert.equal(findReel([json], { username: 'ninguem' }), null);
+  assert.equal(findReel([json], { userId: '111' })?.user?.username, 'outra.conta');
+});
+
+test('destaque pela página: acha pelo id, com ou sem o prefixo highlight:', async () => {
+  const { findReel } = await import('../src/sources/instagramParse');
+  const json = { data: { xdt_api__v1__feed__reels_media__connection: { edges: [{ node: { id: 'highlight:999', title: 'Praia', user: { username: 'mar.aberto' }, items: [{ pk: '9', image_versions2: { candidates: [{ url: 'https://cdn/p.jpg', width: 1080, height: 1920 }] } }] } }] } } };
+  assert.equal(findReel([json], { highlightId: '999' })?.title, 'Praia');
+  assert.equal(findReel([json], { highlightId: '1' }), null);
+});
+
+test('lista de destaques: bandeja da API, GraphQL com a conta e página para visitantes', () => {
+  const api = { tray: [{ id: 'highlight:17', title: 'Viagem', media_count: 4, cover_media: { cropped_image_version: { url: 'https://cdn/c1.jpg' } } }] };
+  const gql = { data: { highlights: { edges: [{ node: { id: 'highlight:18', title: 'Show', cover_media: { cropped_image_version: { url: 'https://cdn/c2.jpg' } } } }] } } };
+  const lox = { lox_highlights_connection: { edges: [{ node: { id: '19', title: 'Bastidores', cover_media_cropped_thumbnail_url: 'https://cdn/c3.jpg', owner_username: 'mar.aberto', __typename: 'XIGHighlightReel' } }, { node: { id: '20', title: 'De outra', cover_media_cropped_thumbnail_url: 'x', owner_username: 'outra', __typename: 'XIGHighlightReel' } }] } };
+  assert.deepEqual(parseHighlights(api), [{ id: '17', title: 'Viagem', cover: 'https://cdn/c1.jpg', count: 4 }]);
+  assert.deepEqual(parseHighlights(gql).map((h) => h.id), ['18']);
+  assert.deepEqual(parseHighlights(lox, 'mar.aberto').map((h) => [h.id, h.cover]), [['19', 'https://cdn/c3.jpg']]);
+});
+
+test('script do navegador invisível é JavaScript válido, com e sem o toque no botão', async () => {
+  const { hookScript } = await import('../src/sources/hook');
+  for (const js of [hookScript('graphql', false), hookScript('graphql', true), hookScript('a/b\\/c', true, '^(ver|view)( story)?$')]) {
+    assert.doesNotThrow(() => new Function(js));
+  }
+  assert.match(hookScript('x', true, 'ver'), /TAP/);
+  assert.doesNotMatch(hookScript('x', true), /TAP/);
+});
