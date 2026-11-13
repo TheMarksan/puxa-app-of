@@ -1,4 +1,4 @@
-import type { CategoryId, DB, Img, Pack, Sticker, User } from './types';
+import type { Category, CategoryId, DB, Img, Pack, Sticker, User } from './types';
 
 /**
  * As regras da comunidade, sem tela e sem arquivo: entrar, criar conta, seguir, curtir, buscar
@@ -18,12 +18,7 @@ export class CommunityError extends Error {
 // ---------- Texto ----------
 
 /** Minúsculas e sem acento: "Reunião" acha "reuniao". */
-export const fold = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim();
+export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 /** Resumo da senha (FNV-1a em duas voltas). Só os dados de teste usam: o servidor terá o dele. */
 export function hashSecret(s: string): string {
@@ -187,7 +182,10 @@ export function publish(db: DB, input: PublishInput, now: number, id: string): D
   if (name.length < 2) throw new CommunityError('Dê um nome ao pacote.', 'name');
   if (input.stickers.length < MIN_PACK) throw new CommunityError(`O WhatsApp pede pelo menos ${MIN_PACK} figurinhas num pacote.`);
   if (input.stickers.length > MAX_PACK) throw new CommunityError(`Um pacote leva até ${MAX_PACK} figurinhas.`);
-  const words = (s: string) => fold(s).split(/[^a-z0-9]+/).filter((w) => w.length > 1);
+  const words = (s: string) =>
+    fold(s)
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 1);
   const stickers: Sticker[] = input.stickers.map((s, i) => ({ id: `${id}/${i}`, img: s.img, poster: s.poster, emojis: s.emojis.length ? s.emojis : ['😀'], tags: words(s.label) }));
   const pack: Pack = {
     id,
@@ -278,6 +276,59 @@ export function search(db: DB, query: string, categoryName: (id: CategoryId) => 
   return { stickers, packs, people };
 }
 
+/** Um atalho no topo da busca: ir direto para a categoria, o perfil ou o pacote com esse nome. */
+export type Shortcut = { kind: 'category'; category: Category; packs: number } | { kind: 'person'; user: User } | { kind: 'pack'; pack: Pack };
+
+const KIND_ORDER: Record<Shortcut['kind'], number> = { category: 0, person: 1, pack: 2 };
+
+/**
+ * Os atalhos: categorias, pessoas e pacotes cujo NOME começa com o que foi digitado (ou tem uma
+ * palavra que começa). O mais certeiro vem primeiro; no empate, categoria, pessoa e pacote, e
+ * entre iguais o mais seguido ou o mais adicionado. Uma letra só ainda não sugere nada.
+ */
+export function shortcuts(db: DB, query: string, categories: Category[], max = 3): Shortcut[] {
+  const q = fold(query).replace(/\s+/g, ' ');
+  if (q.length < 2) return [];
+  const words = q.split(' ').filter(Boolean);
+  // 5 = começo de uma palavra do nome; "meio de palavra" fica só nos resultados
+  const STRONG = 5;
+  const found: { item: Shortcut; s: number; pop: number }[] = [];
+  for (const category of categories) {
+    const s = score(category.name, q, words);
+    if (s >= STRONG) found.push({ item: { kind: 'category', category, packs: db.packs.filter((p) => p.category === category.id).length }, s, pop: 0 });
+  }
+  for (const user of db.users) {
+    const s = Math.max(score(user.name, q, words), score(user.username, q, words));
+    if (s >= STRONG) found.push({ item: { kind: 'person', user }, s, pop: countsOf(db, user.id).followers });
+  }
+  for (const pack of db.packs) {
+    const s = score(pack.name, q, words);
+    if (s >= STRONG) found.push({ item: { kind: 'pack', pack }, s, pop: pack.downloads });
+  }
+  return found
+    .sort((a, b) => b.s - a.s || KIND_ORDER[a.item.kind] - KIND_ORDER[b.item.kind] || b.pop - a.pop)
+    .slice(0, max)
+    .map((x) => x.item);
+}
+
+/**
+ * Onde [query] aparece em [text], sem olhar acento nem maiúscula, para pôr esse pedaço em negrito.
+ * Começo de palavra ganha do meio. Se o texto muda de tamanho ao tirar os acentos (acento já
+ * separado da letra), não marca nada, para não errar a posição.
+ */
+export function matchAt(text: string, query: string): [number, number] | null {
+  const q = fold(query).replace(/\s+/g, ' ');
+  if (!q) return null;
+  const t = text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  if (t.length !== text.length) return null;
+  let first = -1;
+  for (let i = t.indexOf(q); i !== -1; i = t.indexOf(q, i + 1)) {
+    if (i === 0 || !/[a-z0-9]/.test(t[i - 1])) return [i, i + q.length];
+    if (first === -1) first = i;
+  }
+  return first === -1 ? null : [first, first + q.length];
+}
+
 // ---------- Início ----------
 
 export type Feed = {
@@ -299,7 +350,10 @@ export function feed(db: DB): Feed {
     trending: byWeek.slice(1, 7),
     popular: [...db.packs].sort((a, b) => b.downloads - a.downloads).slice(0, 6),
     fresh: [...db.packs].sort((a, b) => b.created - a.created).slice(0, 6),
-    following: [...db.packs].filter((p) => mine.has(p.author)).sort((a, b) => b.created - a.created).slice(0, 4),
+    following: [...db.packs]
+      .filter((p) => mine.has(p.author))
+      .sort((a, b) => b.created - a.created)
+      .slice(0, 4),
   };
 }
 

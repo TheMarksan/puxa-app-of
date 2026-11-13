@@ -34,7 +34,7 @@ export function Avatar({ user, size, ring }: { user: Pick<User, 'name' | 'avatar
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join('');
   const style = { width: size, height: size, borderRadius: radius.full, borderWidth: ring ? 4 : 0, borderColor: ring };
-  if (user?.avatar) return <Image source={imgSource(user.avatar)} style={[style, { backgroundColor: c.sunken }]} accessibilityIgnoresInvertColors />;
+  if (user?.avatar) return <Image source={imgSource(user.avatar)} style={[style, { backgroundColor: c.sunken }]} resizeMethod="resize" accessibilityIgnoresInvertColors />;
   return (
     <View style={[style, styles.center, { backgroundColor: c.accentSoft }]}>
       <Text style={[size >= 64 ? text.title : size >= 40 ? text.bodyBold : text.captionBold, { color: c.accentInk }]}>{initials}</Text>
@@ -65,9 +65,16 @@ export function FollowButton({ following, onPress, size = 'sm', tone = 'accent' 
 
 // ---------- Figurinhas ----------
 
+/**
+ * A figurinha na medida em que aparece: "resize" decodifica do tamanho da peça, e não os
+ * 512x512 inteiros (cem figurinhas no Início seriam mais de 100 MB de imagem na memória).
+ */
 export function StickerImage({ img, size }: { img: Img; size: number }) {
-  return <Image source={imgSource(img)} style={{ width: size, height: size }} resizeMode="contain" accessibilityIgnoresInvertColors />;
+  return <Image source={imgSource(img)} style={{ width: size, height: size }} resizeMode="contain" resizeMethod="resize" fadeDuration={0} accessibilityIgnoresInvertColors />;
 }
+
+/** Nas listas, a animada aparece parada (o primeiro quadro): dezenas de animações juntas travam a tela. Anima no pacote e na prévia. */
+export const still = (s: Sticker): Img => s.poster ?? s.img;
 
 /** Fileira de figurinhas do pacote (as primeiras [count]) sobre o fundo de conversa. */
 export function PackStrip({ pack, width, count = 5 }: { pack: Pack; width: number; count?: number }) {
@@ -76,7 +83,7 @@ export function PackStrip({ pack, width, count = 5 }: { pack: Pack; width: numbe
   return (
     <View style={[styles.strip, { backgroundColor: c.chat, width }]}>
       {pack.stickers.slice(0, count).map((st) => (
-        <StickerImage key={st.id} img={st.img} size={cell} />
+        <StickerImage key={st.id} img={still(st)} size={cell} />
       ))}
     </View>
   );
@@ -89,14 +96,14 @@ export function PackMosaic({ pack, size }: { pack: Pack; size: number }) {
   return (
     <View style={[styles.mosaic, { width: size, height: size, backgroundColor: c.chat }]}>
       {pack.stickers.slice(0, 4).map((st) => (
-        <StickerImage key={st.id} img={st.img} size={cell} />
+        <StickerImage key={st.id} img={still(st)} size={cell} />
       ))}
     </View>
   );
 }
 
-/** Grade de figurinhas que se toca uma a uma (abre a prévia). */
-export function StickerGrid({ items, width, columns = 4, onPress }: { items: { sticker: Sticker; pack: Pack }[]; width: number; columns?: number; onPress: (sticker: Sticker, pack: Pack) => void }) {
+/** Grade de figurinhas que se toca uma a uma (abre a prévia). [animate] só na tela do pacote. */
+export function StickerGrid({ items, width, columns = 4, animate = false, onPress }: { items: { sticker: Sticker; pack: Pack }[]; width: number; columns?: number; animate?: boolean; onPress: (sticker: Sticker, pack: Pack) => void }) {
   const c = usePalette();
   const cell = Math.floor((width - space[2] * (columns - 1)) / columns);
   return (
@@ -109,7 +116,7 @@ export function StickerGrid({ items, width, columns = 4, onPress }: { items: { s
           accessibilityRole="button"
           accessibilityLabel={`Figurinha ${sticker.tags.slice(0, 2).join(' ')} do pacote ${pack.name}`}
         >
-          <StickerImage img={sticker.img} size={cell - space[2] * 2} />
+          <StickerImage img={animate ? sticker.img : still(sticker)} size={cell - space[2] * 2} />
         </Pressable>
       ))}
     </View>
@@ -134,7 +141,15 @@ export function AddButton({ pack, busy, onAdd }: AddProps) {
   const c = usePalette();
   const done = useInstalled(pack);
   return (
-    <Press onPress={onAdd} disabled={busy} scaleTo={0.92} hitSlop={hit(control.sm)} accessibilityRole="button" accessibilityLabel={done ? `${pack.name} já está no WhatsApp. Abrir de novo` : `Adicionar ${pack.name} ao WhatsApp`} accessibilityState={{ busy }}>
+    <Press
+      onPress={onAdd}
+      disabled={busy}
+      scaleTo={0.92}
+      hitSlop={hit(control.sm)}
+      accessibilityRole="button"
+      accessibilityLabel={done ? `${pack.name} já está no WhatsApp. Abrir de novo` : `Adicionar ${pack.name} ao WhatsApp`}
+      accessibilityState={{ busy }}
+    >
       {(pressed) => (
         <View style={[styles.round, { backgroundColor: done ? c.successSoft : pressed ? c.accentLine : c.accentSoft }]}>
           {busy ? <ActivityIndicator size="small" color={c.accentInk} /> : <Feather name={done ? 'check' : 'plus'} size={20} color={done ? c.successInk : c.accentInk} />}
@@ -161,15 +176,117 @@ export function PackRow({ pack, width, busy, onAdd }: { pack: Pack; width: numbe
             </Text>
             {pack.animated ? <Badge label="Animadas" /> : null}
           </View>
-          <Text style={s.packMeta} numberOfLines={1}>
-            @{author?.username ?? 'alguem'} · {pack.stickers.length} figurinhas · {compact(pack.downloads)}
-          </Text>
+          <View style={s.metaRow}>
+            <Text style={s.metaShrink} numberOfLines={1}>
+              @{author?.username ?? 'alguem'} · {pack.stickers.length} figurinhas ·
+            </Text>
+            <AddCount n={pack.downloads} />
+          </View>
         </Pressable>
         <AddButton pack={pack} busy={busy} onAdd={onAdd} />
       </View>
       <Pressable onPress={() => router.push(`/pacote/${pack.id}`)} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <PackStrip pack={pack} width={width} />
       </Pressable>
+    </View>
+  );
+}
+
+/** Quantas vezes o pacote foi posto no WhatsApp: a setinha de baixar diz o que é o número. */
+function AddCount({ n }: { n: number }) {
+  const c = usePalette();
+  return (
+    <View style={styles.adds} accessible accessibilityLabel={`${compact(n)} adições no WhatsApp`}>
+      <Feather name="download" size={12} color={c.muted} />
+      <Text style={[text.caption, tabular, { color: c.muted }]}>{compact(n)}</Text>
+    </View>
+  );
+}
+
+/** Altura da figurinha da capa num cartão de [width]. */
+const leadHeight = (width: number) => Math.round(width * 0.72);
+/** Lado de cada uma das três miniaturas embaixo da capa. */
+const thumbSide = (width: number) => Math.floor((width - space[1] * 2) / 3);
+
+/**
+ * Um pacote na grade de duas colunas: a figurinha da capa grande, mais três miniaturas embaixo,
+ * o nome e uma linha que diz de quem é ([meta] "author", quando quem olha não sabe) ou o tamanho
+ * do pacote ("counts", no perfil de quem fez). O + fica no canto da capa.
+ */
+export function PackCard({ pack, width, meta, busy, onAdd }: { pack: Pack; width: number; meta: 'author' | 'counts' } & Omit<AddProps, 'pack'>) {
+  const c = usePalette();
+  const s = useMemo(() => makeStyles(c), [c]);
+  const router = useRouter();
+  const db = useDB();
+  const author = authorOf(db.users, pack);
+  const lead = leadHeight(width);
+  const thumb = thumbSide(width);
+  const [first, ...rest] = pack.stickers;
+  const count = `${pack.stickers.length} figurinhas`;
+  return (
+    <View style={{ width }}>
+      <Pressable
+        onPress={() => router.push(`/pacote/${pack.id}`)}
+        style={({ pressed }) => pressed && { opacity: 0.72 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Pacote ${pack.name}, de ${author?.name ?? 'alguém'}, ${count}${pack.animated ? ', animadas' : ''}, ${compact(pack.downloads)} adições no WhatsApp`}
+      >
+        <View style={[s.cardLead, { height: lead, backgroundColor: c.chat }]}>
+          {first ? <StickerImage img={still(first)} size={lead - space[4] * 2} /> : null}
+          {pack.animated ? (
+            <View style={s.cardPlay}>
+              <Feather name="play" size={12} color={c.onMedia} />
+            </View>
+          ) : null}
+        </View>
+        <View style={s.cardThumbs}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={[s.cardThumb, { width: thumb, height: thumb, backgroundColor: c.chat }]}>
+              {rest[i] ? <StickerImage img={still(rest[i])} size={thumb - space[2] * 2} /> : null}
+            </View>
+          ))}
+        </View>
+        {meta === 'author' ? (
+          <View style={s.cardBy}>
+            <Avatar user={author ?? null} size={32} />
+            <View style={s.cardByText}>
+              <Text style={s.packName} numberOfLines={1}>
+                {pack.name}
+              </Text>
+              <Text style={s.packMeta} numberOfLines={1}>
+                @{author?.username ?? 'alguem'}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.cardText}>
+            <Text style={s.packName} numberOfLines={1}>
+              {pack.name}
+            </Text>
+            <View style={s.metaRow}>
+              <Text style={s.metaShrink} numberOfLines={1}>
+                {count} ·
+              </Text>
+              <AddCount n={pack.downloads} />
+            </View>
+          </View>
+        )}
+      </Pressable>
+      <View style={[s.cardAdd, { top: lead - control.sm - space[2] }]}>
+        <AddButton pack={pack} busy={busy} onAdd={onAdd} />
+      </View>
+    </View>
+  );
+}
+
+/** A grade de pacotes em duas colunas, na largura útil [width]. */
+export function PackCards({ packs, width, meta, busy, onAdd }: { packs: Pack[]; width: number; meta: 'author' | 'counts'; busy: string | null; onAdd: (pack: Pack) => void }) {
+  const card = Math.floor((width - space[3]) / 2);
+  return (
+    <View style={styles.cards}>
+      {packs.map((p) => (
+        <PackCard key={p.id} pack={p} width={card} meta={meta} busy={busy === p.id} onAdd={() => onAdd(p)} />
+      ))}
     </View>
   );
 }
@@ -182,7 +299,12 @@ export function PackTile({ pack, size = 152, rank }: { pack: Pack; size?: number
   const db = useDB();
   const author = authorOf(db.users, pack);
   return (
-    <Pressable onPress={() => router.push(`/pacote/${pack.id}`)} style={({ pressed }) => [{ width: size }, pressed && { opacity: 0.72 }]} accessibilityRole="button" accessibilityLabel={`${rank ? `Número ${rank}: ` : ''}${pack.name}, de ${author?.name ?? 'alguém'}`}>
+    <Pressable
+      onPress={() => router.push(`/pacote/${pack.id}`)}
+      style={({ pressed }) => [{ width: size }, pressed && { opacity: 0.72 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${rank ? `Número ${rank}: ` : ''}${pack.name}, de ${author?.name ?? 'alguém'}`}
+    >
       <View>
         <PackMosaic pack={pack} size={size} />
         {rank ? (
@@ -226,7 +348,12 @@ export function FeaturedPoster({ pack }: { pack: Pack }) {
   const k = COLORS[cat.color];
   const shown = pack.stickers.slice(0, 3);
   return (
-    <Pressable onPress={() => router.push(`/pacote/${pack.id}`)} style={({ pressed }) => [s.poster, { backgroundColor: k.bg }, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Em alta agora: ${pack.name}, de ${author?.name ?? 'alguém'}`}>
+    <Pressable
+      onPress={() => router.push(`/pacote/${pack.id}`)}
+      style={({ pressed }) => [s.poster, { backgroundColor: k.bg }, pressed && { opacity: 0.92 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Em alta agora: ${pack.name}, de ${author?.name ?? 'alguém'}`}
+    >
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[1, 0.66, 0.36].map((f, i) => (
           <View key={i} style={[s.posterRing, { borderColor: alpha(k.ink, 0.1), width: 320 * f, height: 320 * f, right: -96 * f, top: -96 * f }]} />
@@ -235,7 +362,7 @@ export function FeaturedPoster({ pack }: { pack: Pack }) {
       <View style={s.posterArt} pointerEvents="none">
         {shown.map((st, i) => (
           <View key={st.id} style={[s.posterSticker, { transform: [{ rotate: `${[-10, 8, -4][i]}deg` }], right: [space[16] + space[4], space[2], space[12]][i], top: [space[2], space[8], space[16] + space[6]][i] }]}>
-            <StickerImage img={st.img} size={96} />
+            <StickerImage img={still(st)} size={96} />
           </View>
         ))}
       </View>
@@ -262,7 +389,7 @@ export function CategoryTile({ category }: { category: Category }) {
   return (
     <Pressable onPress={() => router.push(`/categoria/${category.id}`)} style={({ pressed }) => [s.cat, { backgroundColor: k.bg }, pressed && { opacity: 0.88 }]} accessibilityRole="button" accessibilityLabel={`Categoria ${category.name}`}>
       <View style={s.catArt} pointerEvents="none">
-        <Image source={ART[category.cover]} style={s.catImage} resizeMode="contain" accessibilityIgnoresInvertColors />
+        <Image source={ART[category.cover]} style={s.catImage} resizeMode="contain" resizeMethod="resize" accessibilityIgnoresInvertColors />
       </View>
       <Text style={[text.poster, { color: k.ink }]} numberOfLines={1}>
         {category.name}
@@ -276,7 +403,14 @@ export function CreateTile({ onPress, busy }: { onPress: () => void; busy?: bool
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   return (
-    <Pressable onPress={onPress} disabled={busy} style={({ pressed }) => [s.cat, { backgroundColor: c.inverse }, pressed && { opacity: 0.88 }]} accessibilityRole="button" accessibilityLabel="Criar figurinha com foto ou vídeo do celular" accessibilityState={{ busy }}>
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      style={({ pressed }) => [s.cat, { backgroundColor: c.inverse }, pressed && { opacity: 0.88 }]}
+      accessibilityRole="button"
+      accessibilityLabel="Criar figurinha com foto ou vídeo do celular"
+      accessibilityState={{ busy }}
+    >
       <View style={[s.createIcon, { backgroundColor: c.accent }]}>{busy ? <ActivityIndicator size="small" color={c.onAccent} /> : <Feather name="plus" size={20} color={c.onAccent} />}</View>
       <Text style={[text.poster, { color: c.onInverse }]} numberOfLines={1}>
         Criar a sua
@@ -322,6 +456,22 @@ export function PackRowsSkeleton({ width, rows = 3 }: { width: number; rows?: nu
   );
 }
 
+/** Esqueleto da grade de pacotes. */
+export function PackCardsSkeleton({ width, count = 4 }: { width: number; count?: number }) {
+  const [list] = useState(() => Array.from({ length: count }, (_, i) => i));
+  const card = Math.floor((width - space[3]) / 2);
+  return (
+    <View style={styles.cards} accessibilityLabel="Carregando" accessibilityRole="progressbar">
+      {list.map((i) => (
+        <View key={i} style={[styles.skeletonRow, { width: card }]}>
+          <Bone width={card} height={leadHeight(card) + space[1] + thumbSide(card)} />
+          <Bone width="72%" height={20} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function Stat({ value, label, onPress }: { value: string; label: string; onPress?: () => void }) {
   const c = usePalette();
   const body = (
@@ -348,6 +498,8 @@ const styles = StyleSheet.create({
   strip: { flexDirection: 'row', gap: space[1], padding: space[2], borderRadius: radius.lg },
   mosaic: { flexDirection: 'row', flexWrap: 'wrap', gap: space[1], padding: space[2], borderRadius: radius.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  cards: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space[3], rowGap: space[6] },
+  adds: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   cell: { borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   round: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   badge: { height: 24, paddingHorizontal: space[2], borderRadius: radius.full, justifyContent: 'center' },
@@ -368,7 +520,17 @@ const makeStyles = (c: Palette) =>
     titleLine: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     packName: { ...text.bodyBold, flexShrink: 1, color: c.ink },
     packMeta: { ...text.caption, ...tabular, color: c.muted },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+    metaShrink: { ...text.caption, ...tabular, color: c.muted, flexShrink: 1 },
     tileName: { ...text.bodyBold, color: c.ink, marginTop: space[2] },
+    cardLead: { borderRadius: radius.lg, alignItems: 'center', justifyContent: 'center' },
+    cardPlay: { position: 'absolute', left: space[2], top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
+    cardThumbs: { flexDirection: 'row', gap: space[1], marginTop: space[1] },
+    cardThumb: { borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+    cardAdd: { position: 'absolute', right: space[2] },
+    cardText: { marginTop: space[2] },
+    cardBy: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: space[2] },
+    cardByText: { flex: 1, minWidth: 0 },
     rank: { position: 'absolute', left: space[2], top: space[2], minWidth: 24, height: 24, paddingHorizontal: space[1], borderRadius: radius.full, backgroundColor: c.inverse, alignItems: 'center', justifyContent: 'center' },
     rankText: { ...text.captionBold, ...tabular, lineHeight: 16, color: c.onInverse },
     play: { position: 'absolute', right: space[2], top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
@@ -382,4 +544,3 @@ const makeStyles = (c: Palette) =>
     catImage: { width: 72, height: 72 },
     createIcon: { position: 'absolute', top: space[3], left: space[3], width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   });
-

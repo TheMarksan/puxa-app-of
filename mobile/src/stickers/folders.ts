@@ -28,6 +28,9 @@ export function refreshFolders(): Promise<StickerFolder[]> {
   });
 }
 
+/** A primeira leitura em andamento: as dezenas de "+" do acervo esperam a mesma, em vez de cada um pedir a lista ao motor. */
+let firstLoad: Promise<unknown> | null = null;
+
 /** Lista das pastas (null enquanto carrega); busca na primeira vez. */
 export function useFolders(): StickerFolder[] | null {
   const list = useSyncExternalStore(
@@ -36,7 +39,12 @@ export function useFolders(): StickerFolder[] | null {
     () => folders,
   );
   useEffect(() => {
-    if (!folders) refreshFolders().catch(() => {});
+    if (folders || firstLoad) return;
+    firstLoad = refreshFolders()
+      .catch(() => {})
+      .finally(() => {
+        firstLoad = null;
+      });
   }, []);
   return list;
 }

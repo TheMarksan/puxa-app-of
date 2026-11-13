@@ -2,7 +2,7 @@
   "expo": {
     "name": "Puxa",
     "slug": "puxa",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "puxa",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "app.puxa",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "backgroundColor": "#2B4BFF",
         "foregroundImage": "./assets/android-icon-foreground.png",

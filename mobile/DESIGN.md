@@ -68,6 +68,10 @@ Números que mudam (tempo, tamanho, porcentagem) usam `tabular`.
 - **Pôster na cor da categoria** no topo do pacote e da categoria (`PosterHero`) e no destaque do Início, com os anéis e até três figurinhas inclinadas, como no topo das playlists.
 - **Um botão principal por tela:** no pacote, **Adicionar ao WhatsApp** (azul, preso embaixo); nas listas, o **+** de cada pacote é a peça clara de azul, para não ter dez botões azuis competindo.
 - **Formulários** (`Field`): o nome do campo sempre em cima, o poço para digitar, o erro colado embaixo em vermelho. Nunca só o texto de exemplo.
+- **Atalhos da busca:** um painel claro colado no campo (12 abaixo dele), com até três linhas: a peça do tipo (cor da categoria, foto da pessoa, capa do pacote), o nome com o pedaço digitado em negrito e embaixo o que é ("Categoria · 2 pacotes"). O mais certeiro em cima. Os resultados vêm um grupo abaixo.
+- **Grade de pacotes** (`PackCard`, duas colunas): a figurinha da capa grande, três miniaturas embaixo, o nome e uma linha só. Onde quem olha não sabe de quem é (categoria, curtidos), a linha é a foto e o @; no perfil de quem fez, o tamanho e as adições. O **+** fica no canto da capa.
+- **Categoria troca ali mesmo:** a fileira de todas as categorias logo abaixo do pôster, a escolhida na cor dela.
+- **Leve no Início:** nas listas a figurinha animada aparece parada (`still`, o primeiro quadro); anima só no pacote e na prévia. Toda figurinha decodifica do tamanho da peça (`resizeMethod="resize"`), nunca os 512x512 inteiros. O acervo fica montado enquanto se busca (some da tela, não sai da memória).
 
 ## Onde o sistema abre exceção
 

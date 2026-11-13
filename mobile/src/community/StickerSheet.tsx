@@ -14,7 +14,7 @@ import { control, gutter, type Palette, radius, space, text, usePalette } from '
 import { addSticker } from './install';
 import { useDB } from './store';
 import type { Pack, Sticker } from './types';
-import { StickerImage } from './ui';
+import { StickerImage, still } from './ui';
 import { useInstaller } from './useInstaller';
 
 /**
@@ -89,7 +89,7 @@ export function StickerSheet({ item, onClose }: { item: { sticker: Sticker; pack
           accessibilityLabel={`Do pacote ${pack.name}, de ${author?.name ?? 'alguém'}. Abrir o pacote`}
         >
           <View style={s.tray}>
-            <StickerImage img={pack.stickers[0].img} size={32} />
+            <StickerImage img={still(pack.stickers[0])} size={32} />
           </View>
           <View style={s.packText}>
             <Text style={s.packName} numberOfLines={1}>
