@@ -13,7 +13,9 @@ import { useToast } from '../components/Toasts';
 import { EmptyState, Group, Hairline, IconButton } from '../components/ui';
 import { toUri } from '../editor/media';
 import { bytes } from '../format';
+import { PublishSheet } from '../community/PublishSheet';
 import { dropFolder, folderToWhatsApp, MAX_PER_PACK, packOf, pendingPacks, putFolder, roomIn, useFolders } from '../stickers/folders';
+import { useDeviceSticker } from '../stickers/fromDevice';
 import { control, gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 /** Uma pasta: as figurinhas (paradas e animadas juntas), o WhatsApp e as ações de cada uma. */
@@ -33,6 +35,8 @@ export function FolderScreen({ id }: { id: string }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [adding, setAdding] = useState(false);
   const [width, setWidth] = useState(0);
+  const [publishing, setPublishing] = useState(false);
+  const device = useDeviceSticker();
 
   // Apagar espera alguns segundos (dá para desfazer); a figurinha some da grade na hora
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
@@ -60,7 +64,7 @@ export function FolderScreen({ id }: { id: string }) {
   }
 
   const stickers = folder.stickers.filter((st) => !hidden.has(st.file));
-  const tile = width > 0 ? Math.floor((width - 2 * 10) / 3) : 0;
+  const tile = width > 0 ? Math.floor((width - 2 * space[3]) / 3) : 0;
   const toAdd = pendingPacks(folder);
   const few = folder.packs.filter((p) => p.count > 0 && p.count < 3).length > 0;
 
@@ -162,7 +166,10 @@ export function FolderScreen({ id }: { id: string }) {
         <View style={[s.top, { paddingTop: insets.top + space[2] }]}>
           <View style={s.bar}>
             <BackButton />
-            <IconButton icon="more-vertical" label="Opções da pasta" onPress={() => setMenu((v) => !v)} />
+            <View style={s.barActions}>
+              <IconButton icon="plus" label="Criar figurinha com foto ou vídeo nesta pasta" onPress={() => device.start(folder.id)} />
+              <IconButton icon="more-vertical" label="Opções da pasta" onPress={() => setMenu((v) => !v)} />
+            </View>
           </View>
           {renaming ? (
             <TextInput
@@ -197,6 +204,16 @@ export function FolderScreen({ id }: { id: string }) {
           {menu ? (
             <Reveal>
               <Group>
+                <MenuRow
+                  icon="upload"
+                  label="Publicar na comunidade"
+                  c={c}
+                  onPress={() => {
+                    setMenu(false);
+                    setPublishing(true);
+                  }}
+                />
+                <Hairline inset={space[4] + 20 + space[3]} />
                 <MenuRow
                   icon="edit-3"
                   label="Renomear"
@@ -268,7 +285,9 @@ export function FolderScreen({ id }: { id: string }) {
           </View>
           ) : (
             <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-              <EmptyState icon="image" title="Pasta vazia" body="Na hora de fazer uma figurinha, escolha esta pasta e ela aparece aqui." />
+              <EmptyState icon="image" title="Pasta vazia" body="Crie com uma foto ou vídeo do celular, ou escolha esta pasta ao fazer uma figurinha no Início.">
+                <Button size="md" tone="soft" icon="image" label="Criar com foto ou vídeo" busy={device.busy} onPress={() => device.start(folder.id)} />
+              </EmptyState>
             </View>
           )}
         </View>
@@ -325,6 +344,8 @@ export function FolderScreen({ id }: { id: string }) {
           <Button whatsapp label="Adicionar ao WhatsApp" busy={adding} onPress={toWhatsApp} />
         </View>
       ) : null}
+      {device.sheet}
+      <PublishSheet key={folder.id} folder={folder} visible={publishing} onClose={() => setPublishing(false)} />
     </View>
   );
 }
@@ -348,6 +369,7 @@ const makeStyles = (c: Palette) =>
     scroll: { flexGrow: 1 },
     top: { paddingHorizontal: gutter, paddingBottom: space[4] },
     bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
+    barActions: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     title: { ...text.display, color: c.ink, marginTop: space[4] },
     titleInput: { ...text.title, minHeight: control.lg, marginTop: space[4], paddingHorizontal: space[4], borderRadius: radius.lg, borderWidth: 2, borderColor: c.accent, backgroundColor: c.sunken, color: c.ink },
     meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space[2], marginTop: space[1] },

@@ -1,6 +1,25 @@
 # Puxa para Android
 
-App em React Native (Expo). A tela inicial é o **Início**: o campo do link no topo, a ação principal (**Colar link** ou **Buscar**) embaixo, ao alcance do polegar, e uma barra flutuante escura que leva às **Playlists**, às **Figurinhas** e aos **Ajustes**. Com um vídeo aberto a barra sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
+App em React Native (Expo). A tela inicial é o **Início**: um campo só que busca figurinhas ou abre um link, o **acervo de figurinhas** logo abaixo, a ação principal (**Colar link**) embaixo, ao alcance do polegar, e uma barra flutuante escura que leva às **Playlists**, às **Figurinhas** e aos **Ajustes**. A foto no canto de cima leva à sua conta. Com um vídeo aberto a barra sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o campo ou tocar em voltar retorna ao começo.
+
+## Acervo e comunidade (2.1)
+
+> Ainda não existe servidor: contas, perfis, seguidores, curtidas e pacotes são **simulados no celular** (`src/community/store.ts`), com uma pequena espera de rede de mentira. Os tipos e as funções já têm a forma que o servidor vai ter; quando ele existir, só esse arquivo muda.
+
+- **Um campo, duas coisas:** um link (YouTube, Instagram, X) abre o vídeo como antes; qualquer outro texto busca figurinhas na hora. Com o campo vazio e tocado, aparecem as **buscas recentes** (dá para tirar uma ou limpar) e as **pesquisas em alta**.
+- **Resultado em três abas:** Figurinhas (soltas, numa grade), Pacotes e Pessoas. A busca ignora acento e maiúsculas e procura no nome, nas palavras do pacote e das figurinhas, na categoria e em quem fez.
+- **Início:** categorias em pôster (Reações, Bom dia, Nordeste, Amor, Bichinhos, Animadas, Festa, Trabalho, Frases), o pacote em alta como pôster, os mais adicionados da semana, de quem você segue, os mais adicionados e os novos. Cada pacote tem o botão **+**, que põe o pacote inteiro no WhatsApp.
+- **Pacote:** pôster na cor da categoria, quem fez (com Seguir), curtidas, as figurinhas na grade e **Adicionar ao WhatsApp** preso embaixo. O pacote vira uma pasta em Figurinhas e de lá vai para o WhatsApp; adicionar de novo reaproveita a pasta. Tocar numa figurinha abre a prévia, para pôr só ela numa pasta sua.
+- **Conta:** entrar com e-mail ou @usuário, ou criar conta (nome, @usuário, e-mail e senha). Perfil com capa, foto, nome, @, sobre você, pacotes publicados e curtidos, e os números de pacotes, seguidores, seguindo e adições. Seguir e deixar de seguir, listas de seguidores e seguindo, e editar o perfil (foto e capa da galeria).
+- **Publicar:** numa pasta de Figurinhas, menu **⋮ > Publicar na comunidade**: nome, categoria e palavras para a busca. O WhatsApp pede de 3 a 30 figurinhas de um tipo só, então uma pasta com paradas e animadas publica uma das duas. O pacote publicado aparece na busca, nos Novos e no seu perfil; quem publicou pode tirar.
+- **Contas de teste** (as duas com a senha `puxa123`): `marcos@puxa.app` (Marcos, @marcos) e `ana@puxa.app` (Ana Lima, @analima). A tela de entrar tem os botões **Usar** que preenchem cada uma. A Ana já segue o Marcos e o Marcos segue o Puxa e o Oxente, para dar para testar seguir, seguidores e "De quem você segue". Em **Ajustes > Armazenamento > Comunidade (teste)**, **Restaurar** volta tudo ao começo.
+- **Arte de teste:** 11 pacotes originais (71 figurinhas, 6 delas animadas), avatares e capas, desenhados por código em `scripts/acervo/gen.py` (Python com Pillow; ele também escreve `src/community/art.ts`). Nenhum personagem ou marca de terceiros.
+
+## Figurinha com foto ou vídeo do celular (2.1)
+
+- Em **Figurinhas**, no botão **Criar com foto ou vídeo** (embaixo), no **+** de uma pasta ou na peça **Criar a sua** das categorias do Início.
+- Abre a galeria do Android (sem pedir permissão). Foto vira figurinha parada; vídeo e GIF viram animada (o GIF passa antes por um MP4, para dar para escolher o trecho). Depois é o mesmo editor do Início: recorte, cantos, contorno, texto, emoji e a pasta.
+- Dentro de uma pasta, o **+** já deixa essa pasta escolhida.
 
 - **Baixar:** vídeos e Shorts do YouTube (MP3, M4A ou MP4 até 1080p), Reels, posts, fotos e perfis do Instagram, e posts e perfis do X. Assim que o link abre, aparecem **Compartilhar**, **Figurinha**, **Baixar** e **Playlist**; o arquivo baixa para o armazenamento do app quando você escolhe uma delas. Vai para o WhatsApp inteiro, só um trecho, com legenda gravada na imagem, dublado com vozes de IA ou como figurinha.
 - **Playlists:** cole links (um ou vários de uma vez) e cada um vira uma música guardada no celular. Separe em playlists (Treino, Estudos...), cada uma com a sua capa, toque em fila ou no aleatório com a tela desligada (controles na notificação e na tela de bloqueio) e veja a letra sincronizada, como no Spotify.
@@ -120,6 +139,10 @@ O código foi conferido aqui com verificação de tipos, lint, testes das legend
 17. Capa: editar uma playlist, usar uma imagem da galeria, salvar e conferir a capa na lista, no topo e no player; tocar e ver a notificação com a arte na cor da playlist e o símbolo do Puxa na barra de status.
 18. Figurinha animada longa: num vídeo com muito movimento, fazer figurinhas de 8 s e de 10 s (Recorte em Círculo e com contorno, e Inteiro). Devem sair sem o aviso de "pesada demais" e entrar no WhatsApp.
 19. Visual 2.0: conferir o ícone novo na tela inicial do Android (e o temático, se usar), a abertura, as letras Anton e Archivo em todas as telas, as sombras dos botões e das folhas, e o claro e o escuro. No Início, puxar dois vídeos e voltar: os dois aparecem em Recentes; segurar um tira da lista.
+20. Acervo: no Início, buscar "oxe", "gato" e "ana"; ver as três abas; tocar numa figurinha e pôr numa pasta; abrir um pacote e tocar em **Adicionar ao WhatsApp** (a pasta aparece em Figurinhas e o WhatsApp pede para confirmar).
+21. Conta: entrar como Marcos (botão Usar), seguir a Ana, abrir o próprio perfil, editar foto e capa, sair; entrar como Ana e ver o Marcos em seguidores.
+22. Publicar: numa pasta com 3 figurinhas ou mais, ⋮ > Publicar na comunidade; o pacote aparece no perfil e na busca.
+23. Do celular: em Figurinhas, Criar com foto ou vídeo, com uma foto, um vídeo e um GIF.
 
 Se algo falhar na montagem, a tela de erro tem **Copiar detalhes técnicos**: esse texto mostra o que o FFmpeg recusou.
 
@@ -165,6 +188,12 @@ src/theme/                    o sistema de design: cores (palette.ts, claro e es
                               espaços, cantos e alturas (layout.ts) e movimento (motion.ts); regras em DESIGN.md
 src/components/ui.tsx         peças do sistema: marca, botão redondo, telas vazias, grupos, rodapé de envio
 src/recents.ts                links recentes do Início (a lista em si, testada, fica em recentList.ts)
+src/community/                o acervo e a comunidade: core.ts (regras, sem tela, testadas), seed.ts (dados de teste),
+                              store.ts (o "servidor" simulado), install.ts (pacote → pasta → WhatsApp), art.ts (gerado),
+                              Acervo.tsx (Início e busca), ui.tsx (peças), StickerSheet, PublishSheet e PosterHero
+src/stickers/fromDevice.tsx   figurinha a partir de foto, vídeo ou GIF da galeria
+src/screens/                  + PackScreen, CategoryScreen, ProfileScreen (e seguidores), EditProfileScreen, AuthScreen
+assets/acervo/                a arte de teste (figurinhas WebP 512x512, avatares e capas)
 src/app/                      rotas: início, playlist (biblioteca e playlist/[id]), figurinhas (pastas e
                               figurinhas/[id]), ajustes, instagram
                               (login)

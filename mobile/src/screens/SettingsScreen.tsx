@@ -18,6 +18,8 @@ import { forgetThumbs } from '../editor/media';
 import { accountChanged, onAccountChanged, storageCleared } from '../events';
 import { bytes } from '../format';
 import { COLORS } from '../playlist/colors';
+import { logout, resetCommunity, useDB, useMe } from '../community/store';
+import { Avatar } from '../community/ui';
 import { clearRecents, useRecents } from '../recents';
 import { setSettings, useSettings, type ThemePref } from '../settings';
 import { instagramLoggedIn } from '../sources';
@@ -144,6 +146,8 @@ export function SettingsScreen() {
   };
 
   const total = usage ? Object.values(usage).reduce((a, b) => a + b, 0) : 0;
+  const me = useMe();
+  const db = useDB();
   const version = Constants.expoConfig?.version ?? '';
   const build = Constants.expoConfig?.android?.versionCode;
 
@@ -183,6 +187,46 @@ export function SettingsScreen() {
           <View style={s.section}>
             <Overline>Contas</Overline>
             <Group>
+              {me ? (
+                <View style={s.row}>
+                  <Avatar user={me} size={40} />
+                  <View style={s.rowText}>
+                    <Text style={s.rowTitle} numberOfLines={1}>
+                      {me.name}
+                    </Text>
+                    <Text style={s.rowSub} numberOfLines={1}>
+                      @{me.username} · conta do Puxa
+                    </Text>
+                  </View>
+                  <Button size="sm" tone="neutral" label="Perfil" accessibilityLabel="Abrir seu perfil" onPress={() => router.push('/perfil/eu')} />
+                  <Button
+                    size="sm"
+                    tone="ghost"
+                    label="Sair"
+                    accessibilityLabel="Sair da conta do Puxa"
+                    onPress={() => {
+                      logout();
+                      toast.show({ title: 'Você saiu da conta', tone: 'info' });
+                    }}
+                  />
+                </View>
+              ) : (
+                <View style={s.row}>
+                  <View style={s.tile}>
+                    <Feather name="user" size={20} color={c.ink} />
+                  </View>
+                  <View style={s.rowText}>
+                    <Text style={s.rowTitle} numberOfLines={1}>
+                      Conta do Puxa
+                    </Text>
+                    <Text style={s.rowSub} numberOfLines={1}>
+                      Para seguir, curtir e publicar
+                    </Text>
+                  </View>
+                  <Button size="sm" tone="neutral" label="Entrar" accessibilityLabel="Entrar ou criar conta do Puxa" onPress={() => router.push('/entrar')} />
+                </View>
+              )}
+              <Hairline inset={space[4] + control.sm + space[3]} />
               <View style={s.row}>
                 <View style={s.tile}>
                   <Feather name="instagram" size={20} color={c.ink} />
@@ -321,6 +365,27 @@ export function SettingsScreen() {
                     clearRecents();
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                     toast.show({ title: 'Recentes limpos', tone: 'success' });
+                  }}
+                />
+              </View>
+              <Hairline />
+              <View style={s.row}>
+                <View style={[s.dot, { backgroundColor: c.faint }]} />
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle} numberOfLines={1}>
+                    Comunidade (teste)
+                  </Text>
+                  <Text style={s.rowSub}>{db.searches.length ? `${db.searches.length} buscas recentes · dados simulados` : 'Dados simulados no celular'}</Text>
+                </View>
+                <Button
+                  size="sm"
+                  tone="neutral"
+                  label="Restaurar"
+                  accessibilityLabel="Restaurar os dados de teste da comunidade"
+                  onPress={() => {
+                    resetCommunity();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    toast.show({ title: 'Dados de teste restaurados', body: 'Contas, seguidores, curtidas e pacotes voltaram ao começo.', tone: 'success' });
                   }}
                 />
               </View>

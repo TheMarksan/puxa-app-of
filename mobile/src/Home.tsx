@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'expo-router';
-import { Animated, AppState, BackHandler, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, AppState, BackHandler, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine, { DoneEvent, QualityOption, Stage, VideoInfo } from '../modules/puxa-engine';
@@ -19,7 +19,11 @@ import { forgetThumbs } from './editor/media';
 import { ListPicker } from './components/music/ListPicker';
 import { Sheet } from './components/music/Sheet';
 import { Overline } from './components/ui';
+import { AcervoFeed, SearchResults, SearchSuggestions } from './community/Acervo';
+import { looksLikeLink } from './community/core';
+import { rememberSearch } from './community/store';
 import { addFromInfo } from './playlist/downloads';
+import { useDeviceSticker } from './stickers/fromDevice';
 import { getLists } from './playlist/lists';
 import { sameLink, useTracks } from './playlist/store';
 import { onAccountChanged, onStorageCleared } from './events';
@@ -112,6 +116,16 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const [barH, setBarH] = useState(0);
   const [qualityOpen, setQualityOpen] = useState(false);
   const recents = useRecents();
+  const device = useDeviceSticker();
+  const { width } = useWindowDimensions();
+  const inner = width - gutter * 2;
+  // O campo serve para as duas coisas: um link abre o vídeo, qualquer outro texto busca figurinhas
+  const linkLike = looksLikeLink(link);
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(linkLike ? '' : link.trim()), 220);
+    return () => clearTimeout(t);
+  }, [link, linkLike]);
 
   const lookupSeq = useRef(0);
   const jobRef = useRef<Job | null>(null);
@@ -259,6 +273,12 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
     if (!active) return;
     // Voltar do Android com um vídeo aberto: fecha o vídeo em vez de sair do app
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Uma busca na tela: voltar limpa a busca e mostra o acervo de novo
+      if (phase === 'empty' && linkRef.current.trim() && !busyJob && !sheetVisible && !audioVisible) {
+        setLink('');
+        Keyboard.dismiss();
+        return true;
+      }
       if (phase === 'empty' || busyJob || sheetVisible || audioVisible) return false;
       reset();
       setLink('');
@@ -275,7 +295,8 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
         return;
       }
       setLink(text);
-      lookup(text);
+      if (looksLikeLink(text)) lookup(text);
+      else rememberSearch(text);
     } catch {
       toast.show({ title: 'Não deu para ler o que foi copiado', tone: 'error' });
     }
@@ -644,17 +665,8 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
       >
         {header}
 
-        {phase === 'empty' ? (
-          <View style={s.hero}>
-            <Text style={s.headline} accessibilityRole="header">
-              {recents.length ? 'O que vamos\npuxar hoje?' : 'Cole um link.\nA gente puxa.'}
-            </Text>
-            <Text style={s.lede}>Vídeos, Shorts, Reels, posts e perfis do YouTube, do Instagram e do X.</Text>
-          </View>
-        ) : null}
-
         <View style={[s.field, focused && s.fieldFocused, fieldError && s.fieldError]}>
-          <Feather name="link" size={20} color={c.muted} />
+          <Feather name={linkLike ? 'link' : 'search'} size={20} color={c.muted} />
           <TextInput
             value={link}
             onChangeText={(t) => {
@@ -663,16 +675,18 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
             }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            onSubmitEditing={() => lookup(link)}
-            placeholder="Cole um link aqui"
+            onSubmitEditing={() => {
+              if (linkLike) lookup(link);
+              else if (hasText) rememberSearch(link);
+            }}
+            placeholder="Busque figurinhas ou cole um link"
             placeholderTextColor={c.muted}
             autoCapitalize="none"
             autoCorrect={false}
-            keyboardType="url"
             returnKeyType="search"
             selectionColor={c.accent}
             style={s.input}
-            accessibilityLabel="Link do vídeo, do post ou do perfil"
+            accessibilityLabel="Buscar figurinhas ou colar o link de um vídeo, post ou perfil"
           />
           {hasText ? (
             <>
@@ -684,17 +698,19 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
                 hitSlop={hit(24)}
                 style={s.clear}
                 accessibilityRole="button"
-                accessibilityLabel="Limpar o link"
+                accessibilityLabel={linkLike ? 'Limpar o link' : 'Limpar a busca'}
               >
                 <Feather name="x" size={20} color={c.muted} />
               </Pressable>
-              <Press onPress={() => lookup(link)} scaleTo={0.92} accessibilityRole="button" accessibilityLabel="Buscar" disabled={phase === 'loading'}>
-                {(pressed) => (
-                  <View style={[s.go, { backgroundColor: pressed ? c.accentPressed : c.accent }]}>
-                    <Feather name="arrow-right" size={20} color={c.onAccent} />
-                  </View>
-                )}
-              </Press>
+              {linkLike ? (
+                <Press onPress={() => lookup(link)} scaleTo={0.92} accessibilityRole="button" accessibilityLabel="Abrir o link" disabled={phase === 'loading'}>
+                  {(pressed) => (
+                    <View style={[s.go, { backgroundColor: pressed ? c.accentPressed : c.accent }]}>
+                      <Feather name="arrow-right" size={20} color={c.onAccent} />
+                    </View>
+                  )}
+                </Press>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -710,51 +726,76 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
           </View>
         ) : null}
 
-        {phase === 'empty' && recents.length ? (
-          <View style={s.section}>
-            <View style={s.sectionHead}>
-              <Overline>Recentes</Overline>
-              <Pressable onPress={clearRecents} hitSlop={space[3]} accessibilityRole="button" accessibilityLabel="Limpar os recentes">
-                <Text style={s.link}>Limpar</Text>
-              </Pressable>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
-              {recents.map((r) => (
-                <RecentCard
-                  key={r.link}
-                  item={r}
-                  onPress={() => openRecent(r)}
-                  onRemove={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    forgetRecent(r.link);
-                  }}
-                  s={s}
-                  c={c}
-                />
-              ))}
-            </ScrollView>
-          </View>
+        {phase === 'empty' && hasText && !linkLike && query ? <SearchResults key={query} query={query} width={inner} /> : null}
+
+        {phase === 'empty' && !hasText && focused ? (
+          <SearchSuggestions
+            onPick={(q) => {
+              Haptics.selectionAsync().catch(() => {});
+              setLink(q);
+              rememberSearch(q);
+              Keyboard.dismiss();
+            }}
+          />
         ) : null}
 
-        {phase === 'empty' && !recents.length ? (
-          <View style={s.section}>
-            <Overline>Como funciona</Overline>
-            <View style={s.steps}>
-              <Step icon="copy" title="Copie o link" body="No YouTube, no Instagram ou no X, toque em Compartilhar e copie o link." s={s} c={c} />
-              <Step icon="clipboard" title="Cole aqui" body="Ou escolha Puxa direto no menu Compartilhar do outro app." s={s} c={c} />
-              <Step icon="send" title="Mande para onde quiser" body="WhatsApp, figurinha, playlist ou a pasta de downloads." s={s} c={c} />
-            </View>
-            <Button
-              tone="soft"
-              size="md"
-              icon="play-circle"
-              label="Testar com um vídeo de exemplo"
-              onPress={() => {
-                setLink(SAMPLE_URL);
-                lookup(SAMPLE_URL);
-              }}
-            />
-          </View>
+        {phase === 'empty' && !hasText && !focused ? (
+          <AcervoFeed
+            width={inner}
+            onCreate={() => device.start()}
+            creating={device.busy}
+            before={
+              recents.length ? (
+                <View style={s.block}>
+                  <View style={s.sectionHead}>
+                    <Overline>Links recentes</Overline>
+                    <Pressable onPress={clearRecents} hitSlop={space[3]} accessibilityRole="button" accessibilityLabel="Limpar os links recentes">
+                      <Text style={s.link}>Limpar</Text>
+                    </Pressable>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
+                    {recents.map((r) => (
+                      <RecentCard
+                        key={r.link}
+                        item={r}
+                        onPress={() => openRecent(r)}
+                        onRemove={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          forgetRecent(r.link);
+                        }}
+                        s={s}
+                        c={c}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : (
+                <View style={s.linkCard}>
+                  <View style={s.linkIcons}>
+                    {(['youtube', 'instagram', 'twitter'] as const).map((icon) => (
+                      <View key={icon} style={s.linkIcon}>
+                        <Feather name={icon} size={20} color={c.accentInk} />
+                      </View>
+                    ))}
+                  </View>
+                  <View>
+                    <Text style={s.linkTitle}>Puxe de um link</Text>
+                    <Text style={s.linkBody}>Cole o link de um vídeo, Short, Reel, post ou perfil do YouTube, do Instagram ou do X. Vira MP3, vídeo para o WhatsApp, figurinha ou música da playlist.</Text>
+                  </View>
+                  <Button
+                    tone="neutral"
+                    size="md"
+                    icon="play-circle"
+                    label="Testar com um vídeo de exemplo"
+                    onPress={() => {
+                      setLink(SAMPLE_URL);
+                      lookup(SAMPLE_URL);
+                    }}
+                  />
+                </View>
+              )
+            }
+          />
         ) : null}
 
         {phase === 'loading' ? (
@@ -832,7 +873,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
             accessibilityElementsHidden={!barVisible}
             style={{ opacity: cta, transform: [{ translateY: cta.interpolate({ inputRange: [0, 1], outputRange: [96, 0] }) }] }}
           >
-            {hasText ? <Button icon="arrow-right" label="Buscar" onPress={() => lookup(link)} /> : <Button icon="clipboard" label="Colar link" onPress={paste} />}
+            {!hasText ? <Button icon="clipboard" label="Colar link" onPress={paste} /> : linkLike ? <Button icon="arrow-right" label="Abrir o link" onPress={() => lookup(link)} /> : null}
           </Animated.View>
           {renderBar(barVisible)}
         </View>
@@ -871,6 +912,8 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
           onNotice={onSheetNotice}
         />
       ) : null}
+
+      {device.sheet}
 
       {audioSheet ? (
         <SendSheet
@@ -921,29 +964,12 @@ function RecentCard({ item, onPress, onRemove, s, c }: { item: Recent; onPress: 
   );
 }
 
-function Step({ icon, title, body, s, c }: { icon: keyof typeof Feather.glyphMap; title: string; body: string; s: Styles; c: Palette }) {
-  return (
-    <View style={s.step}>
-      <View style={s.stepIcon}>
-        <Feather name={icon} size={20} color={c.accentInk} />
-      </View>
-      <View style={s.stepText}>
-        <Text style={s.stepTitle}>{title}</Text>
-        <Text style={s.stepBody}>{body}</Text>
-      </View>
-    </View>
-  );
-}
-
 type Styles = ReturnType<typeof makeStyles>;
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1 },
-    scroll: { paddingHorizontal: gutter, paddingTop: space[2] },
-    hero: { marginTop: space[4], marginBottom: space[6], gap: space[2] },
-    headline: { ...text.display, color: c.ink },
-    lede: { ...text.body, color: c.muted },
+    scroll: { paddingHorizontal: gutter, paddingTop: space[4] },
     field: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -967,6 +993,7 @@ const makeStyles = (c: Palette) =>
     errorIcon: { height: 20, justifyContent: 'center' },
     errorText: { ...text.caption, flex: 1, color: c.danger },
     section: { marginTop: space[8], gap: space[4] },
+    block: { gap: space[4] },
     sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     link: { ...text.captionBold, color: c.accentInk },
     bleed: { marginHorizontal: -gutter },
@@ -976,12 +1003,11 @@ const makeStyles = (c: Palette) =>
     recentBadge: { position: 'absolute', left: space[2], top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
     recentTitle: { ...text.captionBold, color: c.ink },
     recentBy: { ...text.caption, color: c.muted },
-    steps: { gap: space[4] },
-    step: { flexDirection: 'row', gap: space[4], alignItems: 'flex-start' },
-    stepIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
-    stepText: { flex: 1, minWidth: 0 },
-    stepTitle: { ...text.bodyBold, color: c.ink },
-    stepBody: { ...text.caption, color: c.muted },
+    linkCard: { gap: space[4], padding: space[4], borderRadius: radius.xl, backgroundColor: c.dark ? c.surface : c.surface, boxShadow: c.shadow1 },
+    linkIcons: { flexDirection: 'row', gap: space[2] },
+    linkIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    linkTitle: { ...text.bodyBold, color: c.ink },
+    linkBody: { ...text.caption, color: c.muted },
     notice: { ...text.caption, color: c.muted },
     barWrap: { position: 'absolute', left: gutter, right: gutter, gap: space[3] },
     dock: {
