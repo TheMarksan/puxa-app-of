@@ -64,7 +64,7 @@ Números que mudam (tempo, tamanho, porcentagem) usam `tabular`.
 ## Acervo
 
 - **Figurinha sobre o poço** (`sunken`), nunca sobre o branco (a borda branca dela some). O fundo de conversa (`chat`) fica só para a prévia grande de uma figurinha e para a fileira do publicar, onde a pergunta é "como fica na conversa".
-- **Um botão principal por tela:** no pacote, **Adicionar ao WhatsApp** (azul, preso embaixo); nas listas, o **+** de cada pacote é a peça clara de azul, para não ter dez botões azuis competindo.
+- **Um botão principal por tela:** no pacote, **Adicionar ao WhatsApp** (azul, preso embaixo); nas listas, cada pacote leva o **símbolo do WhatsApp com um + azul no canto** (o + vira um visto verde quando o pacote já está lá), num círculo azul claro, para deixar claro para onde ele vai sem ter dez botões azuis competindo.
 - **Formulários** (`Field`): o nome do campo sempre em cima, o poço para digitar, o erro colado embaixo em vermelho. Nunca só o texto de exemplo.
 - **Atalhos da busca:** um painel claro colado no campo (12 abaixo dele), com até três linhas: a peça do tipo (cor da categoria, foto da pessoa, capa do pacote), o nome com o pedaço digitado em negrito e embaixo o que é ("Categoria · 2 pacotes"). O mais certeiro em cima. Os resultados vêm um grupo abaixo.
 - **Categoria troca ali mesmo:** a fileira de todas as categorias logo abaixo do topo, a escolhida cheia (`inverse`), as outras no poço.
@@ -82,7 +82,7 @@ O tom dos apps de música: o colorido vem do conteúdo (as figurinhas, as capas)
 - **Topo** (`MediaHeader`): um véu da cor (`listSoft`: a cor a 14% no claro e 22% no escuro) sobre o fundo, a capa no meio e, embaixo dela, o tipo (`overline`), o nome (`title`) e os números (`caption`), alinhados à esquerda. Botões do topo brancos (elevados no escuro). Nada de cor chapada de ponta a ponta, anéis ou figurinhas inclinadas.
 - **Capas:** pacote é a primeira figurinha num quadrado claro de 160 (canto 24); categoria é a figurinha num círculo; playlist é a capa dela com 176 e sombra, como um álbum.
 - **Categorias em círculos** de 64 com o nome embaixo (`CategoryCircle`), num véu da cor dela. O primeiro é **Criar a sua**.
-- **Pacote numa lista** (`PackRow`): linha de 72, capa de 56, nome, `@autor · tamanho · ⤓ adições`, o **+** no fim. Vale para o Início, a busca, a categoria e o perfil.
+- **Pacote numa lista** (`PackRow`): linha de 72, capa de 56, nome, `@autor · tamanho · ⤓ adições`, o botão do WhatsApp com + no fim. Vale para o Início, a busca, a categoria e o perfil.
 - **Carrossel** (`PackTile`): capa de 120 (cabem dois e meio), nome e autor em letra pequena. Sem selo de posição nem de animada: a ordem já diz.
 - **Biblioteca de músicas** em linhas iguais às dos pacotes: Todas as músicas, as playlists e Nova playlist.
 - **Player:** o fundo é a cor funda da playlist (`deep`) com um brilho fraco da cor por cima.
