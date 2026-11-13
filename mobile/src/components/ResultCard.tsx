@@ -1,3 +1,4 @@
+import Feather from '@expo/vector-icons/Feather';
 import { useEffect, useMemo, useState } from 'react';
 import { Animated, Image, StyleSheet, Text, View } from 'react-native';
 
@@ -5,33 +6,40 @@ import type { VideoInfo } from '../../modules/puxa-engine';
 import { NAMES } from '../sources/social';
 import { clock, date, views } from '../format';
 import { ms, reduceMotion } from '../motion';
-import { font, Palette, radius, usePalette } from '../theme';
+import { type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
-/** Cartão compacto: a capa confirma o vídeo (ou a foto), e o espaço fica para formato e qualidade. */
-export function ResultCard({ info }: { info: VideoInfo }) {
+const ICONS = { youtube: 'youtube', instagram: 'instagram', x: 'twitter' } as const;
+
+/**
+ * O que o link trouxe: a capa em destaque (é ela que confirma que é o vídeo certo), o título e
+ * de quem é. [aspect] é a proporção da mídia; a capa fica entre o quadrado e o 16:9.
+ */
+export function ResultCard({ info, aspect }: { info: VideoInfo; aspect?: number }) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
-  const network = info.source && info.source !== 'youtube' ? NAMES[info.source] : null;
-  const meta = [network, views(info.viewCount), date(info.uploadDate)].filter(Boolean).join(' · ');
+  const source = info.source ?? 'youtube';
+  const meta = [info.channel, views(info.viewCount), date(info.uploadDate)].filter(Boolean).join(' · ');
+  const ratio = Math.min(16 / 9, Math.max(1, aspect && isFinite(aspect) && aspect > 0 ? aspect : 16 / 9));
   return (
     <View style={s.card}>
-      <View style={s.thumbWrap}>
+      <View style={[s.thumbWrap, { aspectRatio: ratio }]}>
         <Image source={{ uri: info.thumbnail }} style={s.thumb} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <View style={[s.badge, s.badgeLeft]}>
+          <Feather name={ICONS[source]} size={12} color={c.onMedia} />
+          <Text style={s.badgeText}>{source === 'youtube' ? 'YouTube' : NAMES[source]}</Text>
+        </View>
         {info.image || info.duration > 0 ? (
-          <View style={s.badge}>
+          <View style={[s.badge, s.badgeRight]}>
             <Text style={s.badgeText}>{info.image ? 'Foto' : clock(info.duration)}</Text>
           </View>
         ) : null}
       </View>
       <View style={s.text}>
-        <Text style={s.title} numberOfLines={3}>
+        <Text style={s.title} numberOfLines={2}>
           {info.title}
         </Text>
-        <Text style={s.channel} numberOfLines={1}>
-          {info.channel}
-        </Text>
         {meta ? (
-          <Text style={s.meta} numberOfLines={2}>
+          <Text style={s.meta} numberOfLines={1}>
             {meta}
           </Text>
         ) : null}
@@ -40,7 +48,7 @@ export function ResultCard({ info }: { info: VideoInfo }) {
   );
 }
 
-/** Esqueleto enquanto o YouTube responde: mesma forma do cartão, pulsando devagar. */
+/** Esqueleto enquanto a rede responde: mesma forma do resultado, pulsando devagar. */
 export function ResultSkeleton() {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
@@ -57,45 +65,27 @@ export function ResultSkeleton() {
     return () => loop.stop();
   }, [pulse]);
   return (
-    <Animated.View style={[s.card, { opacity: pulse }]} accessibilityLabel="Buscando o vídeo" accessible>
-      <View style={s.thumbWrap} />
+    <Animated.View style={[s.card, { opacity: pulse }]} accessibilityLabel="Buscando o link" accessible>
+      <View style={[s.thumbWrap, { aspectRatio: 16 / 9 }]} />
       <View style={s.text}>
-        <View style={[s.bone, { width: '96%', height: 15 }]} />
-        <View style={[s.bone, { width: '70%', height: 15 }]} />
-        <View style={[s.bone, { width: '45%', height: 12, marginTop: 8 }]} />
+        <View style={[s.bone, { width: '92%' }]} />
+        <View style={[s.bone, { width: '48%' }]} />
       </View>
     </Animated.View>
   );
 }
 
-const THUMB_W = 136;
-
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    card: {
-      flexDirection: 'row',
-      gap: 14,
-      padding: 10,
-      borderRadius: radius.slot,
-      backgroundColor: c.surface,
-      borderWidth: 1,
-      borderColor: c.line,
-    },
-    thumbWrap: { width: THUMB_W, aspectRatio: 16 / 9, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: c.sk, alignSelf: 'flex-start' },
+    card: { gap: space[3] },
+    thumbWrap: { width: '100%', borderRadius: radius.xl, overflow: 'hidden', backgroundColor: c.sk },
     thumb: { width: '100%', height: '100%' },
-    badge: {
-      position: 'absolute',
-      right: 5,
-      bottom: 5,
-      paddingHorizontal: 5,
-      paddingVertical: 2,
-      borderRadius: 5,
-      backgroundColor: 'rgba(10, 12, 15, 0.82)',
-    },
-    badgeText: { fontFamily: font.semibold, fontSize: 12, color: '#FFFFFF', fontVariant: ['tabular-nums'] },
-    text: { flex: 1, gap: 3, paddingVertical: 2, paddingRight: 4 },
-    title: { fontFamily: font.bold, fontSize: 15, lineHeight: 20, color: c.ink, letterSpacing: -0.1 },
-    channel: { fontFamily: font.medium, fontSize: 13, color: c.muted, marginTop: 2 },
-    meta: { fontFamily: font.regular, fontSize: 12, color: c.muted, fontVariant: ['tabular-nums'] },
-    bone: { borderRadius: 6, backgroundColor: c.sk, marginTop: 4 },
+    badge: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: space[1], height: 24, paddingHorizontal: space[2], borderRadius: radius.full, backgroundColor: c.mediaScrim },
+    badgeLeft: { left: space[3], top: space[3] },
+    badgeRight: { right: space[3], bottom: space[3] },
+    badgeText: { ...text.captionBold, ...tabular, lineHeight: 16, color: c.onMedia },
+    text: { gap: space[1] },
+    title: { ...text.bodyBold, color: c.ink },
+    meta: { ...text.caption, ...tabular, color: c.muted },
+    bone: { height: 16, borderRadius: radius.sm, backgroundColor: c.sk },
   });

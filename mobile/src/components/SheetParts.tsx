@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
 
 import { ms } from '../motion';
-import { ease, font, type Palette, usePalette } from '../theme';
+import { control, ease, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 import { Press } from './Button';
 
 /** Conteúdo que acabou de abrir: sobe um pouco e aparece (troca de modo, seção revelada). */
@@ -70,12 +70,14 @@ export function ModeTiles<T extends string>({ modes, value, onChange }: { modes:
             style={[s.tile, on && s.tileOn]}
           >
             <Art kind={m.art} on={on} c={c} />
-            <Text style={[s.tileLabel, on && { color: c.accentInk }]} numberOfLines={1}>
-              {m.label}
-            </Text>
-            <Text style={s.tileHint} numberOfLines={1}>
-              {m.hint}
-            </Text>
+            <View style={s.tileText}>
+              <Text style={[s.tileLabel, on && { color: c.accentInk }]} numberOfLines={1}>
+                {m.label}
+              </Text>
+              <Text style={s.tileHint} numberOfLines={1}>
+                {m.hint}
+              </Text>
+            </View>
           </Press>
         );
       })}
@@ -85,22 +87,23 @@ export function ModeTiles<T extends string>({ modes, value, onChange }: { modes:
 
 /** Desenho de cada modo: um quadro de vídeo ou uma figurinha (com contorno branco). */
 function Art({ kind, on, c }: { kind: Mode<string>['art']; on: boolean; c: Palette }) {
-  const tint = on ? c.accent : c.dark ? '#5A616B' : '#9AA1AB';
+  const tint = on ? c.accent : c.faint;
+  const ink = on ? c.onAccent : c.bg;
   if (kind === 'video' || kind === 'photo') {
     return (
       <View style={[art.video, { backgroundColor: tint }]}>
-        {kind === 'video' ? <Feather name="play" size={12} color="#fff" style={{ marginLeft: 2 }} /> : <Feather name="image" size={14} color="#fff" />}
+        {kind === 'video' ? <Feather name="play" size={12} color={ink} /> : <Feather name="image" size={16} color={ink} />}
       </View>
     );
   }
   return (
     <View style={art.wrap}>
-      <View style={[art.sticker, { backgroundColor: tint, transform: [{ rotate: kind === 'animated' ? '-6deg' : '0deg' }] }]}>
-        <Feather name={kind === 'animated' ? 'smile' : 'image'} size={15} color="#fff" />
+      <View style={[art.sticker, { backgroundColor: tint, borderColor: c.onMedia, boxShadow: c.shadow1, transform: [{ rotate: kind === 'animated' ? '-6deg' : '0deg' }] }]}>
+        <Feather name={kind === 'animated' ? 'smile' : 'image'} size={16} color={ink} />
       </View>
       {kind === 'animated' ? (
-        <View style={[art.badge, { backgroundColor: on ? c.ink : c.muted }]}>
-          <Feather name="repeat" size={8} color={c.bg} />
+        <View style={[art.badge, { backgroundColor: c.ink, borderColor: c.onMedia }]}>
+          <Feather name="repeat" size={12} color={c.bg} />
         </View>
       ) : null}
     </View>
@@ -108,10 +111,10 @@ function Art({ kind, on, c }: { kind: Mode<string>['art']; on: boolean; c: Palet
 }
 
 const art = StyleSheet.create({
-  video: { width: 42, height: 28, borderRadius: 7, alignItems: 'center', justifyContent: 'center', marginBottom: 8, marginTop: 4 },
-  wrap: { width: 42, height: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  sticker: { width: 32, height: 32, borderRadius: 10, borderWidth: 2.5, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } },
-  badge: { position: 'absolute', right: 1, bottom: 0, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF' },
+  video: { width: 40, height: 28, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', marginVertical: space[1] },
+  wrap: { width: 40, height: 36, alignItems: 'center', justifyContent: 'center' },
+  sticker: { width: 32, height: 32, borderRadius: radius.md, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
 });
 
 /** Ferramenta liga/desliga (Cortar, Legenda, Zoom): ícone redondo e o nome embaixo. */
@@ -148,7 +151,7 @@ export function ToolToggle({
       accessibilityHint={hint}
     >
       <View style={[s.toolIcon, active && s.toolIconOn]}>
-        <Feather name={icon} size={21} color={active ? '#fff' : c.ink} />
+        <Feather name={icon} size={20} color={active ? c.onAccent : c.ink} />
       </View>
       <Text style={[s.toolLabel, active && { color: c.accentInk }]} numberOfLines={1}>
         {label}
@@ -159,30 +162,15 @@ export function ToolToggle({
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    tiles: { flexDirection: 'row', gap: 10 },
-    tile: {
-      alignItems: 'center',
-      paddingTop: 12,
-      paddingBottom: 10,
-      borderRadius: 16,
-      borderWidth: 1.5,
-      borderColor: c.line,
-      backgroundColor: c.surface,
-    },
-    tileOn: { borderColor: c.accent, backgroundColor: c.accentSoft },
-    tileLabel: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    tileHint: { fontFamily: font.regular, fontSize: 12, color: c.muted, marginTop: 1 },
-    tool: { alignItems: 'center', gap: 6, paddingVertical: 4 },
-    toolIcon: {
-      width: 54,
-      height: 54,
-      borderRadius: 27,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: c.dark ? c.hover : c.surface,
-      borderWidth: 1,
-      borderColor: c.line,
-    },
-    toolIconOn: { backgroundColor: c.accent, borderColor: c.accent },
-    toolLabel: { fontFamily: font.semibold, fontSize: 13, color: c.ink, fontVariant: ['tabular-nums'] },
+    tiles: { flexDirection: 'row', gap: space[2] },
+    // A escolhida ganha o azul bem claro e um fio azul; as outras ficam no poço, sem contorno
+    tile: { alignItems: 'center', paddingVertical: space[3], gap: space[1], borderRadius: radius.lg, borderWidth: 2, borderColor: 'transparent', backgroundColor: c.sunken },
+    tileOn: { borderColor: c.accentLine, backgroundColor: c.accentSoft },
+    tileText: { alignItems: 'center' },
+    tileLabel: { ...text.bodyBold, color: c.ink },
+    tileHint: { ...text.caption, color: c.muted },
+    tool: { alignItems: 'center', gap: space[1] },
+    toolIcon: { width: control.lg, height: control.lg, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: c.sunken },
+    toolIconOn: { backgroundColor: c.accent, boxShadow: c.sheen },
+    toolLabel: { ...text.captionBold, ...tabular, color: c.ink },
   });

@@ -9,11 +9,12 @@ import { activeLine, type LrclibRecord, type Lyrics } from '../../playlist/lyric
 import { chooseLyrics, queryFor, searchLyrics, type LyricsState } from '../../playlist/lyricsFetch';
 import { seek } from '../../playlist/player';
 import type { Track } from '../../playlist/store';
-import { ease, font } from '../../theme';
+import { alpha, control, ease, radius, space, text } from '../../theme';
 
 type Look = { bg: string; ink: string };
 
-const dim = (ink: string, a: number) => (ink === '#FFFFFF' ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a * 0.9})`);
+/** A letra da cor em vários tons: a linha que toca a 100%, as outras mais apagadas. */
+const dim = (ink: string, a: number) => alpha(ink, a);
 
 /**
  * Prévia da letra no player (como no Spotify): um cartão com a cor da playlist e as linhas em
@@ -32,32 +33,32 @@ export function LyricsCard({ state, time, look, onOpen, onSearch, onRetry }: { s
     >
       <View style={card.head}>
         <Text style={[card.label, { color: look.ink }]}>Letra</Text>
-        {state.status === 'ready' ? <Feather name="maximize-2" size={18} color={look.ink} /> : null}
+        {state.status === 'ready' ? <Feather name="maximize-2" size={20} color={look.ink} /> : null}
       </View>
       {state.status === 'loading' ? (
-        <View style={{ gap: 10, paddingVertical: 4 }}>
+        <View style={{ gap: space[3], paddingVertical: space[1] }}>
           {[0.9, 0.7, 0.8].map((w, k) => (
-            <View key={k} style={{ width: `${w * 100}%`, height: 18, borderRadius: 9, backgroundColor: dim(look.ink, 0.18) }} />
+            <View key={k} style={{ width: `${w * 100}%`, height: 16, borderRadius: radius.full, backgroundColor: dim(look.ink, 0.18) }} />
           ))}
         </View>
       ) : state.status === 'none' ? (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: space[3] }}>
           <Text style={[card.msg, { color: look.ink }]}>Não achamos a letra desta música.</Text>
           <View style={[card.pill, { backgroundColor: dim(look.ink, 0.16) }]}>
-            <Feather name="search" size={15} color={look.ink} />
+            <Feather name="search" size={16} color={look.ink} />
             <Text style={[card.pillText, { color: look.ink }]}>Buscar pelo nome</Text>
           </View>
         </View>
       ) : state.status === 'error' ? (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: space[3] }}>
           <Text style={[card.msg, { color: look.ink }]}>{state.message}</Text>
           <View style={[card.pill, { backgroundColor: dim(look.ink, 0.16) }]}>
-            <Feather name="rotate-cw" size={15} color={look.ink} />
+            <Feather name="rotate-cw" size={16} color={look.ink} />
             <Text style={[card.pillText, { color: look.ink }]}>Tentar de novo</Text>
           </View>
         </View>
       ) : near ? (
-        <View style={{ gap: 6 }}>
+        <View style={{ gap: space[2] }}>
           {near.map((l, k) => {
             const idx = Math.max(0, i - 1) + k;
             return (
@@ -80,7 +81,7 @@ export function LyricsCard({ state, time, look, onOpen, onSearch, onRetry }: { s
  * A letra inteira: a linha que toca fica acesa e a lista anda sozinha até ela (se a pessoa rolar,
  * para de seguir por alguns segundos). Tocar numa linha leva a música para aquele ponto.
  */
-export function LyricsFull({ lyrics, time, look, onSearch }: { lyrics: Lyrics; time: number; look: Look; onSearch: () => void }) {
+export function LyricsFull({ lyrics, time, look, bottom, onSearch }: { lyrics: Lyrics; time: number; look: Look; /** Espaço livre no fim, para a última linha subir acima dos controles. */ bottom: number; onSearch: () => void }) {
   const lines = lyrics.synced;
   const i = lines ? activeLine(lines, time) : -1;
   const scroll = useRef<ScrollViewInstance>(null);
@@ -99,7 +100,7 @@ export function LyricsFull({ lyrics, time, look, onSearch }: { lyrics: Lyrics; t
       ref={scroll}
       onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
       onScrollBeginDrag={() => (userAt.current = Date.now())}
-      contentContainerStyle={full.content}
+      contentContainerStyle={[full.content, { paddingBottom: bottom }]}
       showsVerticalScrollIndicator={false}
     >
       {lines ? (
@@ -171,7 +172,7 @@ export function LyricsSearch({ track, look, onChosen, onClose }: { track: Track;
     <View style={{ flex: 1 }}>
       <View style={srch.bar}>
         <Pressable onPress={onClose} hitSlop={8} style={srch.back} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Feather name="arrow-left" size={22} color={look.ink} />
+          <Feather name="arrow-left" size={20} color={look.ink} />
         </Pressable>
         <TextInput
           value={q}
@@ -186,10 +187,10 @@ export function LyricsSearch({ track, look, onChosen, onClose }: { track: Track;
           accessibilityLabel="Buscar letra"
         />
         <Pressable onPress={run} hitSlop={8} style={srch.back} accessibilityRole="button" accessibilityLabel="Buscar">
-          {state.busy ? <ActivityIndicator color={look.ink} /> : <Feather name="search" size={22} color={look.ink} />}
+          {state.busy ? <ActivityIndicator color={look.ink} /> : <Feather name="search" size={20} color={look.ink} />}
         </Pressable>
       </View>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 4 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: space[4], paddingBottom: space[12], gap: space[1] }} keyboardShouldPersistTaps="handled">
         {state.error ? <Text style={[srch.msg, { color: look.ink }]}>{state.error}</Text> : null}
         {state.list && !state.list.length ? <Text style={[srch.msg, { color: look.ink }]}>Nada encontrado. Tente só o nome da música.</Text> : null}
         {!state.list && !state.busy && !state.error ? <Text style={[srch.msg, { color: dim(look.ink, 0.75) }]}>Confira o nome e o artista e toque em buscar.</Text> : null}
@@ -226,34 +227,34 @@ export function LyricsSearch({ track, look, onChosen, onClose }: { track: Track;
 }
 
 const card = StyleSheet.create({
-  root: { borderRadius: 22, padding: 18, gap: 12, minHeight: 150 },
+  root: { borderRadius: radius.xl, padding: space[4], gap: space[3], minHeight: 152 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: font.bold, fontSize: 16 },
-  line: { fontFamily: font.bold, fontSize: 20, lineHeight: 27 },
-  msg: { fontFamily: font.semibold, fontSize: 17, lineHeight: 23 },
-  pill: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 8, height: 38, paddingHorizontal: 14, borderRadius: 19 },
-  pillText: { fontFamily: font.semibold, fontSize: 14 },
+  label: { ...text.bodyBold },
+  line: { ...text.title },
+  msg: { ...text.bodyBold },
+  pill: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full },
+  pillText: { ...text.captionBold },
 });
 
 const full = StyleSheet.create({
-  content: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 200, gap: 2 },
-  lineWrap: { paddingVertical: 7 },
-  line: { fontFamily: font.bold, fontSize: 27, lineHeight: 35, letterSpacing: -0.3 },
-  note: { fontFamily: font.medium, fontSize: 14, marginBottom: 12 },
-  plain: { fontFamily: font.bold, fontSize: 22, lineHeight: 32 },
-  source: { marginTop: 28, paddingTop: 16, borderTopWidth: 1, gap: 4 },
-  sourceText: { fontFamily: font.medium, fontSize: 13 },
-  sourceAction: { fontFamily: font.semibold, fontSize: 15 },
+  content: { paddingHorizontal: space[6], paddingTop: space[6] },
+  lineWrap: { paddingVertical: space[2] },
+  line: { ...text.display },
+  note: { ...text.caption, marginBottom: space[3] },
+  plain: { ...text.title },
+  source: { marginTop: space[8], paddingTop: space[4], borderTopWidth: 1, gap: space[1] },
+  sourceText: { ...text.caption },
+  sourceAction: { ...text.bodyBold },
 });
 
 const srch = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  input: { flex: 1, height: 46, borderRadius: 23, paddingHorizontal: 18, fontFamily: font.semibold, fontSize: 16 },
-  msg: { fontFamily: font.medium, fontSize: 15, lineHeight: 21, paddingVertical: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14 },
-  name: { fontFamily: font.semibold, fontSize: 16 },
-  meta: { fontFamily: font.regular, fontSize: 13, marginTop: 2 },
-  badge: { paddingHorizontal: 10, height: 26, borderRadius: 13, justifyContent: 'center' },
-  badgeText: { fontFamily: font.semibold, fontSize: 12 },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], paddingVertical: space[3] },
+  back: { width: control.md, height: control.md, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  input: { ...text.bodyBold, flex: 1, height: control.md, borderRadius: radius.full, paddingHorizontal: space[4] },
+  msg: { ...text.body, paddingVertical: space[3] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[3], paddingHorizontal: space[2], borderRadius: radius.lg },
+  name: { ...text.bodyBold },
+  meta: { ...text.caption },
+  badge: { paddingHorizontal: space[3], height: 24, borderRadius: radius.full, justifyContent: 'center' },
+  badgeText: { ...text.captionBold },
 });

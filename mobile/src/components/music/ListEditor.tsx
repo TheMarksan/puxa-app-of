@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { COLOR_IDS, COLORS, nextColor, SUGGESTIONS, type ListColor } from '../../playlist/colors';
 import { colorOfImage, dropCover, pickCover } from '../../playlist/covers';
 import { getLists } from '../../playlist/lists';
-import { font, usePalette } from '../../theme';
+import { control, gutter, radius, space, text, usePalette } from '../../theme';
 import { Button } from '../Button';
 import { PlaylistCover } from './Cover';
 import { Sheet } from './Sheet';
@@ -84,33 +84,29 @@ function Body({ initial, onSave, onClose }: { initial?: Look; onSave: (name: str
     <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" bounces={false}>
       <View style={s.head}>
         <Pressable onPress={choose} disabled={picking} accessibilityRole="button" accessibilityLabel={cover ? 'Trocar a imagem da capa' : 'Escolher uma imagem para a capa'}>
-          <PlaylistCover name={shown} color={color} size={112} radius={20} image={cover} />
-          <View style={[s.camBadge, { backgroundColor: c.surface, borderColor: c.line }]}>
+          <PlaylistCover name={shown} color={color} size={112} radius={radius.xl} image={cover} />
+          <View style={[s.camBadge, { backgroundColor: c.dark ? c.raised : c.surface, boxShadow: c.shadow2 }]}>
             {picking ? <ActivityIndicator size="small" color={c.ink} /> : <Feather name="image" size={16} color={c.ink} />}
           </View>
         </Pressable>
-        <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
+        <View style={s.headText}>
           <Text style={[s.title, { color: c.ink }]} accessibilityRole="header">
             {initial ? 'Editar playlist' : 'Nova playlist'}
           </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Pressable onPress={choose} disabled={picking} style={({ pressed }) => [s.smallBtn, { borderColor: c.lineStrong }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={cover ? 'Trocar imagem' : 'Usar uma imagem'}>
-              <Feather name="image" size={15} color={c.ink} />
-              <Text style={[s.smallText, { color: c.ink }]}>{cover ? 'Trocar imagem' : 'Usar imagem'}</Text>
-            </Pressable>
+          <View style={s.headButtons}>
+            <Button tone="neutral" size="sm" icon="image" label={cover ? 'Trocar imagem' : 'Usar imagem'} disabled={picking} onPress={choose} />
             {cover ? (
-              <Pressable
+              <Button
+                tone="neutral"
+                size="sm"
+                icon="x"
+                label="Tirar"
+                accessibilityLabel="Voltar para a capa de cor"
                 onPress={() => {
                   Haptics.selectionAsync().catch(() => {});
                   setCover(null);
                 }}
-                style={({ pressed }) => [s.smallBtn, { borderColor: c.lineStrong }, pressed && { opacity: 0.8 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Voltar para a capa de cor"
-              >
-                <Feather name="x" size={15} color={c.ink} />
-                <Text style={[s.smallText, { color: c.ink }]}>Tirar</Text>
-              </Pressable>
+              />
             ) : null}
           </View>
           <Text style={[s.sub, { color: c.muted }]}>{cover ? 'A cor abaixo pinta o topo e o player.' : 'Sem imagem, a capa sai do nome e da cor.'}</Text>
@@ -121,8 +117,8 @@ function Body({ initial, onSave, onClose }: { initial?: Look; onSave: (name: str
         value={name}
         onChangeText={setName}
         placeholder="Nome da playlist"
-        placeholderTextColor={c.disabledInk}
-        style={[s.input, { color: c.ink, borderColor: c.lineStrong, backgroundColor: c.bg }]}
+        placeholderTextColor={c.muted}
+        style={[s.input, { color: c.ink, backgroundColor: c.sunken }]}
         autoFocus={!initial}
         maxLength={40}
         returnKeyType="done"
@@ -132,7 +128,7 @@ function Body({ initial, onSave, onClose }: { initial?: Look; onSave: (name: str
       />
 
       {!initial ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.chipsRail} keyboardShouldPersistTaps="handled">
           {SUGGESTIONS.filter((x) => !taken.has(x.name.toLowerCase())).map((x) => {
             const on = name.trim().toLowerCase() === x.name.toLowerCase();
             return (
@@ -143,7 +139,7 @@ function Body({ initial, onSave, onClose }: { initial?: Look; onSave: (name: str
                   setName(x.name);
                   if (!touchedColor) setColor(x.color);
                 }}
-                style={({ pressed }) => [s.chip, { borderColor: on ? COLORS[x.color].bg : c.line, backgroundColor: on ? COLORS[x.color].bg : 'transparent' }, pressed && { opacity: 0.8 }]}
+                style={({ pressed }) => [s.chip, { backgroundColor: on ? COLORS[x.color].bg : c.sunken }, pressed && { opacity: 0.72 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Usar o nome ${x.name}`}
               >
@@ -172,38 +168,41 @@ function Body({ initial, onSave, onClose }: { initial?: Look; onSave: (name: str
               accessibilityState={{ checked: on }}
               accessibilityLabel={COLORS[id].label}
             >
-              <View style={[s.swatchFill, { backgroundColor: COLORS[id].bg }]}>{on ? <Feather name="check" size={16} color={COLORS[id].ink} /> : null}</View>
+              {/* Cor que quase some no fundo (o grafite no escuro) ganha um fio em volta */}
+              <View style={[s.swatchFill, { backgroundColor: COLORS[id].bg }, c.dark && id === 'grafite' && { borderWidth: 1, borderColor: c.lineStrong }]}>
+                {on ? <Feather name="check" size={16} color={COLORS[id].ink} /> : null}
+              </View>
             </Pressable>
           );
         })}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}>
-          <Button tone="neutral" label="Cancelar" onPress={onClose} />
-        </View>
-        <View style={{ flex: 1.4 }}>
-          <Button tone="accent" icon={initial ? 'check' : 'plus'} label={initial ? 'Salvar' : 'Criar playlist'} disabled={!ok} onPress={save} />
-        </View>
+      <View style={s.foot}>
+        <Button tone="neutral" label="Cancelar" onPress={onClose} style={s.cancel} />
+        <Button tone="accent" icon={initial ? 'check' : 'plus'} label={initial ? 'Salvar' : 'Criar playlist'} disabled={!ok} onPress={save} style={s.confirm} />
       </View>
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  body: { paddingHorizontal: 20, paddingBottom: 8, gap: 16 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  title: { fontFamily: font.bold, fontSize: 21, letterSpacing: -0.3 },
-  sub: { fontFamily: font.regular, fontSize: 13, lineHeight: 18 },
-  camBadge: { position: 'absolute', right: -6, bottom: -6, width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  smallBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1 },
-  smallText: { fontFamily: font.semibold, fontSize: 13 },
-  input: { height: 54, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, fontFamily: font.semibold, fontSize: 17 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  chipText: { fontFamily: font.semibold, fontSize: 14 },
+  body: { paddingHorizontal: gutter, paddingBottom: space[2], gap: space[4] },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  headText: { flex: 1, minWidth: 0, gap: space[2] },
+  headButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  title: { ...text.title },
+  sub: { ...text.caption },
+  camBadge: { position: 'absolute', right: -space[2], bottom: -space[2], width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  input: { ...text.bodyBold, height: control.lg, borderRadius: radius.full, paddingHorizontal: space[4] },
+  chipsRail: { marginHorizontal: -gutter },
+  chips: { gap: space[2], paddingHorizontal: gutter },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full },
+  dot: { width: 8, height: 8, borderRadius: radius.full },
+  chipText: { ...text.captionBold },
   swatches: { flexDirection: 'row', justifyContent: 'space-between' },
-  swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, padding: 3 },
-  swatchFill: { flex: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  swatch: { width: 40, height: 40, borderRadius: radius.full, borderWidth: 2, padding: space[1] },
+  swatchFill: { flex: 1, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  foot: { flexDirection: 'row', gap: space[2], paddingTop: space[2] },
+  cancel: { flex: 1 },
+  confirm: { flex: 1.4 },
 });
-

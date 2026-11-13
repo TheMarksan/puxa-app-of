@@ -10,11 +10,13 @@ import { CaptionLayer, Guides, NO_GUIDES, type GuideState } from '../editor/ui/C
 import { shownCues } from '../editor/captionLayout';
 import { CueList, LinesPicker, LookPicker, MotionPicker, PositionPicker } from '../editor/ui/CaptionControls';
 import { Chip, Row, Section, Slider, Swatches, Toggle, ui, videoFill } from '../editor/ui/kit';
-import { E } from '../editor/ui/palette';
+import { E, KARAOKE } from '../editor/ui/palette';
 import { usePlayerTime } from '../editor/ui/usePlayerTime';
 import { StyleEditor } from '../editor/ui/StyleEditor';
 import { clamp, placement } from '../editor/timeline';
 import type { CaptionStyle, Cue, MediaSource } from '../editor/types';
+import { control, radius, space, tabular, text } from '../theme';
+import { PlayIcon } from './ui';
 
 export type Framing = { zoom: number; panX: number; panY: number };
 export const ORIGINAL: Framing = { zoom: 1, panX: 0, panY: 0 };
@@ -80,7 +82,7 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
 
   return (
     // O teclado (ao corrigir um texto) empurra o painel para cima; o vídeo encolhe
-    <KeyboardAvoidingView behavior="padding" style={[styles.root, { paddingTop: insets.top + 6 }]}>
+    <KeyboardAvoidingView behavior="padding" style={[styles.root, { paddingTop: insets.top + space[2] }]}>
       <View style={styles.top}>
         <Text style={styles.title}>{captions ? 'Legenda e enquadramento' : 'Enquadramento'}</Text>
         <Pressable onPress={onClose} style={styles.done} accessibilityRole="button">
@@ -107,7 +109,7 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
 
       <View style={styles.transport}>
         <Pressable onPress={toggle} style={styles.play} accessibilityLabel={playing ? 'Pausar' : 'Reproduzir'}>
-          <Feather name={playing ? 'pause' : 'play'} size={20} color={E.ink} style={playing ? undefined : { marginLeft: 2 }} />
+          <PlayIcon playing={playing} size={20} color={E.ink} />
         </Pressable>
         <Text style={styles.time}>
           {clock(Math.max(0, time - range.start))} / {clock(range.end - range.start)}
@@ -126,7 +128,7 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
       </View>
 
       <View style={styles.tabs}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2], paddingHorizontal: space[3] }}>
           {tabs.map((t) => (
             <Pressable
               key={t.id}
@@ -138,14 +140,14 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
               accessibilityRole="tab"
               accessibilityState={{ selected: tab === t.id }}
             >
-              <Feather name={t.icon} size={15} color={tab === t.id ? '#fff' : E.muted} />
-              <Text style={[styles.tabText, tab === t.id && { color: '#fff' }]}>{t.label}</Text>
+              <Feather name={t.icon} size={16} color={tab === t.id ? E.onAccent : E.muted} />
+              <Text style={[styles.tabText, tab === t.id && { color: E.onAccent }]}>{t.label}</Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.panel} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.panel} contentContainerStyle={{ padding: space[4], paddingBottom: insets.bottom + space[6] }} keyboardShouldPersistTaps="handled">
         {tab === 'look' ? (
           <Section label="Escolha um formato">
             <LookPicker style={style} onPick={onStyle} />
@@ -167,7 +169,7 @@ export function CaptionStudio({ player, source, range, captions, cues, onCues, s
             </Section>
             {style.motion === 'karaoke' ? (
               <Section label="Cor da palavra falada">
-                <Swatches value={style.highlight ?? '#FFD60A'} onChange={(highlight) => onStyle({ ...style, highlight })} />
+                <Swatches value={style.highlight ?? KARAOKE} onChange={(highlight) => onStyle({ ...style, highlight })} />
               </Section>
             ) : null}
             <Text style={[ui.body, styles.hint]}>
@@ -393,23 +395,23 @@ function StudioCanvas({
 
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, backgroundColor: E.bg },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 8, minHeight: 50 },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  title: { flex: 1, minWidth: 0, fontFamily: 'Archivo_700Bold', fontSize: 18, color: E.ink },
-  done: { height: 38, paddingHorizontal: 18, borderRadius: 19, backgroundColor: E.accent, alignItems: 'center', justifyContent: 'center' },
-  doneText: { fontFamily: 'Archivo_700Bold', fontSize: 14, color: '#fff' },
-  stage: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 6 },
-  canvas: { backgroundColor: '#000', overflow: 'hidden', borderRadius: 8 },
-  frameOutline: { ...StyleSheet.absoluteFill, borderWidth: 2, borderColor: E.accent, borderRadius: 8 },
-  status: { position: 'absolute', left: 10, right: 10, bottom: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(11,12,15,0.82)' },
-  statusText: { fontFamily: 'Archivo_600SemiBold', fontSize: 13, color: E.ink, textAlign: 'center' },
-  transport: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 4 },
-  play: { width: 40, height: 40, borderRadius: 20, backgroundColor: E.raised2, alignItems: 'center', justifyContent: 'center' },
-  time: { fontFamily: 'Archivo_600SemiBold', fontSize: 13, color: E.ink, fontVariant: ['tabular-nums'] },
-  tabs: { paddingVertical: 8, borderTopWidth: 1, borderTopColor: E.line, backgroundColor: E.panel },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: E.raised },
+  top: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingBottom: space[2], minHeight: control.md },
+  iconBtn: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  title: { ...text.bodyBold, flex: 1, minWidth: 0, color: E.ink },
+  done: { height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: E.accent, alignItems: 'center', justifyContent: 'center' },
+  doneText: { ...text.captionBold, color: E.onAccent },
+  stage: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[3], paddingVertical: space[2] },
+  canvas: { backgroundColor: E.stage, overflow: 'hidden', borderRadius: radius.sm },
+  frameOutline: { ...StyleSheet.absoluteFill, borderWidth: 2, borderColor: E.accent, borderRadius: radius.sm },
+  status: { position: 'absolute', left: space[3], right: space[3], bottom: space[3], paddingHorizontal: space[3], paddingVertical: space[2], borderRadius: radius.md, backgroundColor: E.veil },
+  statusText: { ...text.captionBold, color: E.ink, textAlign: 'center' },
+  transport: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingVertical: space[1] },
+  play: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: E.raised2, alignItems: 'center', justifyContent: 'center' },
+  time: { ...text.captionBold, ...tabular, color: E.ink },
+  tabs: { paddingVertical: space[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: E.lineStrong, backgroundColor: E.panel },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: E.raised },
   tabOn: { backgroundColor: E.accent },
-  tabText: { fontFamily: 'Archivo_600SemiBold', fontSize: 13, color: E.muted },
-  panel: { maxHeight: 300, backgroundColor: E.panel },
-  hint: { color: E.faint, fontSize: 12, marginTop: 8 },
+  tabText: { ...text.captionBold, color: E.muted },
+  panel: { maxHeight: 304, backgroundColor: E.panel },
+  hint: { ...text.caption, color: E.faint, marginTop: space[2] },
 });

@@ -1,120 +1,62 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { QualityOption } from '../../modules/puxa-engine';
 import { bytes } from '../format';
-import { ms } from '../motion';
-import { ease, font, Palette, radius, usePalette } from '../theme';
-
-const ROW = 58;
+import { control, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 type Props = {
   options: QualityOption[];
   value: string | null;
   onChange: (id: string) => void;
-  /** Muda quando o formato muda, para a lista entrar de novo. */
-  group: string;
 };
 
-/** Lista de qualidades; o destaque desliza de uma linha para a outra. */
-export function QualityList({ options, value, onChange, group }: Props) {
+/** As qualidades de um formato: o nome, para que serve e quanto pesa. A escolhida fica marcada. */
+export function QualityList({ options, value, onChange }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
-  const index = Math.max(0, options.findIndex((o) => o.id === value));
-  const y = useState(() => new Animated.Value(index * ROW))[0];
-  const fade = useState(() => new Animated.Value(1))[0];
-  const height = useState(() => new Animated.Value(options.length * ROW))[0];
-  const [shownGroup, setShownGroup] = useState(group);
-  const mounted = useRef(false);
-
-  // Trocar de formato: as linhas novas já nascem transparentes (ainda na renderização,
-  // antes da pintura), a lista muda de altura junto e elas aparecem
-  if (shownGroup !== group) {
-    setShownGroup(group);
-    y.setValue(index * ROW);
-    fade.setValue(0);
-  }
-  useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
-    }
-    Animated.parallel([
-      Animated.timing(height, { toValue: options.length * ROW, duration: ms(280), easing: ease.travel, useNativeDriver: false }),
-      Animated.timing(fade, { toValue: 1, duration: ms(220), delay: ms(60), easing: ease.arrive, useNativeDriver: false }),
-    ]).start();
-  }, [group]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Escolher outra qualidade: o destaque viaja até ela
-  useEffect(() => {
-    Animated.timing(y, { toValue: index * ROW, duration: ms(260), easing: ease.travel, useNativeDriver: false }).start();
-  }, [index, y]);
-
   return (
-    <Animated.View style={[s.list, { height: Animated.add(height, 2) }]} accessibilityRole="radiogroup" accessibilityLabel="Qualidade">
-      <Animated.View pointerEvents="none" style={[s.indicator, { opacity: fade, transform: [{ translateY: y }] }]} />
-      <Animated.View style={{ opacity: fade }}>
-        {options.map((o, i) => {
-          const active = o.id === value;
-          return (
-            <Pressable
-              key={o.id}
-              onPress={() => !active && onChange(o.id)}
-              style={({ pressed }) => [s.row, i > 0 && s.divider, pressed && !active && { backgroundColor: c.hover }]}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: active }}
-              accessibilityLabel={[o.label, o.note, bytes(o.size)].filter(Boolean).join(', ')}
-            >
-              <View style={[s.radio, active && { borderColor: c.accent }]}>{active ? <View style={s.dot} /> : null}</View>
-              <Text style={[s.label, active && { color: c.ink }]}>{o.label}</Text>
+    <View style={s.list} accessibilityRole="radiogroup" accessibilityLabel="Qualidade">
+      {options.map((o) => {
+        const active = o.id === value;
+        return (
+          <Pressable
+            key={o.id}
+            onPress={() => onChange(o.id)}
+            style={({ pressed }) => [s.row, active ? s.rowOn : pressed ? s.rowPressed : null]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            accessibilityLabel={[o.label, o.note, bytes(o.size)].filter(Boolean).join(', ')}
+          >
+            <View style={s.names}>
+              <Text style={[s.label, active && { color: c.accentInk }]} numberOfLines={1}>
+                {o.label}
+              </Text>
               {o.note ? (
-                <View style={[s.chip, active && { backgroundColor: c.surface }]}>
-                  <Text style={s.chipText}>{o.note}</Text>
-                </View>
+                <Text style={s.note} numberOfLines={1}>
+                  {o.note}
+                </Text>
               ) : null}
-              <View style={{ flex: 1 }} />
-              <Text style={s.size}>{o.size ? bytes(o.size) : '—'}</Text>
-            </Pressable>
-          );
-        })}
-      </Animated.View>
-    </Animated.View>
+            </View>
+            <Text style={s.size}>{o.size ? bytes(o.size) : ''}</Text>
+            <View style={[s.mark, active && { backgroundColor: c.accent }]}>{active ? <Feather name="check" size={16} color={c.onAccent} /> : null}</View>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    list: {
-      borderRadius: radius.list,
-      borderWidth: 1,
-      borderColor: c.line,
-      backgroundColor: c.surface,
-      overflow: 'hidden',
-    },
-    indicator: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      top: 0,
-      height: ROW,
-      backgroundColor: c.accentSoft,
-      borderLeftWidth: 3,
-      borderLeftColor: c.accent,
-    },
-    row: { height: ROW, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
-    divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
-    radio: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      borderWidth: 2,
-      borderColor: c.lineStrong,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: c.accent },
-    label: { fontFamily: font.semibold, fontSize: 16, color: c.ink, fontVariant: ['tabular-nums'] },
-    chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: c.hover },
-    chipText: { fontFamily: font.medium, fontSize: 12, color: c.muted },
-    size: { fontFamily: font.medium, fontSize: 15, color: c.muted, fontVariant: ['tabular-nums'] },
+    list: { gap: space[1] },
+    row: { minHeight: control.lg, flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingVertical: space[2], borderRadius: radius.lg },
+    rowOn: { backgroundColor: c.accentSoft },
+    rowPressed: { backgroundColor: c.sunken },
+    names: { flex: 1, minWidth: 0 },
+    label: { ...text.bodyBold, ...tabular, color: c.ink },
+    note: { ...text.caption, color: c.muted },
+    size: { ...text.caption, ...tabular, color: c.muted },
+    mark: { width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.sunken, alignItems: 'center', justifyContent: 'center' },
   });

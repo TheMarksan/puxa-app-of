@@ -2,10 +2,12 @@ import {
   ANIMATED_LIMIT,
   animatedArgs,
   baseArgs,
+  betterTry,
   firstTry,
   maskArgs,
   nextTry,
   posterArgs,
+  shapeWeight,
   STILL_LIMIT,
   STILL_QUALITIES,
   stickerLayout,
@@ -38,7 +40,8 @@ export type StickerRequest = {
   design: StickerDesign;
 };
 
-export type StickerResult = { webp: string; poster: string; size: number; quality: number; fps: number | null; attempts: number };
+/** [soft]: nitidez do vídeo na animada (1 = inteira); [attempts]: quantas vezes o WebP foi montado. */
+export type StickerResult = { webp: string; poster: string; size: number; quality: number; fps: number | null; soft?: number; attempts: number };
 
 export class StickerError extends Error {
   code: string;
@@ -88,24 +91,29 @@ export async function buildSticker(req: StickerRequest, io: StickerIO): Promise<
     throw new StickerError('too_big', 'A figurinha ficou pesada demais para o WhatsApp. Arredonde mais os cantos ou escolha outro quadro.');
   }
 
-  // Animada: começa pelo que costuma caber e desce até ficar abaixo de 500 KB
-  let cur = firstTry(req.duration);
+  // Animada: começa pelo que deve caber para a duração e a forma. Se passar de 500 KB, a próxima
+  // tentativa sai da conta do peso que deu (menos quadros por segundo, sobretudo); se sobrar muito,
+  // uma volta a mais aproveita a folga.
+  const fits = (size: number) => size <= ANIMATED_LIMIT * 0.97;
+  const encode = async (t: { fps: number; quality: number; soft: number }, name: string) => {
+    const out = at(name);
+    await io.ffmpeg(animatedArgs(d, layout, inputs, req.start, req.duration, t.fps, t.quality, out, t.soft));
+    return { out, size: io.size(out) };
+  };
+  let cur = firstTry(req.duration, shapeWeight(d, layout));
   let best: StickerResult | null = null;
-  for (let attempts = 1; attempts <= 5; attempts++) {
-    const out = at(`figurinha-${attempts}.webp`);
+  const MAX_ATTEMPTS = 5;
+  for (let attempts = 1; attempts <= MAX_ATTEMPTS; attempts++) {
     io.progress?.(attempts === 1 ? 'Montando a animação…' : 'Deixando mais leve para o WhatsApp…', null);
-    await io.ffmpeg(animatedArgs(d, layout, inputs, req.start, req.duration, cur.fps, cur.quality, out));
-    const size = io.size(out);
-    if (size <= ANIMATED_LIMIT * 0.97) {
-      best = { webp: out, poster, size, quality: cur.quality, fps: cur.fps, attempts };
-      // Trecho curto que ficou bem abaixo do limite: uma volta a mais com qualidade melhor
-      if (attempts === 1 && req.duration <= 4.5 && size < ANIMATED_LIMIT * 0.55 && cur.quality < 75) {
-        const better = { fps: cur.fps, quality: Math.min(80, cur.quality + 18) };
-        const out2 = at('figurinha-melhor.webp');
+    const { out, size } = await encode(cur, `figurinha-${attempts}.webp`);
+    if (fits(size)) {
+      best = { webp: out, poster, size, quality: cur.quality, fps: cur.fps, soft: cur.soft, attempts };
+      const better = attempts === 1 ? betterTry(cur, size, ANIMATED_LIMIT) : null;
+      if (better) {
+        check(io);
         io.progress?.('Caprichando na qualidade…', null);
-        await io.ffmpeg(animatedArgs(d, layout, inputs, req.start, req.duration, better.fps, better.quality, out2));
-        const size2 = io.size(out2);
-        if (size2 <= ANIMATED_LIMIT * 0.97) best = { webp: out2, poster, size: size2, quality: better.quality, fps: better.fps, attempts: 2 };
+        const up = await encode(better, 'figurinha-melhor.webp');
+        if (fits(up.size)) best = { webp: up.out, poster, size: up.size, quality: better.quality, fps: better.fps, soft: better.soft, attempts: 2 };
       }
       break;
     }

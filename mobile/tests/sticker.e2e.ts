@@ -41,6 +41,11 @@ const cases: Case[] = [
   { name: 'parada-x-retrato-cantos-0', file: 'social.mp4', kind: 'still', start: 2, duration: 0, design: { corner: 0 } },
   { name: 'animada-inteiro-10s-texto', file: 'rick360.mp4', kind: 'animated', start: 90, duration: 10, design: { shape: 'fit', text: 'quando o pix cai', textPosition: 'bottom' } },
   { name: 'animada-retrato-5s', file: 'portrait.mp4', kind: 'animated', start: 0, duration: 5, design: { outline: false } },
+  // Trechos longos (era onde dava "pesada demais"): quadrado e círculo, de 8 a 10 s
+  { name: 'animada-quadrado-8s', file: 'rick360.mp4', kind: 'animated', start: 20, duration: 8, design: {} },
+  { name: 'animada-quadrado-10s', file: 'rick360.mp4', kind: 'animated', start: 20, duration: 10, design: {} },
+  { name: 'animada-circulo-10s', file: 'rick360.mp4', kind: 'animated', start: 120, duration: 10, design: { corner: 1 } },
+  { name: 'animada-quadrado-9s-texto', file: 'rick360.mp4', kind: 'animated', start: 150, duration: 9, design: { text: 'dez segundos', corner: 0.6 } },
   // Pior caso para o peso: ruído em todos os quadros (obriga a descer qualidade e quadros por segundo)
   { name: 'animada-ruido-4s', file: 'facecam.mp4', kind: 'animated', start: 0, duration: 4, design: {} },
   { name: 'parada-quadrado-texto', file: 'rick360.mp4', kind: 'still', start: 45, duration: 0, design: { text: 'nunca vou te abandonar', textPosition: 'top', textColor: 'yellow' } },
@@ -99,9 +104,9 @@ print(json.dumps({'size': canvas or list(im.size), 'frames': max(1, len(durs)), 
       if (info.minFrame < 8) problems.push(`quadro de ${info.minFrame} ms (mínimo 8)`);
     }
     if (problems.length) failures++;
-    report.push({ case: c.name, webp: res.webp, kb: Math.round(res.size / 1024), quality: res.quality, fps: res.fps, attempts: res.attempts, ms: Date.now() - t0, ...info, problems });
+    report.push({ case: c.name, webp: res.webp, kb: Math.round(res.size / 1024), quality: res.quality, fps: res.fps, soft: res.soft, attempts: res.attempts, ms: Date.now() - t0, ...info, problems });
     console.log(
-      `${problems.length ? 'FALHOU' : 'ok    '} ${c.name}: ${Math.round(res.size / 1024)} KB, q${res.quality}${res.fps ? ` ${res.fps} fps` : ''}, ${res.attempts} tentativa(s), ${info.frames} quadro(s), ${info.duration} ms, ${Date.now() - t0} ms de trabalho ${problems.join('; ')}`,
+      `${problems.length ? 'FALHOU' : 'ok    '} ${c.name}: ${Math.round(res.size / 1024)} KB, q${res.quality}${res.fps ? ` ${res.fps} fps` : ''}${res.soft && res.soft < 1 ? ` nitidez ${res.soft}` : ''}, ${res.attempts} tentativa(s), ${info.frames} quadro(s), ${info.duration} ms, ${Date.now() - t0} ms de trabalho ${problems.join('; ')}`,
     );
   }
   writeFileSync(join(outRoot, 'relatorio.json'), JSON.stringify(report, null, 1));

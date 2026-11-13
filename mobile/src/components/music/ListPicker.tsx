@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '../../playlist/colors';
 import { addToList, ALL_NAME, createList, removeFromList, useLists } from '../../playlist/lists';
-import { font, usePalette } from '../../theme';
+import { gutter, radius, space, text, usePalette } from '../../theme';
 import { Button } from '../Button';
 import { PlaylistCover } from './Cover';
 import { ListEditor } from './ListEditor';
@@ -31,13 +31,13 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
           </Text>
         </View>
         <ScrollView contentContainerStyle={s.list} bounces={false}>
-          <View style={[s.row, { opacity: 0.9 }]} accessibilityLabel={`${ALL_NAME}: a música sempre fica aqui`}>
-            <PlaylistCover name="Todas" color="grafite" size={52} radius={12} />
+          <View style={s.row} accessibilityLabel={`${ALL_NAME}: a música sempre fica aqui`}>
+            <PlaylistCover name="Todas" color="grafite" size={48} radius={radius.md} />
             <View style={s.rowText}>
               <Text style={[s.name, { color: c.ink }]}>{ALL_NAME}</Text>
               <Text style={[s.meta, { color: c.muted }]}>Sempre fica aqui</Text>
             </View>
-            <View style={[s.check, { backgroundColor: c.line }]}>
+            <View style={[s.check, { backgroundColor: c.sunken }]}>
               <Feather name="check" size={16} color={c.muted} />
             </View>
           </View>
@@ -54,13 +54,13 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
                   else addToList(p.id, [trackId]);
                 }}
                 onLongPress={onOpen ? () => onOpen(p.id) : undefined}
-                android_ripple={{ color: c.hover }}
+                android_ripple={{ color: c.sunken }}
                 style={s.row}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
                 accessibilityLabel={`${p.name}, ${p.trackIds.length} músicas`}
               >
-                <PlaylistCover name={p.name} color={p.color} size={52} radius={12} image={p.cover} />
+                <PlaylistCover name={p.name} color={p.color} size={48} radius={radius.md} image={p.cover} />
                 <View style={s.rowText}>
                   <Text style={[s.name, { color: c.ink }]} numberOfLines={1}>
                     {p.name}
@@ -71,9 +71,9 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
               </Pressable>
             );
           })}
-          <Pressable onPress={() => setCreating(true)} android_ripple={{ color: c.hover }} style={s.row} accessibilityRole="button" accessibilityLabel="Nova playlist">
-            <View style={[s.newArt, { borderColor: c.lineStrong }]}>
-              <Feather name="plus" size={22} color={c.ink} />
+          <Pressable onPress={() => setCreating(true)} android_ripple={{ color: c.sunken }} style={s.row} accessibilityRole="button" accessibilityLabel="Nova playlist">
+            <View style={[s.newArt, { backgroundColor: c.accentSoft }]}>
+              <Feather name="plus" size={20} color={c.accentInk} />
             </View>
             <Text style={[s.name, { color: c.ink, flex: 1 }]}>Nova playlist</Text>
           </Pressable>
@@ -96,15 +96,15 @@ export function ListPicker({ trackId, title, onClose, onOpen }: { trackId: strin
 }
 
 const s = StyleSheet.create({
-  head: { paddingHorizontal: 20, paddingBottom: 8, gap: 2 },
-  title: { fontFamily: font.bold, fontSize: 21, letterSpacing: -0.3 },
-  sub: { fontFamily: font.regular, fontSize: 14 },
-  list: { paddingHorizontal: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16 },
-  rowText: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontFamily: font.semibold, fontSize: 16 },
-  meta: { fontFamily: font.regular, fontSize: 13 },
-  check: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  newArt: { width: 52, height: 52, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  foot: { paddingHorizontal: 20, paddingTop: 8 },
+  head: { paddingHorizontal: gutter, paddingBottom: space[2] },
+  title: { ...text.title },
+  sub: { ...text.caption },
+  list: { paddingHorizontal: space[2] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[4], paddingHorizontal: space[4], paddingVertical: space[2], borderRadius: radius.lg },
+  rowText: { flex: 1, minWidth: 0 },
+  name: { ...text.bodyBold },
+  meta: { ...text.caption },
+  check: { width: 24, height: 24, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  newArt: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  foot: { paddingHorizontal: gutter, paddingTop: space[3] },
 });

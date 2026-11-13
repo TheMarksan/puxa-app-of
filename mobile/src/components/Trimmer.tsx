@@ -3,7 +3,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Image, PanResponder, PanResponderInstance, StyleSheet, Text, View } from 'react-native';
 
 import { clock } from '../format';
-import { font, Palette, usePalette } from '../theme';
+import { Palette, radius, space, text, usePalette } from '../theme';
 
 const WAVE_H = 76;
 const BAR = 3;
@@ -50,7 +50,7 @@ const Bars = memo(function Bars({ values, color }: { values: number[]; color: st
   return (
     <View style={styles.bars}>
       {values.map((v, i) => (
-        <View key={i} style={{ width: BAR, height: Math.max(3, v * (WAVE_H - 12)), borderRadius: 2, backgroundColor: color }} />
+        <View key={i} style={{ width: BAR, height: Math.max(3, v * (WAVE_H - 12)), borderRadius: radius.full, backgroundColor: color }} />
       ))}
     </View>
   );
@@ -177,7 +177,7 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
             {/* Seleção: as mesmas barras em cor forte, recortadas entre as alças */}
             <View
               {...responders.both.panHandlers}
-              style={[s.selection, { left: sx, width: Math.max(0, ex - sx) }, active === 'both' && { backgroundColor: c.dark ? '#26305A' : '#DCE3FA' }]}
+              style={[s.selection, { left: sx, width: Math.max(0, ex - sx) }, active === 'both' && { backgroundColor: c.accentLine }]}
             >
               <View style={{ position: 'absolute', left: -sx, top: 0, bottom: 0, width }} pointerEvents="none">
                 <Bars values={bars} color={c.waveActive} />
@@ -214,10 +214,10 @@ function Handle({ x, responder, active, c, label }: { x: number; responder: PanR
       accessibilityLabel={label}
       style={[styles.handleHit, { left: x - HANDLE_HIT / 2 }]}
     >
-      <View style={[styles.handleBar, { backgroundColor: c.accent, width: active ? 5 : 4 }]} />
+      <View style={[styles.handleBar, { backgroundColor: c.accent }]} />
       <View style={[styles.grip, { backgroundColor: c.accent, transform: [{ scale: active ? 1.15 : 1 }] }]}>
-        <View style={styles.gripLine} />
-        <View style={styles.gripLine} />
+        <View style={[styles.gripLine, { backgroundColor: c.onAccent }]} />
+        <View style={[styles.gripLine, { backgroundColor: c.onAccent }]} />
       </View>
     </View>
   );
@@ -226,17 +226,17 @@ function Handle({ x, responder, active, c, label }: { x: number; responder: PanR
 const styles = StyleSheet.create({
   bars: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: GAP },
   handleHit: { position: 'absolute', top: -6, bottom: -6, width: HANDLE_HIT, alignItems: 'center', justifyContent: 'center' },
-  handleBar: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2 },
-  grip: { width: 18, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', gap: 3, flexDirection: 'row' },
-  gripLine: { width: 2, height: 12, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.85)' },
+  handleBar: { position: 'absolute', top: 0, bottom: 0, width: 4, borderRadius: radius.full },
+  grip: { width: 16, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', gap: space[1], flexDirection: 'row' },
+  gripLine: { width: 2, height: 12, borderRadius: radius.full },
 });
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    strip: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', borderRadius: 8, overflow: 'hidden', backgroundColor: c.sk },
-    dim: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
-    frame: { position: 'absolute', top: 0, bottom: 0, borderTopWidth: 3, borderBottomWidth: 3, borderColor: c.accent },
-    wave: { height: WAVE_H, marginHorizontal: 12, justifyContent: 'center' },
+    strip: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row', borderRadius: radius.sm, overflow: 'hidden', backgroundColor: c.sk },
+    dim: { position: 'absolute', top: 0, bottom: 0, backgroundColor: c.mediaScrim },
+    frame: { position: 'absolute', top: 0, bottom: 0, borderTopWidth: 2, borderBottomWidth: 2, borderColor: c.accent },
+    wave: { height: WAVE_H, marginHorizontal: space[3], justifyContent: 'center' },
     selection: {
       position: 'absolute',
       top: 0,
@@ -247,15 +247,14 @@ const makeStyles = (c: Palette) =>
       borderBottomWidth: 2,
       borderColor: c.accent,
     },
-    playhead: { position: 'absolute', top: -4, bottom: -4, width: 2, borderRadius: 1, backgroundColor: c.ink },
-    loading: { position: 'absolute', alignSelf: 'center', fontFamily: font.medium, fontSize: 14, color: c.muted },
-    labels: { height: 24, marginTop: 10, marginHorizontal: 12 },
+    playhead: { position: 'absolute', top: -4, bottom: -4, width: 2, borderRadius: radius.full, backgroundColor: c.ink },
+    loading: { position: 'absolute', alignSelf: 'center', ...text.caption, color: c.muted },
+    labels: { height: 24, marginTop: space[3], marginHorizontal: space[3] },
     time: {
       position: 'absolute',
       width: LABEL_W,
       textAlign: 'center',
-      fontFamily: font.semibold,
-      fontSize: 14,
+      ...text.captionBold,
       color: c.muted,
       fontVariant: ['tabular-nums'],
     },

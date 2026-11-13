@@ -1,6 +1,7 @@
 import { FONT_IDS, FONTS } from '../fonts';
 import type { Background, TextStyle } from '../types';
 import { Chip, Row, Section, Slider, Swatches } from './kit';
+import { CAPTION_BG } from './palette';
 
 const BACKGROUNDS: { v: Background; label: string }[] = [
   { v: 'shadow', label: 'Sombra' },
@@ -47,7 +48,7 @@ export function StyleEditor({ style, onChange, onLive }: { style: TextStyle; onC
               key={b.v}
               label={b.label}
               active={style.background === b.v}
-              onPress={() => onChange({ background: b.v, bgColor: b.v === 'outline' ? '#000000FF' : b.v === 'glow' ? '#FF2BD6FF' : solidBg(style.background) ? '#000000B3' : style.bgColor })}
+              onPress={() => onChange({ background: b.v, bgColor: b.v === 'outline' ? CAPTION_BG.outline : b.v === 'glow' ? CAPTION_BG.glow : solidBg(style.background) ? CAPTION_BG.band : style.bgColor })}
             />
           ))}
         </Row>

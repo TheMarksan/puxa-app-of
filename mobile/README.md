@@ -1,6 +1,6 @@
 # Puxa para Android
 
-App em React Native (Expo). A tela inicial é o **Baixar**. No começo, uma barra flutuante azul leva à **Playlist**, às **Figurinhas** e aos **Ajustes**; com um vídeo aberto ela sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
+App em React Native (Expo). A tela inicial é o **Início**: o campo do link no topo, a ação principal (**Colar link** ou **Buscar**) embaixo, ao alcance do polegar, e uma barra flutuante escura que leva às **Playlists**, às **Figurinhas** e aos **Ajustes**. Com um vídeo aberto a barra sai de cena e o botão de menu no topo leva aos mesmos lugares. Limpar o link ou tocar em voltar retorna ao começo.
 
 - **Baixar:** vídeos e Shorts do YouTube (MP3, M4A ou MP4 até 1080p), Reels, posts, fotos e perfis do Instagram, e posts e perfis do X. Assim que o link abre, aparecem **Compartilhar**, **Figurinha**, **Baixar** e **Playlist**; o arquivo baixa para o armazenamento do app quando você escolhe uma delas. Vai para o WhatsApp inteiro, só um trecho, com legenda gravada na imagem, dublado com vozes de IA ou como figurinha.
 - **Playlists:** cole links (um ou vários de uma vez) e cada um vira uma música guardada no celular. Separe em playlists (Treino, Estudos...), cada uma com a sua capa, toque em fila ou no aleatório com a tela desligada (controles na notificação e na tela de bloqueio) e veja a letra sincronizada, como no Spotify.
@@ -8,6 +8,17 @@ App em React Native (Expo). A tela inicial é o **Baixar**. No começo, uma barr
 - **Ajustes:** aparência (automático, claro ou escuro), contas (Instagram, só para stories e destaques, e a chave da ElevenLabs, para transcrição e dublagem na nuvem), espaço ocupado com limpeza por tipo de arquivo, e os termos de uso.
 
 O app não tem servidor próprio: todo pedido sai do próprio celular. A extração do YouTube usa o [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor), o motor do app NewPipe, num módulo nativo em Kotlin. Como o pedido sai do IP do próprio celular (residencial ou de operadora), o YouTube libera a mídia, o que não acontece com servidores em nuvem. O Instagram e o X entregam a mídia pronta (MP4 com som ou foto): o app pede como o site faz para quem visita sem conta e, se a rede barrar esse pedido, abre a página pública num navegador invisível dentro do app e lê a mídia dali. A montagem dos vídeos usa o FFmpeg (FFmpegKit), a transcrição no celular usa o whisper.cpp e a tradução usa o ML Kit do Google, tudo no aparelho. Só a transcrição e a dublagem pela ElevenLabs saem do celular, e só quando você coloca a sua chave.
+
+## Visual (2.0)
+
+- **Marca nova:** o símbolo é um P de pôster com a perna virando uma seta para baixo (puxar). Ele está no ícone do app (com fundo azul e o ícone temático do Android 13), na abertura, no topo do Início, nos Ajustes, na barra de status quando a música toca e na arte da notificação.
+- **Pôster:** a linguagem das capas das playlists vale para o app inteiro. Os títulos das telas usam a letra condensada **Anton** em maiúsculas; o resto usa a **Archivo** em dois pesos. São quatro tamanhos de letra no app todo (40, 22, 16 e 13).
+- **Cores:** papel claro e quente no fundo (60%), nanquim no texto e nas peças escuras (30%) e um azul só (10%) para a ação principal. O verde do WhatsApp saiu dos botões: verde agora só quer dizer "deu certo". O escuro tem as mesmas regras. Todo texto passa de 4,5:1 de contraste nos dois temas, conferido em teste; as cores das playlists também têm uma versão para texto sobre o fundo do app.
+- **Grade de 4:** todo espaço, tamanho e canto sai da mesma escala (4, 8, 12, 16, 24, 32, 48, 64), com 24 de margem nas telas. Os cantos são concêntricos: o player pequeno tem 24 por fora e a capa 16 por dentro, com 8 de folga.
+- **Ações no polegar:** no Início, nas pastas de figurinhas e nas folhas de envio, o botão principal fica embaixo, preso no rodapé; nas folhas, o conteúdo rola por cima dele.
+- **Links recentes:** o Início guarda os últimos 12 vídeos puxados (só no aparelho). Tocar abre de novo; segurar tira da lista; **Limpar** apaga todos. Em Ajustes > Armazenamento, **Links recentes** também limpa.
+- **Telas vazias, carregando e erro:** cada tela tem as quatro. Sem links recentes, o Início ensina em três passos e oferece um vídeo de exemplo; voltar do WhatsApp depois de mandar comemora com um toque de cor e já oferece um novo link.
+- As regras do sistema estão em [DESIGN.md](DESIGN.md) e são conferidas no `npm test`: nenhuma tela pode usar letra, espaço, canto, cor ou sombra fora de `src/theme`.
 
 ## Baixar
 
@@ -73,7 +84,7 @@ O app não tem servidor próprio: todo pedido sai do próprio celular. A extraç
 - **ElevenLabs:** a transcrição e a dublagem gastam créditos da sua conta. A voz gasta cerca de 1 crédito por letra falada (uns 140 a cada 10 s de fala), e o botão de dublar mostra a estimativa antes. Sem créditos, o app avisa.
 - **Tradução no aparelho:** o primeiro uso baixa o pacote do idioma (cerca de 30 MB).
 - **Limite do WhatsApp:** acima de 16 MB ele pode mandar como documento. O envio de trecho ajusta a qualidade para o vídeo ficar abaixo disso; se nem assim couber (vídeos de vários minutos), o app avisa.
-- **Figurinhas:** WebP 512x512, até 100 KB a parada e 500 KB a animada, que repete sem parar. Na animada, o app começa com 8 a 15 quadros por segundo (conforme a duração) e baixa qualidade e quadros até caber; trechos curtos que sobram espaço ganham uma segunda passada com mais qualidade.
+- **Figurinhas:** WebP 512x512, até 100 KB a parada e 500 KB a animada, que repete sem parar. O WebP animado guarda cada quadro inteiro, então o peso cresce com o número de quadros, quase sem depender da qualidade. Por isso a animada parte de um orçamento de cerca de 60 quadros: um trecho de 4 s sai com 15 quadros por segundo, um de 8 s com 7 e um de 10 s com 6 (formas com borda curva e contorno pesam mais e ganham menos quadros). Se ainda passar do limite, o app baixa um pouco a qualidade, depois tira quadros na proporção do excesso (até 4 por segundo) e só então diminui a imagem por dentro. Trechos curtos que sobram espaço ganham uma segunda passada com mais qualidade. Antes, trechos de 8 a 10 s de vídeos com muito detalhe davam erro de "pesada demais".
 - **Permissões:** nenhuma que o Android pergunte. Sem câmera, microfone ou acesso aos arquivos: o "Baixar" grava em `Download/Puxa`. A playlist usa o serviço de mídia do Android (tocar em segundo plano) para continuar com a tela desligada.
 
 ## Instalar o APK
@@ -88,7 +99,7 @@ Esse APK é assinado com a chave de depuração padrão, a mesma da versão ante
 
 ## O que testar no celular
 
-O código foi conferido aqui com verificação de tipos, lint, testes das legendas, das figurinhas, dos links e respostas do Instagram e do X, da dublagem e da playlist, e as figurinhas de ponta a ponta com o mesmo FFmpeg 6.1.1 do app (cantos de 0 ao círculo, inteiro, contorno, texto, e vídeos do X em MP4 fragmentado), conferidas nas regras do WhatsApp: 512x512, peso, repetição, duração dos quadros. A interface foi conferida na prévia web, em claro e escuro. O login do Instagram foi conferido renderizando a página com o mesmo navegador do app. O X e a ElevenLabs só foram testados com respostas gravadas. Estas partes só rodam num aparelho de verdade:
+O código foi conferido aqui com verificação de tipos, lint, testes das legendas, das figurinhas, dos links e respostas do Instagram e do X, da dublagem e da playlist, e as figurinhas de ponta a ponta com o mesmo FFmpeg 6.1.1 do app (cantos de 0 ao círculo, inteiro, contorno, texto, e vídeos do X em MP4 fragmentado), conferidas nas regras do WhatsApp: 512x512, peso, repetição, duração dos quadros (inclusive animadas de 8 e 10 s de vídeos com muito detalhe). O sistema de design é conferido em teste (escala de letra, espaço, cantos, cores fora do tema e contraste nos dois temas), e a interface foi conferida tela por tela na prévia web, em claro e escuro. O login do Instagram foi conferido renderizando a página com o mesmo navegador do app. O X e a ElevenLabs só foram testados com respostas gravadas. Estas partes só rodam num aparelho de verdade:
 
 1. Na primeira abertura, aceitar a permissão de notificações. Baixar áudio em MP3 e um vídeo em 720p; mandar no WhatsApp. Conferir que Compartilhar, Figurinha, Baixar e Playlist aparecem logo que o link abre.
 2. Instagram sem login: um Reel, um carrossel (escolher a 2ª foto), um perfil público (abrir uma publicação da lista). Um link de story sem login deve abrir o perfil com o aviso de login.
@@ -106,7 +117,9 @@ O código foi conferido aqui com verificação de tipos, lint, testes das legend
 14. Letra: tocar uma música conhecida do YouTube (clipe oficial), abrir o player e conferir que a letra acende na linha certa e que tocar numa linha pula para ela. Numa música sem letra achada, usar Buscar.
 15. Envio de vídeo: tocar e pausar a prévia (o botão muda), arrastar a barra de tempo, ligar a legenda transcrita no celular (as legendas aparecem enquanto saem) e passar para Animada: a legenda aparece na prévia da figurinha e sai gravada nela.
 16. Áudio: abrir um vídeo do YouTube com dublagem automática (de um canal em outra língua) e conferir que o MP3, o vídeo e a música da Playlist saem no idioma original.
-17. Capa: editar uma playlist, usar uma imagem da galeria, salvar e conferir a capa na lista, no topo e no player; tocar e ver a notificação com a arte na cor da playlist e a seta do Puxa na barra de status.
+17. Capa: editar uma playlist, usar uma imagem da galeria, salvar e conferir a capa na lista, no topo e no player; tocar e ver a notificação com a arte na cor da playlist e o símbolo do Puxa na barra de status.
+18. Figurinha animada longa: num vídeo com muito movimento, fazer figurinhas de 8 s e de 10 s (Recorte em Círculo e com contorno, e Inteiro). Devem sair sem o aviso de "pesada demais" e entrar no WhatsApp.
+19. Visual 2.0: conferir o ícone novo na tela inicial do Android (e o temático, se usar), a abertura, as letras Anton e Archivo em todas as telas, as sombras dos botões e das folhas, e o claro e o escuro. No Início, puxar dois vídeos e voltar: os dois aparecem em Recentes; segurar um tira da lista.
 
 Se algo falhar na montagem, a tela de erro tem **Copiar detalhes técnicos**: esse texto mostra o que o FFmpeg recusou.
 
@@ -148,6 +161,10 @@ npx expo export -p web                           # prévia da interface no naveg
 ## Estrutura
 
 ```
+src/theme/                    o sistema de design: cores (palette.ts, claro e escuro), letras (typography.ts),
+                              espaços, cantos e alturas (layout.ts) e movimento (motion.ts); regras em DESIGN.md
+src/components/ui.tsx         peças do sistema: marca, botão redondo, telas vazias, grupos, rodapé de envio
+src/recents.ts                links recentes do Início (a lista em si, testada, fica em recentList.ts)
 src/app/                      rotas: início, playlist (biblioteca e playlist/[id]), figurinhas (pastas e
                               figurinhas/[id]), ajustes, instagram
                               (login)

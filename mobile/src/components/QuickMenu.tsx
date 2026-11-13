@@ -1,11 +1,11 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ms } from '../motion';
-import { ease, font, type Palette, usePalette } from '../theme';
+import { control, ease, gutter, hit, type Palette, radius, space, text, usePalette } from '../theme';
 import type { BarItem } from './FloatingBar';
 
 /**
@@ -48,13 +48,13 @@ export function QuickMenu({ items, visible }: { items: BarItem[]; visible: boole
             Haptics.selectionAsync().catch(() => {});
             setOpen(true);
           }}
-          hitSlop={8}
-          style={({ pressed }) => [s.button, pressed && { opacity: 0.7 }]}
+          hitSlop={hit(control.sm)}
+          style={({ pressed }) => [s.button, pressed && { opacity: 0.72 }]}
           accessibilityRole="button"
           accessibilityLabel="Menu: Playlist, Figurinhas e Ajustes"
           accessibilityState={{ expanded: open }}
         >
-          <Feather name="grid" size={19} color={c.ink} />
+          <Feather name="grid" size={20} color={c.ink} />
         </Pressable>
       </Animated.View>
       {open ? (
@@ -65,21 +65,18 @@ export function QuickMenu({ items, visible }: { items: BarItem[]; visible: boole
           <Animated.View
             style={[
               s.menu,
-              { top: insets.top + 64, opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] },
+              { top: insets.top + space[16], opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }] },
             ]}
           >
             {items.map((it) => (
               <Pressable
                 key={it.key}
                 onPress={() => close(it.onPress)}
-                android_ripple={{ color: c.hover }}
-                style={({ pressed }) => [s.row, pressed && { backgroundColor: c.hover }]}
+                style={({ pressed }) => [s.row, pressed && { backgroundColor: c.sunken }]}
                 accessibilityRole="button"
                 accessibilityLabel={it.label}
               >
-                <View style={s.icon}>
-                  <Feather name={it.icon} size={18} color={c.accentInk} />
-                </View>
+                <Feather name={it.icon} size={20} color={c.ink} />
                 <Text style={s.label}>{it.label}</Text>
               </Pressable>
             ))}
@@ -92,34 +89,17 @@ export function QuickMenu({ items, visible }: { items: BarItem[]; visible: boole
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    button: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: c.dark ? c.hover : c.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.line,
-    },
+    button: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: c.sunken },
     menu: {
       position: 'absolute',
-      right: 16,
-      minWidth: 210,
-      paddingVertical: 6,
-      borderRadius: 18,
-      backgroundColor: c.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.line,
-      shadowColor: c.shadow,
-      shadowOpacity: c.dark ? 0.5 : 0.16,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 14,
+      right: gutter,
+      minWidth: 208,
+      padding: space[2],
+      borderRadius: radius.xl,
+      backgroundColor: c.raised,
+      boxShadow: c.shadow3,
       transformOrigin: 'top right',
-      overflow: 'hidden',
     },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, paddingHorizontal: 14 },
-    icon: { width: 34, height: 34, borderRadius: 17, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
-    label: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
+    row: { flexDirection: 'row', alignItems: 'center', gap: space[3], height: control.md, paddingHorizontal: space[3], borderRadius: radius.lg },
+    label: { ...text.bodyBold, color: c.ink },
   });

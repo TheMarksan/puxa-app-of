@@ -8,12 +8,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PuxaEngine, { DoneEvent } from '../../modules/puxa-engine';
 import { bytes, clipName, clock, stem } from '../format';
 import { ms } from '../motion';
-import { ease, font, Palette, usePalette } from '../theme';
+import { control, ease, gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 import { BackButton } from './BackButton';
-import { Button, Press } from './Button';
+import { Press } from './Button';
 import { Segmented } from './Segmented';
 import { useSheetDrag } from './SheetParts';
 import { MIN_CLIP, Trimmer } from './Trimmer';
+import { PlayIcon, SendRow } from './ui';
 
 const WA_LIMIT = 16 * 1024 * 1024;
 
@@ -146,12 +147,12 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.scrim, opacity: slide }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => !busy && onClose()} accessibilityLabel="Fechar" />
       </Animated.View>
-      <Animated.View style={[s.sheet, sheetStyle, { paddingBottom: insets.bottom + 16 }]}>
+      <Animated.View style={[s.sheet, sheetStyle, { paddingBottom: insets.bottom + space[4] }]}>
         {/* Alça e topo: arrastar para baixo fecha a folha */}
         <View {...sheetDrag.handlers} style={s.dragZone}>
           <View style={s.grabber} />
           <View style={s.header}>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={s.headerText}>
               <Text style={s.title} accessibilityRole="header">
                 Enviar
               </Text>
@@ -162,7 +163,7 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
             <BackButton icon="close" onPress={onClose} disabled={!!busy} />
           </View>
         </View>
-        <ScrollView bounces={false} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView style={s.scroll} bounces={false} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <Segmented
             accessibilityLabel="O que mandar"
             value={mode}
@@ -191,7 +192,7 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
               <View style={s.controls}>
                 <Stepper c={c} label="Início" value={range.start} onMinus={() => nudge('start', -1)} onPlus={() => nudge('start', 1)} />
                 <Press onPress={togglePreview} style={s.play} accessibilityRole="button" accessibilityLabel={previewing ? 'Parar a prévia' : 'Ouvir trecho'}>
-                  <Feather name={previewing ? 'pause' : 'play'} size={22} color={c.onAccent} style={!previewing && { marginLeft: 3 }} />
+                  <PlayIcon playing={previewing} size={20} color={c.onAccent} />
                 </Press>
                 <Stepper c={c} label="Fim" value={range.end} onMinus={() => nudge('end', -1)} onPlus={() => nudge('end', 1)} />
               </View>
@@ -203,26 +204,22 @@ export function SendSheet({ file, title, visible, onClose, onSend, onError }: Pr
 
           {tooBig ? (
             <View style={s.warn}>
-              <Feather name="alert-triangle" size={16} color={c.danger} style={{ marginTop: 2 }} />
+              <Feather name="alert-triangle" size={20} color={c.danger} />
               <Text style={s.warnText}>
                 Acima de 16 MB o WhatsApp pode mandar como documento, sem tocar na conversa.
                 {mode === 'whole' ? ' Um trecho resolve.' : ' Diminua o trecho.'}
               </Text>
             </View>
           ) : null}
-
-          <View style={s.actions}>
-            <Button
-              tone="wa"
-              icon="send"
-              label={mode === 'clip' ? `Enviar trecho de ${clock(clipLen)}` : 'Enviar áudio inteiro'}
-              busy={busy === 'wa'}
-              disabled={busy === 'other'}
-              onPress={() => send(true)}
-            />
-            <Button tone="ghost" icon="share-2" label="Outros apps" compact busy={busy === 'other'} disabled={busy === 'wa'} onPress={() => send(false)} />
-          </View>
         </ScrollView>
+        <View style={s.footer}>
+          <SendRow
+            label={mode === 'clip' ? `Enviar trecho de ${clock(clipLen)}` : 'Enviar áudio inteiro'}
+            busy={busy === 'wa' ? 'send' : busy === 'other' ? 'other' : null}
+            onSend={() => send(true)}
+            onOther={() => send(false)}
+          />
+        </View>
       </Animated.View>
     </Modal>
   );
@@ -234,11 +231,11 @@ function Stepper({ c, label, value, onMinus, onPlus }: { c: Palette; label: stri
     <View style={s.wrap}>
       <Text style={s.label}>{label}</Text>
       <View style={s.row}>
-        <Pressable onPress={onMinus} hitSlop={6} style={({ pressed }) => [s.btn, pressed && { backgroundColor: c.hover }]} accessibilityLabel={`${label}: menos 1 segundo`}>
+        <Pressable onPress={onMinus} hitSlop={8} style={({ pressed }) => [s.btn, pressed && { backgroundColor: c.lineStrong }]} accessibilityLabel={`${label}: menos 1 segundo`}>
           <Feather name="minus" size={16} color={c.ink} />
         </Pressable>
         <Text style={s.value}>{clock(value)}</Text>
-        <Pressable onPress={onPlus} hitSlop={6} style={({ pressed }) => [s.btn, pressed && { backgroundColor: c.hover }]} accessibilityLabel={`${label}: mais 1 segundo`}>
+        <Pressable onPress={onPlus} hitSlop={8} style={({ pressed }) => [s.btn, pressed && { backgroundColor: c.lineStrong }]} accessibilityLabel={`${label}: mais 1 segundo`}>
           <Feather name="plus" size={16} color={c.ink} />
         </Pressable>
       </View>
@@ -248,43 +245,30 @@ function Stepper({ c, label, value, onMinus, onPlus }: { c: Palette; label: stri
 
 const stepperStyles = (c: Palette) =>
   StyleSheet.create({
-    wrap: { alignItems: 'center', gap: 4 },
-    label: { fontFamily: font.medium, fontSize: 13, color: c.muted },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    btn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center' },
-    value: { minWidth: 44, textAlign: 'center', fontFamily: font.semibold, fontSize: 16, color: c.ink, fontVariant: ['tabular-nums'] },
+    wrap: { alignItems: 'center', gap: space[1] },
+    label: { ...text.caption, color: c.muted },
+    row: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+    btn: { width: 32, height: 32, borderRadius: radius.full, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' },
+    value: { ...text.bodyBold, ...tabular, minWidth: 44, textAlign: 'center', color: c.ink },
   });
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    sheet: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      maxHeight: '92%',
-      backgroundColor: c.surface,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      shadowColor: c.shadow,
-      shadowOpacity: 0.2,
-      shadowRadius: 24,
-      elevation: 24,
-    },
-    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.lineStrong, marginTop: 10, marginBottom: 12 },
-    dragZone: { paddingHorizontal: 20, paddingBottom: 10 },
-    content: { paddingHorizontal: 20, paddingTop: 2, gap: 12 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    title: { fontFamily: font.bold, fontSize: 21, color: c.ink, letterSpacing: -0.3 },
-    subtitle: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 2 },
-    close: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: c.hover },
-    label: { fontFamily: font.semibold, fontSize: 14, color: c.muted, marginTop: 4 },
-    editor: { paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, gap: 6 },
-    controls: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 14, marginTop: 6 },
-    play: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
-    summary: { textAlign: 'center', fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 8 },
-    summaryStrong: { fontFamily: font.semibold, color: c.ink },
-    warn: { flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.dangerLine },
-    warnText: { flex: 1, fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: c.ink },
-    actions: { gap: 6, marginTop: 4 },
+    sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92%', backgroundColor: c.dark ? c.raised : c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, boxShadow: c.shadow3 },
+    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: radius.full, backgroundColor: c.lineStrong, marginVertical: space[3] },
+    dragZone: { paddingHorizontal: gutter, paddingBottom: space[4] },
+    scroll: { flexShrink: 1 },
+    content: { paddingHorizontal: gutter, paddingBottom: space[4], gap: space[4] },
+    footer: { paddingHorizontal: gutter, paddingTop: space[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.lineStrong },
+    header: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+    headerText: { flex: 1, minWidth: 0 },
+    title: { ...text.title, color: c.ink },
+    subtitle: { ...text.caption, color: c.muted },
+    editor: { paddingVertical: space[4], borderRadius: radius.lg, backgroundColor: c.sunken, gap: space[2] },
+    controls: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: space[4], marginTop: space[2] },
+    play: { width: control.lg, height: control.lg, borderRadius: radius.full, backgroundColor: c.accent, boxShadow: c.sheen, alignItems: 'center', justifyContent: 'center' },
+    summary: { ...text.caption, textAlign: 'center', color: c.muted, marginTop: space[2] },
+    summaryStrong: { ...text.captionBold, color: c.ink },
+    warn: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.dangerSoft },
+    warnText: { ...text.caption, flex: 1, color: c.ink },
   });

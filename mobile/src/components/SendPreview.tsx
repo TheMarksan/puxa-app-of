@@ -12,8 +12,9 @@ import { videoFill } from '../editor/ui/kit';
 import { usePlayerTime } from '../editor/ui/usePlayerTime';
 import { clock } from '../format';
 import { ms } from '../motion';
-import { ease, font } from '../theme';
+import { ease, media, radius, space, tabular, text } from '../theme';
 import type { Framing } from './CaptionStudio';
+import { PlayIcon } from './ui';
 
 const seekTo = (p: VideoPlayer, t: number) => {
   p.currentTime = t;
@@ -61,7 +62,7 @@ export function SendPreview({
   const ratio = source && source.width > 0 && source.height > 0 ? source.width / source.height : 16 / 9;
   const ch = width ? Math.min(maxHeight, Math.round(width / ratio)) : 0;
   const cw = ch ? Math.round(ch * ratio) : 0;
-  const pl = placement({ fit: 'fill', zoom: framing.zoom, panX: framing.panX, panY: framing.panY, rotate: 0 }, source ?? { width: 16, height: 9 }, cw, ch);
+  const pl = placement({ fit: 'fill', zoom: framing.zoom, panX: framing.panX, panY: framing.panY, rotate: 0 }, source ?? { width: 16, height: 8 }, cw, ch);
   const shown = captions ? shownCues(captions.cues.filter((c) => c.end > range.start && c.start < range.end), captions.style, cw || 1, ch || 1) : [];
   const t = drag ?? time;
   const cur = captions ? cueAt(shown, t, playing) : null;
@@ -95,16 +96,16 @@ export function SendPreview({
           <Pressable style={StyleSheet.absoluteFill} onPress={toggle} accessibilityRole="button" accessibilityLabel={playing ? 'Pausar a prévia' : 'Tocar a prévia'} />
           <Animated.View pointerEvents="none" style={[s.center, { opacity: fade }]}>
             <View style={s.bigBtn}>
-              <Feather name={playing ? 'pause' : 'play'} size={24} color="#fff" style={playing ? null : { marginLeft: 3 }} />
+              <PlayIcon playing={playing} size={24} color={media.on} />
             </View>
           </Animated.View>
           {/* Tocando, os controles somem para a legenda aparecer inteira; fica só a linha do tempo */}
           <Animated.View pointerEvents="none" style={[s.thin, { opacity: fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
-            <View style={{ width: `${(rel / length) * 100}%`, height: 3, backgroundColor: '#fff' }} />
+            <View style={{ width: `${(rel / length) * 100}%`, height: 4, backgroundColor: media.on }} />
           </Animated.View>
           <Animated.View pointerEvents={playing ? 'none' : 'box-none'} style={[s.bottom, { opacity: fade }]}>
             <Pressable onPress={toggle} hitSlop={8} style={s.smallBtn} accessibilityRole="button" accessibilityLabel={playing ? 'Pausar' : 'Tocar'}>
-              <Feather name={playing ? 'pause' : 'play'} size={16} color="#fff" style={playing ? null : { marginLeft: 2 }} />
+              <PlayIcon playing={playing} size={16} color={media.on} />
             </Pressable>
             <Scrub
               value={rel}
@@ -127,8 +128,8 @@ export function SendPreview({
             <Text style={s.chipText}>{chip}</Text>
           </View>
           {onOpenStudio ? (
-            <Pressable onPress={onOpenStudio} hitSlop={6} style={s.expand} accessibilityRole="button" accessibilityLabel="Abrir em tela cheia">
-              <Feather name="maximize-2" size={15} color="#fff" />
+            <Pressable onPress={onOpenStudio} hitSlop={8} style={s.expand} accessibilityRole="button" accessibilityLabel="Abrir em tela cheia">
+              <Feather name="maximize-2" size={16} color={media.on} />
             </Pressable>
           ) : null}
         </View>
@@ -184,7 +185,7 @@ function Scrub({ value, max, onScrub, onSeek }: { value: number; max: number; on
       onAccessibilityAction={(e) => onSeek(Math.min(max, Math.max(0, value + (e.nativeEvent.actionName === 'increment' ? 2 : -2))))}
     >
       <View pointerEvents="none" style={s.rail}>
-        <View style={{ width: x, height: 3, backgroundColor: '#fff' }} />
+        <View style={{ width: x, height: 4, backgroundColor: media.on }} />
       </View>
       {w > 0 ? <View pointerEvents="none" style={[s.knob, { left: x - 6 }]} /> : null}
       <View {...responder.panHandlers} style={[StyleSheet.absoluteFill, { top: -10, bottom: -10 }]} />
@@ -193,17 +194,17 @@ function Scrub({ value, max, onScrub, onSeek }: { value: number; max: number; on
 }
 
 const s = StyleSheet.create({
-  frame: { borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
+  frame: { borderRadius: radius.xl, overflow: 'hidden', backgroundColor: media.stage },
   center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  bigBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-  thin: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(0,0,0,0.45)' },
-  smallBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  bigBtn: { width: 56, height: 56, borderRadius: radius.full, backgroundColor: media.scrim, alignItems: 'center', justifyContent: 'center' },
+  thin: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 4, backgroundColor: media.track },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[3], paddingVertical: space[2], backgroundColor: media.scrim },
+  smallBtn: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   scrub: { flex: 1, height: 24, justifyContent: 'center' },
-  rail: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' },
-  knob: { position: 'absolute', top: 6, width: 12, height: 12, borderRadius: 6, backgroundColor: '#fff' },
-  time: { fontFamily: font.semibold, fontSize: 12, color: '#fff', fontVariant: ['tabular-nums'], minWidth: 74, textAlign: 'right' },
-  chip: { position: 'absolute', left: 10, top: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
-  chipText: { fontFamily: font.semibold, fontSize: 13, color: '#fff', fontVariant: ['tabular-nums'] },
-  expand: { position: 'absolute', right: 8, top: 8, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  rail: { height: 4, borderRadius: radius.full, backgroundColor: media.track, overflow: 'hidden' },
+  knob: { position: 'absolute', top: 6, width: 12, height: 12, borderRadius: radius.full, backgroundColor: media.on },
+  time: { ...text.captionBold, ...tabular, color: media.on, minWidth: 72, textAlign: 'right' },
+  chip: { position: 'absolute', left: space[3], top: space[3], paddingHorizontal: space[2], height: 24, borderRadius: radius.full, backgroundColor: media.scrim, justifyContent: 'center' },
+  chipText: { ...text.captionBold, ...tabular, lineHeight: 16, color: media.on },
+  expand: { position: 'absolute', right: space[2], top: space[2], width: 32, height: 32, borderRadius: radius.full, backgroundColor: media.scrim, alignItems: 'center', justifyContent: 'center' },
 });

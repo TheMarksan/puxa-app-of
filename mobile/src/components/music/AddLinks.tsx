@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { addLinks } from '../../playlist/downloads';
-import { font, usePalette } from '../../theme';
+import { control, radius, space, text, usePalette } from '../../theme';
 import { useToast } from '../Toasts';
 
 /**
@@ -15,7 +15,7 @@ import { useToast } from '../Toasts';
 export function AddLinks({ listId, tint, tintInk }: { listId?: string; tint: string; tintInk: string }) {
   const c = usePalette();
   const toast = useToast();
-  const [text, setText] = useState('');
+  const [value, setValue] = useState('');
 
   const add = (raw: string) => {
     const r = addLinks(raw, listId);
@@ -24,7 +24,7 @@ export function AddLinks({ listId, tint, tintInk }: { listId?: string; tint: str
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setText('');
+    setValue('');
     const n = r.added + r.reused;
     if (n) {
       toast.show({
@@ -44,38 +44,38 @@ export function AddLinks({ listId, tint, tintInk }: { listId?: string; tint: str
     add(got);
   };
 
-  const has = !!text.trim();
+  const has = !!value.trim();
   return (
-    <View style={[s.bar, { backgroundColor: c.surface, borderColor: c.line }]}>
-      <Feather name="link-2" size={18} color={c.muted} style={{ marginLeft: 14 }} />
+    <View style={[s.bar, { backgroundColor: c.sunken }]}>
+      <Feather name="link" size={20} color={c.muted} />
       <TextInput
-        value={text}
-        onChangeText={setText}
+        value={value}
+        onChangeText={setValue}
         placeholder="Cole links para virar música"
-        placeholderTextColor={c.disabledInk}
+        placeholderTextColor={c.muted}
         style={[s.input, { color: c.ink }]}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
         returnKeyType="done"
-        onSubmitEditing={() => has && add(text)}
+        onSubmitEditing={() => has && add(value)}
         selectionColor={tint}
         accessibilityLabel="Links para virar música"
       />
       <Pressable
-        onPress={() => (has ? add(text) : paste())}
-        style={({ pressed }) => [s.go, { backgroundColor: tint }, pressed && { opacity: 0.85 }]}
+        onPress={() => (has ? add(value) : paste())}
+        style={({ pressed }) => [s.go, { backgroundColor: tint }, pressed && { opacity: 0.88 }]}
         accessibilityRole="button"
         accessibilityLabel={has ? 'Adicionar' : 'Colar link'}
       >
-        <Feather name={has ? 'plus' : 'clipboard'} size={18} color={tintInk} />
+        <Feather name={has ? 'plus' : 'clipboard'} size={20} color={tintInk} />
       </Pressable>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 54, borderRadius: 27, borderWidth: 1, paddingRight: 5 },
-  input: { flex: 1, minWidth: 0, fontFamily: font.medium, fontSize: 15, paddingVertical: 10 },
-  go: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.lg, borderRadius: radius.full, paddingLeft: space[4], paddingRight: space[2] },
+  input: { ...text.body, flex: 1, minWidth: 0, height: '100%', paddingVertical: 0 },
+  go: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
 });

@@ -3,6 +3,7 @@ import { PanResponder, StyleSheet, View } from 'react-native';
 
 import { clock } from '../../format';
 import { smoothTime, usePlayer, type PlayerState } from '../../playlist/player';
+import { radius } from '../../theme';
 
 /** Barra de tempo: tocar ou arrastar leva para o ponto. */
 export function SeekBar({ value, max, onScrub, onSeek, track, fill, thumb = 14 }: { value: number; max: number; onScrub: (v: number) => void; onSeek: (v: number) => void; track: string; fill: string; thumb?: number }) {
@@ -48,10 +49,10 @@ export function SeekBar({ value, max, onScrub, onSeek, track, fill, thumb = 14 }
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={(e) => onSeek(Math.min(max, Math.max(0, value + (e.nativeEvent.actionName === 'increment' ? 10 : -10))))}
     >
-      <View pointerEvents="none" style={{ height: 4, borderRadius: 2, backgroundColor: track, overflow: 'hidden' }}>
+      <View pointerEvents="none" style={{ height: 4, borderRadius: radius.full, backgroundColor: track, overflow: 'hidden' }}>
         <View style={{ width: x, height: 4, backgroundColor: fill }} />
       </View>
-      {width > 0 && thumb > 0 ? <View pointerEvents="none" style={{ position: 'absolute', left: x - thumb / 2, top: 14 - thumb / 2, width: thumb, height: thumb, borderRadius: thumb / 2, backgroundColor: fill }} /> : null}
+      {width > 0 && thumb > 0 ? <View pointerEvents="none" style={{ position: 'absolute', left: x - thumb / 2, top: 14 - thumb / 2, width: thumb, height: thumb, borderRadius: radius.full, backgroundColor: fill }} /> : null}
       <View {...responder.panHandlers} style={[StyleSheet.absoluteFill, { top: -8, bottom: -8 }]} />
     </View>
   );

@@ -9,11 +9,11 @@ import PuxaEngine, { type StickerFolder } from '../../modules/puxa-engine';
 import { Button } from '../components/Button';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Reveal } from '../components/SheetParts';
-import { CHAT_BG } from '../components/StickerPanel';
 import { useToast } from '../components/Toasts';
+import { EmptyState, Group, Hairline, IconButton } from '../components/ui';
 import { toUri } from '../editor/media';
 import { pendingPacks, putFolder, refreshFolders, useFolders } from '../stickers/folders';
-import { font, type Palette, radius, usePalette } from '../theme';
+import { control, gutter, type Palette, radius, space, text, usePalette } from '../theme';
 
 /** As pastas de figurinhas. Cada pasta abre na própria tela, com as figurinhas e o atalho do WhatsApp. */
 export function StickersScreen() {
@@ -52,64 +52,54 @@ export function StickersScreen() {
   const total = folders?.reduce((n, f) => n + f.stickers.length, 0) ?? 0;
   const empty = !!folders && total === 0 && folders.length <= 1;
 
+  const subtitle = !folders ? undefined : empty ? 'Suas figurinhas do WhatsApp moram aqui.' : `${total} ${total === 1 ? 'figurinha' : 'figurinhas'} em ${folders.length} ${folders.length === 1 ? 'pasta' : 'pastas'}`;
+
   return (
     <View style={s.root}>
-      <ScreenHeader
-        title="Figurinhas"
-        right={
-          <Pressable
-            onPress={() => setNaming((v) => !v)}
-            hitSlop={8}
-            style={({ pressed }) => [s.headBtn, pressed && { backgroundColor: c.hover }]}
-            accessibilityRole="button"
-            accessibilityLabel="Nova pasta"
-          >
-            <Feather name="folder-plus" size={20} color={c.ink} />
-          </Pressable>
-        }
-      />
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
-        {naming ? (
-          <Reveal>
-            <View style={s.newCard}>
-              <Text style={s.label} nativeID="new-folder-label">
-                Nova pasta
-              </Text>
+      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + space[8] }]} keyboardShouldPersistTaps="handled">
+        <ScreenHeader title="Figurinhas" subtitle={subtitle} right={<IconButton icon="folder-plus" label="Nova pasta" onPress={() => setNaming((v) => !v)} />} />
+        <View style={s.body}>
+          {naming ? (
+            <Reveal>
               <View style={s.newRow}>
                 <TextInput
                   value={name}
                   onChangeText={setName}
                   autoFocus
-                  placeholder="Ex.: Memes, Família"
-                  placeholderTextColor={c.disabledInk}
+                  placeholder="Nome da pasta (Memes, Família…)"
+                  placeholderTextColor={c.muted}
                   maxLength={40}
                   returnKeyType="done"
                   onSubmitEditing={create}
                   selectionColor={c.accent}
                   style={s.input}
-                  accessibilityLabelledBy="new-folder-label"
+                  accessibilityLabel="Nome da nova pasta"
                 />
-                <Button tone="accent" compact label="Criar" busy={saving} disabled={!name.trim()} onPress={create} />
+                <Button size="md" label="Criar" busy={saving} disabled={!name.trim()} onPress={create} />
               </View>
-            </View>
-          </Reveal>
-        ) : null}
+            </Reveal>
+          ) : null}
 
-        {empty ? (
-          <View style={s.empty}>
-            <View style={s.emptyIcon}>
-              <Feather name="smile" size={28} color={c.accentInk} />
-            </View>
-            <Text style={s.emptyTitle}>Nenhuma figurinha ainda</Text>
-            <Text style={s.emptyBody}>Cole um link no Baixar e toque em Figurinha.</Text>
-            <Button tone="accent" icon="download" label="Ir para o Baixar" compact onPress={() => router.back()} />
-          </View>
-        ) : null}
+          {empty ? <EmptyState icon="smile" title="Nenhuma figurinha ainda" body="Cole um link no Início e toque em Figurinha. Ela vem para cá, pronta para o WhatsApp." /> : null}
 
-        {folders && !empty
-          ? folders.map((f) => <FolderRow key={f.id} f={f} c={c} s={s} onPress={() => router.push(`/figurinhas/${f.id}`)} />)
-          : null}
+          {folders && !empty ? (
+            <Group>
+              {folders.map((f, i) => (
+                <View key={f.id}>
+                  {i > 0 ? <Hairline inset={space[3] + 64 + space[4]} /> : null}
+                  <FolderRow f={f} c={c} s={s} onPress={() => router.push(`/figurinhas/${f.id}`)} />
+                </View>
+              ))}
+            </Group>
+          ) : null}
+        </View>
       </ScrollView>
+      {empty ? (
+        // Tela vazia: a ação fica embaixo, ao alcance do polegar
+        <View style={[s.bottom, { paddingBottom: insets.bottom + space[4] }]}>
+          <Button icon="arrow-left" label="Criar a primeira no Início" onPress={() => router.back()} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -124,21 +114,20 @@ function FolderRow({ f, c, s, onPress }: { f: StickerFolder; c: Palette; s: Styl
   return (
     <Pressable
       onPress={onPress}
-      android_ripple={{ color: c.hover }}
-      style={({ pressed }) => [s.folder, pressed && { backgroundColor: c.hover }]}
+      style={({ pressed }) => [s.folder, pressed && { backgroundColor: c.sunken }]}
       accessibilityRole="button"
       accessibilityLabel={`Pasta ${f.name}. ${meta}${onWhatsApp ? '. No WhatsApp' : ''}`}
     >
-      <View style={[s.cover, { backgroundColor: c.dark ? CHAT_BG.dark : CHAT_BG.light }]}>
+      <View style={[s.cover, { backgroundColor: c.chat }]}>
         {cover.length ? (
           cover.map((st) => <Image key={st.file} source={{ uri: toUri(st.path) }} style={cover.length === 1 ? s.coverOne : s.coverTile} resizeMode="contain" />)
         ) : (
           <View style={s.coverEmpty}>
-            <Feather name="folder" size={26} color={c.muted} />
+            <Feather name="folder" size={24} color={c.muted} />
           </View>
         )}
       </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+      <View style={s.folderText}>
         <Text style={s.folderName} numberOfLines={1}>
           {f.name}
         </Text>
@@ -147,7 +136,7 @@ function FolderRow({ f, c, s, onPress }: { f: StickerFolder; c: Palette; s: Styl
         </Text>
         {onWhatsApp ? (
           <View style={s.added}>
-            <Feather name="check" size={13} color={c.waInk} />
+            <Feather name="check" size={12} color={c.successInk} />
             <Text style={s.addedText}>No WhatsApp</Text>
           </View>
         ) : null}
@@ -162,23 +151,19 @@ type Styles = ReturnType<typeof makeStyles>;
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    scroll: { paddingHorizontal: 20, paddingTop: 4, gap: 12 },
-    headBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-    label: { fontFamily: font.semibold, fontSize: 14, color: c.ink, marginBottom: 8 },
-    newCard: { padding: 14, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
-    newRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    input: { flex: 1, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.bg, fontFamily: font.medium, fontSize: 16, color: c.ink },
-    empty: { alignItems: 'center', gap: 10, padding: 24, marginTop: 24, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, borderStyle: 'dashed' },
-    emptyIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
-    emptyTitle: { fontFamily: font.bold, fontSize: 18, color: c.ink },
-    emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center', marginBottom: 6 },
-    folder: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, overflow: 'hidden' },
-    cover: { width: 72, height: 72, borderRadius: 16, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', alignContent: 'center', justifyContent: 'center', overflow: 'hidden', padding: 4 },
+    scroll: { flexGrow: 1 },
+    body: { paddingHorizontal: gutter, gap: space[4] },
+    bottom: { paddingHorizontal: gutter, paddingTop: space[3] },
+    newRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    input: { ...text.body, flex: 1, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: c.sunken, color: c.ink },
+    folder: { flexDirection: 'row', alignItems: 'center', gap: space[4], padding: space[3] },
+    cover: { width: 64, height: 64, borderRadius: radius.lg, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', alignContent: 'center', justifyContent: 'center', overflow: 'hidden', padding: space[1] },
     coverEmpty: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-    coverTile: { width: 32, height: 32 },
-    coverOne: { width: 60, height: 60 },
-    folderName: { fontFamily: font.bold, fontSize: 17, color: c.ink },
-    folderMeta: { fontFamily: font.regular, fontSize: 14, color: c.muted },
-    added: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, height: 24, borderRadius: 12, backgroundColor: c.waSoft, marginTop: 2 },
-    addedText: { fontFamily: font.semibold, fontSize: 12, color: c.waInk },
+    coverTile: { width: 28, height: 28 },
+    coverOne: { width: 56, height: 56 },
+    folderText: { flex: 1, minWidth: 0 },
+    folderName: { ...text.bodyBold, color: c.ink },
+    folderMeta: { ...text.caption, color: c.muted },
+    added: { flexDirection: 'row', alignItems: 'center', gap: space[1], alignSelf: 'flex-start', paddingHorizontal: space[2], height: 24, borderRadius: radius.full, backgroundColor: c.successSoft, marginTop: space[1] },
+    addedText: { ...text.captionBold, lineHeight: 16, color: c.successInk },
   });

@@ -186,10 +186,16 @@ export function textPlacement(d: StickerDesign, png: { width: number; height: nu
 
 type Inputs = { src: string; mask: string | null; base: string; text: TextPng | null };
 
-function graph(d: StickerDesign, l: StickerLayout, inputs: Inputs, fps: number | null, final: 'rgba' | 'yuva420p'): string {
+/**
+ * [soft] é a nitidez do vídeo dentro da figurinha (1 = inteira). Abaixo de 1 o vídeo é reduzido
+ * e ampliado de volta: fica mais macio e pesa bem menos, e o contorno e o texto continuam
+ * nítidos, porque entram depois.
+ */
+function graph(d: StickerDesign, l: StickerLayout, inputs: Inputs, fps: number | null, final: 'rgba' | 'yuva420p', soft = 1): string {
   const { content: c, crop } = l;
   const parts: string[] = [];
-  const fit = crop ? `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${c.w}:${c.h}:flags=lanczos` : `scale=${c.w}:${c.h}:flags=lanczos`;
+  const size = soft < 1 ? `scale=${even(c.w * soft)}:${even(c.h * soft)}:flags=bilinear,scale=${c.w}:${c.h}:flags=bicubic` : `scale=${c.w}:${c.h}:flags=lanczos`;
+  const fit = crop ? `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},${size}` : size;
   // O vídeo começa no tempo zero, como o fundo e a máscara. Sem isso, arquivo com início deslocado
   // (comum no que vem do X e do Instagram) deixava o primeiro quadro, ou a figurinha parada, vazio.
   parts.push(`[0:v]setpts=PTS-STARTPTS,${fps ? `fps=${n(fps)},` : ''}${fit},setsar=1,format=rgba[v]`);
@@ -239,7 +245,7 @@ export function stillArgs(poster: string, quality: number, out: string): string[
 }
 
 /** WebP animado: repete sem parar (-loop 0), sem som. */
-export function animatedArgs(d: StickerDesign, l: StickerLayout, inputs: Inputs, start: number, duration: number, fps: number, quality: number, out: string): string[] {
+export function animatedArgs(d: StickerDesign, l: StickerLayout, inputs: Inputs, start: number, duration: number, fps: number, quality: number, out: string, soft = 1): string[] {
   const t = Math.min(duration, SAFE_DURATION);
   return [
     '-y',
@@ -247,7 +253,7 @@ export function animatedArgs(d: StickerDesign, l: StickerLayout, inputs: Inputs,
     'error',
     ...inputArgs(inputs, false, start, t),
     '-filter_complex',
-    graph(d, l, inputs, fps, 'yuva420p'),
+    graph(d, l, inputs, fps, 'yuva420p', soft),
     '-map',
     '[out]',
     '-an',
@@ -267,28 +273,102 @@ export function animatedArgs(d: StickerDesign, l: StickerLayout, inputs: Inputs,
   ];
 }
 
-/** Ponto de partida da animação: quadros por segundo e qualidade conforme a duração. */
-export function firstTry(duration: number): { fps: number; quality: number } {
-  if (duration <= 2.5) return { fps: 15, quality: 60 };
-  if (duration <= 4.5) return { fps: 12, quality: 50 };
-  if (duration <= 7) return { fps: 10, quality: 42 };
-  return { fps: 8, quality: 36 };
+/** Uma tentativa de animação: quadros por segundo, qualidade do WebP e nitidez do vídeo (1 = inteira). */
+export type Try = { fps: number; quality: number; soft: number };
+
+/**
+ * O WebP animado guarda cada quadro inteiro, sem aproveitar o anterior: o peso é, quase em linha
+ * reta, o número de quadros. Qualidade e nitidez mexem pouco (de q36 para q10 cai só um terço).
+ * Por isso quem faz caber um trecho longo são os quadros por segundo.
+ */
+const FPS = [15, 12, 10, 9, 8, 7, 6.5, 6, 5.5, 5, 4.5, 4];
+const MIN_FPS = 4;
+const snapFps = (v: number) => FPS.find((f) => f <= v + 1e-6) ?? MIN_FPS;
+
+/** Quantos quadros costumam caber em 500 KB numa figurinha quadrada comum, com qualidade boa. */
+const FRAME_BUDGET = 60;
+const BASE_QUALITY = 34;
+/** Alvo do peso: um pouco abaixo do limite, porque a conta é aproximada. */
+const TARGET = 0.92;
+/** O peso cai com a qualidade elevada a este expoente (medido; de propósito, para o lado seguro). */
+const Q_POWER = 0.27;
+
+/**
+ * Quanto a forma pesa em relação à figurinha comum (quadrada, cantos suaves, com contorno).
+ * A borda curva e o contorno custam em todo quadro: um círculo pesa uns 30% a mais. Vídeo
+ * "inteiro" ocupa menos área e pesa menos.
+ */
+export function shapeWeight(d: Pick<StickerDesign, 'outline'> & { corner?: number }, l: StickerLayout): number {
+  const corner = clampCorner(d.corner ?? DEFAULT_CORNER);
+  const edge = (d.outline ? 1 : 0.9) * (0.9 + 0.4 * Math.pow(corner, 1.5));
+  const area = (l.content.w * l.content.h) / ((CANVAS - 40) * (CANVAS - 40));
+  return edge * (0.25 + 0.75 * Math.min(1, area));
 }
 
 /**
- * Próxima tentativa quando passou do limite: o tamanho cai mais ou menos junto com o número de
- * quadros e um pouco mais devagar que a qualidade. Retorna null quando não dá para descer mais.
+ * Ponto de partida: os quadros por segundo que devem caber em 500 KB para a duração e a forma;
+ * o que sobrar do orçamento (trechos curtos) vira qualidade.
  */
-export function nextTry(cur: { fps: number; quality: number }, size: number, limit: number): { fps: number; quality: number } | null {
-  const need = (limit * 0.9) / Math.max(1, size);
-  if (need >= 1) return null;
-  let { fps, quality } = cur;
-  if (need < 0.6 && fps > 8) fps = Math.max(8, Math.round(fps * Math.max(0.6, need * 1.25)));
-  const left = need / (fps / cur.fps);
-  if (left < 1) quality = Math.round(quality * Math.max(0.45, Math.pow(left, 1.3)));
-  if (quality < 8) quality = 8;
-  if (fps === cur.fps && quality === cur.quality) return null;
-  return { fps, quality };
+export function firstTry(duration: number, weight = 1): Try {
+  const t = Math.max(0.5, Math.min(duration, SAFE_DURATION));
+  const frames = FRAME_BUDGET / Math.max(0.5, weight);
+  const fps = snapFps(frames / t);
+  const slack = frames / (fps * t);
+  const quality = Math.round(Math.min(60, Math.max(30, BASE_QUALITY * slack * slack)));
+  return { fps, quality, soft: 1 };
+}
+
+/**
+ * Próxima tentativa quando passou do limite, calculada a partir do peso que deu: primeiro a
+ * qualidade até um piso que ainda fica bonito, depois os quadros por segundo (que é o que mais
+ * resolve), e só no fim a nitidez. As contas erram para o lado seguro, para caber já na segunda
+ * tentativa. Retorna null quando não dá para descer mais.
+ */
+export function nextTry(cur: Try, size: number, limit: number): Try | null {
+  let left = (limit * TARGET) / Math.max(1, size);
+  if (left >= 1) return null;
+  let { fps, quality, soft } = cur;
+  const lowerQuality = (to: number) => {
+    if (left >= 1 || quality <= to) return;
+    left /= Math.pow(to / quality, Q_POWER);
+    quality = to;
+  };
+  lowerQuality(26);
+  if (left < 1 && fps > MIN_FPS) {
+    const f = snapFps(fps * left);
+    left /= f / fps;
+    fps = f;
+  }
+  // Daqui para baixo a imagem piora de verdade: só entra se ainda faltar mais que a folga do alvo
+  const short = () => left < 0.96;
+  if (short() && soft > 0.75) {
+    left /= 0.9;
+    soft = 0.75;
+  }
+  if (short()) lowerQuality(16);
+  if (short() && soft > 0.5) {
+    left /= 0.94;
+    soft = 0.5;
+  }
+  if (short()) lowerQuality(8);
+  if (fps === cur.fps && quality === cur.quality && soft === cur.soft) return null;
+  return { fps, quality, soft };
+}
+
+/**
+ * Quando a primeira tentativa ficou bem abaixo do limite, vale uma volta a mais para aproveitar
+ * a folga: mais quadros por segundo (até um teto) e, com o que sobrar, mais qualidade. Retorna
+ * null quando a melhora não compensa a espera.
+ */
+export function betterTry(cur: Try, size: number, limit: number): Try | null {
+  const room = (limit * TARGET) / Math.max(1, size);
+  if (room < 1.6 || cur.soft < 1) return null;
+  const gain = Math.min(2, room * 0.92);
+  const fps = Math.max(cur.fps, Math.min(15, snapFps(cur.fps * gain)));
+  const rest = gain / (fps / cur.fps);
+  const quality = Math.round(Math.min(80, cur.quality * Math.max(1, rest * rest)));
+  if (fps === cur.fps && quality < cur.quality + 8) return null;
+  return { fps, quality, soft: 1 };
 }
 
 /** Qualidades do WebP parado, da melhor para a mais leve. */

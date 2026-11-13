@@ -6,7 +6,7 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View
 import type { Highlight, SocialItem, SocialPost, SocialProfile } from '../sources';
 import { clock } from '../format';
 import { NAMES } from '../sources/social';
-import { font, type Palette, radius, usePalette } from '../theme';
+import { type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 /**
  * Peças do Instagram e do X no Baixar: a tira para escolher o item (carrossel, stories, várias
@@ -20,12 +20,12 @@ export function MediaStrip({ items, index, onPick, label, tall }: { items: Socia
   const w = tall ? 66 : 76;
   const h = tall ? 112 : 76;
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: space[2] }}>
       <View style={s.stripHead}>
         <Text style={s.label}>{label}</Text>
         <Text style={s.count}>{index >= 0 ? `${index + 1} de ${items.length}` : `${items.length}`}</Text>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2], paddingVertical: space[1] }} accessibilityRole="radiogroup" accessibilityLabel={label}>
         {items.map((it, i) => {
           const on = i === index;
           return (
@@ -45,11 +45,11 @@ export function MediaStrip({ items, index, onPick, label, tall }: { items: Socia
               <View style={s.tag}>
                 {it.kind === 'video' ? (
                   <>
-                    <Feather name="play" size={9} color="#fff" />
+                    <Feather name="play" size={12} color={c.onMedia} />
                     {it.duration ? <Text style={s.tagText}>{clock(it.duration)}</Text> : null}
                   </>
                 ) : (
-                  <Feather name="image" size={10} color="#fff" />
+                  <Feather name="image" size={12} color={c.onMedia} />
                 )}
               </View>
             </Pressable>
@@ -65,12 +65,12 @@ export function PostStrip({ posts, selected, busy, onPick, label }: { posts: Soc
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: space[2] }}>
       <View style={s.stripHead}>
         <Text style={s.label}>{label}</Text>
         <Text style={s.count}>{posts.length}</Text>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }} accessibilityLabel={label}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2], paddingVertical: space[1] }} accessibilityLabel={label}>
         {posts.map((p) => {
           const first = p.items[0];
           const on = selected === p.id;
@@ -92,21 +92,21 @@ export function PostStrip({ posts, selected, busy, onPick, label }: { posts: Soc
               <View style={s.tag}>
                 {many ? (
                   <>
-                    <Feather name="layers" size={10} color="#fff" />
+                    <Feather name="layers" size={12} color={c.onMedia} />
                     <Text style={s.tagText}>{p.items.length}</Text>
                   </>
                 ) : first?.kind === 'video' ? (
                   <>
-                    <Feather name="play" size={9} color="#fff" />
+                    <Feather name="play" size={12} color={c.onMedia} />
                     {first.duration ? <Text style={s.tagText}>{clock(first.duration)}</Text> : null}
                   </>
                 ) : (
-                  <Feather name="image" size={10} color="#fff" />
+                  <Feather name="image" size={12} color={c.onMedia} />
                 )}
               </View>
               {busy === p.id ? (
                 <View style={s.hlBusy}>
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={c.onMedia} />
                 </View>
               ) : null}
             </Pressable>
@@ -152,7 +152,7 @@ export function ProfileHeader({
     <View style={s.profile}>
       <View style={s.profileTop}>
         <View style={[s.avatarRing, profile.stories?.length ? { borderColor: c.accent } : null]}>
-          {profile.avatar ? <Image source={{ uri: profile.avatar }} style={s.avatar} /> : <Feather name="user" size={26} color={c.muted} />}
+          {profile.avatar ? <Image source={{ uri: profile.avatar }} style={s.avatar} /> : <Feather name="user" size={24} color={c.muted} />}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.username} numberOfLines={1}>
@@ -163,7 +163,7 @@ export function ProfileHeader({
           </Text>
           {profile.isPrivate ? (
             <View style={s.private}>
-              <Feather name="lock" size={11} color={c.muted} />
+              <Feather name="lock" size={12} color={c.muted} />
               <Text style={s.privateText}>{instagram ? 'Conta privada' : 'Conta protegida'}</Text>
             </View>
           ) : null}
@@ -186,9 +186,9 @@ export function ProfileHeader({
             <Text style={s.none}>{profile.isPrivate ? 'Conta privada: só quem segue vê os stories.' : 'Sem stories no ar agora.'}</Text>
           )}
           {profile.highlights?.length ? (
-            <View style={{ gap: 8 }}>
+            <View style={{ gap: space[2] }}>
               <Text style={s.label}>Destaques</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[4] }}>
                 {profile.highlights.map((h) => {
                   const on = highlightOpen === h.id;
                   return (
@@ -204,7 +204,7 @@ export function ProfileHeader({
                         {h.cover ? <Image source={{ uri: h.cover }} style={s.hlImg} /> : <Feather name="circle" size={20} color={c.muted} />}
                         {highlightBusy === h.id ? (
                           <View style={s.hlBusy}>
-                            <ActivityIndicator size="small" color="#fff" />
+                            <ActivityIndicator size="small" color={c.onMedia} />
                           </View>
                         ) : null}
                       </View>
@@ -222,7 +222,7 @@ export function ProfileHeader({
 
       {needsLogin ? (
         <View style={s.login}>
-          <Feather name="lock" size={15} color={c.muted} />
+          <Feather name="lock" size={16} color={c.muted} />
           <Text style={s.loginText}>Stories e destaques pedem login no Instagram.</Text>
           <Text style={s.loginLink} onPress={onLogin} accessibilityRole="button">
             Entrar
@@ -236,27 +236,27 @@ export function ProfileHeader({
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     stripHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    label: { fontFamily: font.semibold, fontSize: 14, color: c.muted },
-    count: { fontFamily: font.semibold, fontSize: 13, color: c.muted, fontVariant: ['tabular-nums'] },
-    thumb: { borderRadius: 12, overflow: 'hidden', backgroundColor: c.sk, borderWidth: 2.5, borderColor: 'transparent' },
+    label: { ...text.overline, color: c.muted },
+    count: { ...text.captionBold, ...tabular, color: c.muted },
+    thumb: { borderRadius: radius.md, overflow: 'hidden', backgroundColor: c.sk, borderWidth: 2, borderColor: 'transparent' },
     thumbOn: { borderColor: c.accent },
-    tag: { position: 'absolute', left: 5, bottom: 5, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 5, height: 18, borderRadius: 9, backgroundColor: 'rgba(10,12,15,0.72)' },
-    tagText: { fontFamily: font.semibold, fontSize: 10, color: '#fff', fontVariant: ['tabular-nums'] },
-    profile: { gap: 16, padding: 14, borderRadius: radius.slot, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line },
-    profileTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    avatarRing: { width: 66, height: 66, borderRadius: 33, borderWidth: 2.5, borderColor: c.line, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    avatar: { width: 58, height: 58, borderRadius: 29 },
-    username: { fontFamily: font.bold, fontSize: 18, color: c.ink },
-    fullName: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 1 },
-    private: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    privateText: { fontFamily: font.medium, fontSize: 12, color: c.muted },
-    login: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.list, backgroundColor: c.bg },
-    loginText: { flex: 1, fontFamily: font.regular, fontSize: 13, lineHeight: 18, color: c.muted },
-    loginLink: { fontFamily: font.semibold, fontSize: 14, color: c.accentInk, paddingVertical: 6, paddingHorizontal: 4 },
-    none: { fontFamily: font.regular, fontSize: 14, color: c.muted },
-    hl: { alignItems: 'center', gap: 6, width: 68 },
-    hlRing: { width: 62, height: 62, borderRadius: 31, borderWidth: 2, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    hlImg: { width: 54, height: 54, borderRadius: 27 },
-    hlBusy: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
-    hlText: { fontFamily: font.medium, fontSize: 12, color: c.ink },
+    tag: { position: 'absolute', left: space[1], bottom: space[1], flexDirection: 'row', alignItems: 'center', gap: space[1], paddingHorizontal: space[1], height: 20, borderRadius: radius.full, backgroundColor: c.mediaScrim },
+    tagText: { ...text.captionBold, ...tabular, lineHeight: 16, color: c.onMedia },
+    profile: { gap: space[4], padding: space[4], borderRadius: radius.xl, backgroundColor: c.surface, boxShadow: c.shadow1 },
+    profileTop: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+    avatarRing: { width: 64, height: 64, borderRadius: radius.full, borderWidth: 2, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    avatar: { width: 56, height: 56, borderRadius: radius.full },
+    username: { ...text.bodyBold, color: c.ink },
+    fullName: { ...text.caption, color: c.muted },
+    private: { flexDirection: 'row', alignItems: 'center', gap: space[1], marginTop: space[1] },
+    privateText: { ...text.caption, color: c.muted },
+    login: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], paddingVertical: space[2], borderRadius: radius.lg, backgroundColor: c.sunken },
+    loginText: { ...text.caption, flex: 1, color: c.muted },
+    loginLink: { ...text.captionBold, color: c.accentInk, paddingVertical: space[2], paddingHorizontal: space[1] },
+    none: { ...text.caption, color: c.muted },
+    hl: { alignItems: 'center', gap: space[1], width: 68 },
+    hlRing: { width: 64, height: 64, borderRadius: radius.full, borderWidth: 2, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    hlImg: { width: 56, height: 56, borderRadius: radius.full },
+    hlBusy: { ...StyleSheet.absoluteFill, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
+    hlText: { ...text.caption, color: c.ink },
   });
