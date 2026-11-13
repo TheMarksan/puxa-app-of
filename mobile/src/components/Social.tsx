@@ -41,7 +41,7 @@ export function MediaStrip({ items, index, onPick, label, tall }: { items: Socia
               accessibilityState={{ checked: on }}
               accessibilityLabel={`${it.kind === 'video' ? 'Vídeo' : 'Foto'} ${i + 1} de ${items.length}${it.kind === 'video' && it.duration ? `, ${clock(it.duration)}` : ''}`}
             >
-              {it.thumbnail ? <Image source={{ uri: it.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+              {it.thumbnail ? <Image resizeMethod="resize" source={{ uri: it.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
               <View style={s.tag}>
                 {it.kind === 'video' ? (
                   <>
@@ -88,7 +88,7 @@ export function PostStrip({ posts, selected, busy, onPick, label }: { posts: Soc
               accessibilityState={{ selected: on, busy: busy === p.id }}
               accessibilityLabel={`${many ? `Carrossel com ${p.items.length}` : first?.kind === 'video' ? 'Vídeo' : 'Foto'}: ${p.title}`}
             >
-              {first?.thumbnail ? <Image source={{ uri: first.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+              {first?.thumbnail ? <Image resizeMethod="resize" source={{ uri: first.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
               <View style={s.tag}>
                 {many ? (
                   <>
@@ -152,7 +152,7 @@ export function ProfileHeader({
     <View style={s.profile}>
       <View style={s.profileTop}>
         <View style={[s.avatarRing, profile.stories?.length ? { borderColor: c.accent } : null]}>
-          {profile.avatar ? <Image source={{ uri: profile.avatar }} style={s.avatar} /> : <Feather name="user" size={24} color={c.muted} />}
+          {profile.avatar ? <Image resizeMethod="resize" source={{ uri: profile.avatar }} style={s.avatar} /> : <Feather name="user" size={24} color={c.muted} />}
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.username} numberOfLines={1}>
@@ -201,7 +201,7 @@ export function ProfileHeader({
                       accessibilityLabel={`Destaque ${h.title}`}
                     >
                       <View style={[s.hlRing, on && { borderColor: c.accent }]}>
-                        {h.cover ? <Image source={{ uri: h.cover }} style={s.hlImg} /> : <Feather name="circle" size={20} color={c.muted} />}
+                        {h.cover ? <Image resizeMethod="resize" source={{ uri: h.cover }} style={s.hlImg} /> : <Feather name="circle" size={20} color={c.muted} />}
                         {highlightBusy === h.id ? (
                           <View style={s.hlBusy}>
                             <ActivityIndicator size="small" color={c.onMedia} />

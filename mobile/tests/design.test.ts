@@ -188,3 +188,15 @@ test('contraste: a letra sobre cada cor de playlist passa de 4,5:1', () => {
     }
   }
 });
+
+test('imagem: toda <Image> diz como decodificar (em geral, do tamanho da peça)', () => {
+  // Sem resizeMethod="resize", o Android decodifica a imagem inteira (uma figurinha de 512x512 ocupa 1 MB
+  // na memória mesmo mostrada com 48): com dezenas na tela, a rolagem trava. "scale" (inteira) só onde a
+  // imagem é aproximada com os dedos, com um comentário dizendo isso
+  const found: string[] = [];
+  for (const f of SOURCES) {
+    const all = f.lines.join('\n');
+    for (const m of all.matchAll(/<Image\b[\s\S]*?\/>/g)) if (!/resizeMethod="(resize|scale)"/.test(m[0])) found.push(`${f.rel}:${all.slice(0, m.index).split('\n').length}`);
+  }
+  none(found, 'Image sem resizeMethod="resize"');
+});

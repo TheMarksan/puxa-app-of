@@ -1,13 +1,14 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine from '../../modules/puxa-engine';
 import { AddLinks } from '../components/music/AddLinks';
-import { Equalizer, HeroMotif, imageUri, PlaylistCover, TrackArt } from '../components/music/Cover';
+import { Equalizer, imageUri, PlaylistCover, TrackArt } from '../components/music/Cover';
+import { MediaHeader } from '../components/MediaHeader';
 import { ListEditor } from '../components/music/ListEditor';
 import { ListPicker } from '../components/music/ListPicker';
 import { MiniPlayer } from '../components/music/MiniPlayer';
@@ -15,13 +16,12 @@ import { Sheet } from '../components/music/Sheet';
 import { TrackActions, type TrackAction } from '../components/music/TrackActions';
 import { useToast } from '../components/Toasts';
 import { bytes, clock } from '../format';
-import { COLORS, listInk, motifOf } from '../playlist/colors';
+import { COLORS, listInk, listSoft } from '../playlist/colors';
 import { removeTrack, resumeQueue, retry } from '../playlist/downloads';
 import { addToList, ALL, deleteList, listLook, moveInList, removeFromList, tracksOf, updateList, useLists } from '../playlist/lists';
-import { playList, playTrack, toggle, toggleShuffle, usePlayer } from '../playlist/player';
+import { playList, playTrack, toggle, toggleShuffle, usePlayerCore } from '../playlist/player';
 import { moveTrack, useTracks, type Track } from '../playlist/store';
-import { alpha, control, gutter, hit, type Palette, radius, space, tabular, text, usePalette } from '../theme';
-import { BackButton } from '../components/BackButton';
+import { control, gutter, hit, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 import { Button } from '../components/Button';
 import { EmptyState, IconButton, PlayIcon } from '../components/ui';
 
@@ -35,12 +35,11 @@ export function PlaylistScreen() {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
   const all = useTracks();
   const lists = useLists();
-  const player = usePlayer();
+  const player = usePlayerCore();
   const [actions, setActions] = useState<Track | null>(null);
   const [saveTo, setSaveTo] = useState<Track | null>(null);
   const [editing, setEditing] = useState(false);
@@ -58,7 +57,6 @@ export function PlaylistScreen() {
   /** A cor da playlist como texto e ícone sobre o fundo do app. */
   const tint = listInk(look.color, c.dark);
   /** Peças redondas sobre o pôster: um véu da cor da letra. */
-  const veil = { bg: alpha(k.ink, 0.16), ink: k.ink };
   const tracks = tracksOf(id, all);
   const ready = tracks.filter((t) => t.status === 'ready');
   const time = ready.reduce((n, t) => n + (t.duration || 0), 0);
@@ -72,6 +70,23 @@ export function PlaylistScreen() {
       return () => clearTimeout(t);
     }, [toast, toastBottom]),
   );
+
+  // As linhas são memorizadas: as ações delas só mudam quando a música tocando muda
+  const nowId = here ? player.trackId : null;
+  const onRow = useCallback(
+    (t: Track) => {
+      if (t.status === 'error') {
+        retry(t.id);
+        return;
+      }
+      if (t.status !== 'ready') return;
+      Haptics.selectionAsync().catch(() => {});
+      if (nowId === t.id) toggle();
+      else playTrack(id, t.id);
+    },
+    [nowId, id],
+  );
+  const onMore = useCallback((t: Track) => setActions(t), []);
 
   // A playlist foi apagada (em outra tela): volta para a lista
   const gone = id !== ALL && !own;
@@ -125,129 +140,98 @@ export function PlaylistScreen() {
     }
   };
 
-  const onRow = (t: Track) => {
-    if (t.status === 'error') {
-      retry(t.id);
-      return;
-    }
-    if (t.status !== 'ready') return;
-    Haptics.selectionAsync().catch(() => {});
-    if (here && player.trackId === t.id) toggle();
-    else playTrack(id, t.id);
-  };
-
   const playing = here && player.playing;
   const index = actions ? tracks.findIndex((x) => x.id === actions.id) : -1;
   const count = tracks.length === 1 ? '1 música' : `${tracks.length} músicas`;
 
   return (
     <View style={s.root}>
-      <ScrollView contentContainerStyle={{ paddingBottom: (hasPlayer && miniH ? miniH + space[6] : space[8] + insets.bottom) }} keyboardShouldPersistTaps="handled">
-        {/* O pôster da playlist, de ponta a ponta */}
-        <View style={[s.hero, { backgroundColor: k.bg, paddingTop: insets.top + space[2] }]}>
-          <HeroMotif kind={motifOf(look.name)} ink={k.ink} width={width} />
-          <View style={s.heroTop}>
-            <BackButton tint={veil} />
-            {own ? <IconButton icon="more-horizontal" label="Opções da playlist" tint={veil} onPress={() => setMenu(true)} /> : null}
+      {/* A lista é virtualizada: com centenas de músicas, só as que estão perto da tela existem */}
+      <FlatList
+        data={tracks}
+        keyExtractor={keyOf}
+        renderItem={({ item, index: i }) => <TrackRow t={item} n={i + 1} current={nowId === item.id} audible={nowId === item.id && player.playing} tint={tint} art={k.bg} artInk={k.ink} c={c} s={s} onPress={onRow} onMore={onMore} />}
+        extraData={`${nowId}|${player.playing}`}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={9}
+        removeClippedSubviews={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: hasPlayer && miniH ? miniH + space[6] : space[8] + insets.bottom }}
+        ListHeaderComponent={
+          <View style={s.header}>
+            {/* O topo: o véu da cor da playlist, a capa no meio e o nome embaixo, como num app de música */}
+            <MediaHeader
+              tint={listSoft(look.color, c.dark)}
+              kicker={own ? 'Playlist' : 'Biblioteca'}
+              title={look.name}
+              meta={`${count}${time ? ` · ${clock(time)}` : ''}`}
+              bottom={space[12]}
+              cover={
+                <Pressable onPress={own ? () => setEditing(true) : undefined} disabled={!own} style={s.cover} accessibilityRole={own ? 'button' : undefined} accessibilityLabel={own ? 'Trocar a capa' : undefined}>
+                  <PlaylistCover name={look.name} color={look.color} size={176} radius={radius.lg} image={look.cover} />
+                </Pressable>
+              }
+              right={(t) => (own ? <IconButton icon="more-horizontal" label="Opções da playlist" tint={t} onPress={() => setMenu(true)} /> : null)}
+            />
+
+            {/* Tocar e aleatório, com o centro na borda do topo */}
+            <View style={s.actionsRow}>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  toggleShuffle();
+                }}
+                hitSlop={hit(control.sm)}
+                style={({ pressed }) => [s.shuffle, { backgroundColor: player.shuffle ? k.bg : c.dark ? c.raised : c.surface, borderColor: c.bg }, pressed && { opacity: 0.72 }]}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: player.shuffle }}
+                accessibilityLabel="Aleatório"
+              >
+                <Feather name="shuffle" size={16} color={player.shuffle ? k.ink : c.ink} />
+                <Text style={[s.shuffleText, { color: player.shuffle ? k.ink : c.ink }]}>Aleatório</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  if (here) toggle();
+                  else playList(id);
+                }}
+                disabled={!ready.length}
+                style={({ pressed }) => [s.play, { backgroundColor: k.bg, borderColor: c.bg, opacity: ready.length ? 1 : 0.4 }, pressed && { transform: [{ scale: 0.94 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel={playing ? 'Pausar' : `Tocar ${look.name}`}
+              >
+                <PlayIcon playing={playing} size={32} color={k.ink} />
+              </Pressable>
+            </View>
+
+            <View style={s.field}>
+              <AddLinks listId={own ? id : undefined} tint={k.bg} tintInk={k.ink} />
+            </View>
           </View>
-          {look.cover ? (
-            <Pressable onPress={() => setEditing(true)} style={s.heroArt} accessibilityRole="button" accessibilityLabel="Trocar a capa">
-              <Image source={{ uri: imageUri(look.cover) }} style={s.heroImage} resizeMode="cover" />
-            </Pressable>
-          ) : null}
-          <Text style={[s.kicker, { color: alpha(k.ink, 0.8) }]}>{own ? 'Playlist' : 'Biblioteca'}</Text>
-          <Text style={[s.heroTitle, { color: k.ink }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
-            {look.name}
-          </Text>
-          <Text style={[s.heroMeta, { color: alpha(k.ink, 0.8) }]}>
-            {count}
-            {time ? ` · ${clock(time)}` : ''}
-          </Text>
-        </View>
-
-        {/* Tocar e aleatório, encaixados na borda do pôster */}
-        <View style={s.actionsRow}>
-          <Pressable
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              toggleShuffle();
-            }}
-            hitSlop={hit(control.sm)}
-            style={({ pressed }) => [s.shuffle, { backgroundColor: player.shuffle ? k.bg : c.sunken }, pressed && { opacity: 0.72 }]}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: player.shuffle }}
-            accessibilityLabel="Aleatório"
-          >
-            <Feather name="shuffle" size={16} color={player.shuffle ? k.ink : c.ink} />
-            <Text style={[s.shuffleText, { color: player.shuffle ? k.ink : c.ink }]}>Aleatório</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-              if (here) toggle();
-              else playList(id);
-            }}
-            disabled={!ready.length}
-            style={({ pressed }) => [s.play, { backgroundColor: k.bg, borderColor: c.bg, opacity: ready.length ? 1 : 0.4 }, pressed && { transform: [{ scale: 0.94 }] }]}
-            accessibilityRole="button"
-            accessibilityLabel={playing ? 'Pausar' : `Tocar ${look.name}`}
-          >
-            <PlayIcon playing={playing} size={32} color={k.ink} />
-          </Pressable>
-        </View>
-
-        <View style={s.field}>
-          <AddLinks listId={own ? id : undefined} tint={k.bg} tintInk={k.ink} />
-        </View>
-
-        {tracks.length ? (
-          <View style={s.list}>
-            {tracks.map((t, i) => (
-              <TrackRow
-                key={t.id}
-                t={t}
-                n={i + 1}
-                current={here && player.trackId === t.id}
-                audible={here && player.trackId === t.id && player.playing}
-                tint={tint}
-                art={k.bg}
-                artInk={k.ink}
-                c={c}
-                s={s}
-                onPress={() => onRow(t)}
-                onMore={() => setActions(t)}
-              />
-            ))}
-          </View>
-        ) : (
+        }
+        ListEmptyComponent={
           <EmptyState
             icon="music"
-            art={<PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={radius.xl} image={look.cover} />}
             title={own ? 'Playlist vazia' : 'Nenhuma música ainda'}
             body={own ? 'Cole links aqui em cima ou escolha músicas que já estão no celular.' : 'Cole um link aqui em cima ou, no Início, toque em Playlist. As músicas tocam com a tela desligada.'}
           >
             {own && all.length ? <Button icon="list" label="Escolher da biblioteca" tint={{ bg: k.bg, ink: k.ink }} onPress={() => setPicking(true)} /> : null}
           </EmptyState>
-        )}
-        {own && tracks.length && all.length > tracks.length ? (
-          <View style={s.field}>
-            <Button tone="neutral" size="md" icon="plus" label="Adicionar da biblioteca" onPress={() => setPicking(true)} style={s.more} />
-          </View>
-        ) : null}
-      </ScrollView>
+        }
+        ListFooterComponent={
+          own && tracks.length && all.length > tracks.length ? (
+            <View style={s.field}>
+              <Button tone="neutral" size="md" icon="plus" label="Adicionar da biblioteca" onPress={() => setPicking(true)} style={s.more} />
+            </View>
+          ) : undefined
+        }
+      />
 
       <MiniPlayer onHeight={setMiniH} />
 
-      <TrackActions
-        track={actions}
-        inPlaylist={!!own}
-        canUp={index > 0}
-        canDown={index >= 0 && index < tracks.length - 1}
-        tint={k.bg}
-        tintInk={k.ink}
-        onClose={() => setActions(null)}
-        onAction={act}
-      />
+      <TrackActions track={actions} inPlaylist={!!own} canUp={index > 0} canDown={index >= 0 && index < tracks.length - 1} tint={k.bg} tintInk={k.ink} onClose={() => setActions(null)} onAction={act} />
       <ListPicker trackId={saveTo?.id ?? null} title={saveTo?.title ?? ''} onClose={() => setSaveTo(null)} />
       {own ? (
         <>
@@ -283,9 +267,12 @@ export function PlaylistScreen() {
 
 type Styles = ReturnType<typeof makeStyles>;
 
-type RowProps = { t: Track; n: number; current: boolean; audible: boolean; tint: string; art: string; artInk: string; c: Palette; s: Styles; onPress: () => void; onMore: () => void };
+type RowProps = { t: Track; n: number; current: boolean; audible: boolean; tint: string; art: string; artInk: string; c: Palette; s: Styles; onPress: (t: Track) => void; onMore: (t: Track) => void };
 
-function TrackRow({ t, n, current, audible, tint, art, artInk, c, s, onPress, onMore }: RowProps) {
+const keyOf = (t: Track) => t.id;
+
+/** Uma música da lista. Memorizada: só se redesenha quando ela mesma (ou se é a que toca) muda. */
+const TrackRow = memo(function TrackRow({ t, n, current, audible, tint, art, artInk, c, s, onPress, onMore }: RowProps) {
   const busy = t.status === 'queued' || t.status === 'downloading';
   const meta =
     t.status === 'ready'
@@ -299,8 +286,8 @@ function TrackRow({ t, n, current, audible, tint, art, artInk, c, s, onPress, on
             : 'Lendo o link…';
   return (
     <Pressable
-      onPress={onPress}
-      onLongPress={onMore}
+      onPress={() => onPress(t)}
+      onLongPress={() => onMore(t)}
       delayLongPress={300}
       android_ripple={{ color: c.sunken }}
       style={({ pressed }) => [s.row, (current || pressed) && { backgroundColor: c.sunken }]}
@@ -323,10 +310,10 @@ function TrackRow({ t, n, current, audible, tint, art, artInk, c, s, onPress, on
           </View>
         ) : null}
       </View>
-      <IconButton icon="more-vertical" tone="plain" label={`Mais opções: ${t.title}`} onPress={onMore} />
+      <IconButton icon="more-vertical" tone="plain" label={`Mais opções: ${t.title}`} onPress={() => onMore(t)} />
     </Pressable>
   );
-}
+});
 
 /** Opções da playlist: editar nome e cor, ou apagar (as músicas continuam no celular). */
 function ListMenu({ visible, name, onClose, onEdit, onDelete }: { visible: boolean; name: string; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
@@ -372,8 +359,14 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
   return (
     <Sheet visible={visible} onClose={onClose} label="Escolher da biblioteca">
       <Text style={{ ...text.title, color: c.ink, paddingHorizontal: gutter, paddingBottom: space[2] }}>Da biblioteca</Text>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: space[2], paddingBottom: space[2] }}>
-        {all.map((t) => {
+      {/* Virtualizada: a biblioteca pode ter centenas de músicas */}
+      <FlatList
+        data={all}
+        keyExtractor={keyOf}
+        initialNumToRender={10}
+        windowSize={7}
+        contentContainerStyle={{ paddingHorizontal: space[2], paddingBottom: space[2] }}
+        renderItem={({ item: t }) => {
           const on = inside.has(t.id);
           return (
             <Pressable
@@ -403,8 +396,8 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
               </View>
             </Pressable>
           );
-        })}
-      </ScrollView>
+        }}
+      />
     </Sheet>
   );
 }
@@ -412,21 +405,18 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    hero: { paddingHorizontal: gutter, paddingBottom: space[12], overflow: 'hidden' },
-    heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: control.md, marginBottom: space[8] },
-    heroArt: { width: 144, height: 144, borderRadius: radius.lg, overflow: 'hidden', marginBottom: space[4], boxShadow: c.shadow2 },
-    heroImage: { width: 144, height: 144 },
-    kicker: { ...text.overline },
-    heroTitle: { ...text.display, marginTop: space[1] },
-    heroMeta: { ...text.captionBold, ...tabular, marginTop: space[1] },
-    // O play entra 24 no pôster; o aleatório fica embaixo, na linha de baixo do play, com 8 de folga
-    actionsRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: gutter, marginTop: -space[6] },
-    shuffle: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full },
+    // A capa com sombra, como a de um álbum
+    cover: { borderRadius: radius.lg, boxShadow: c.shadow2 },
+    // Tocar e aleatório com o centro na borda de baixo do pôster: a linha sobe a metade do play (72)
+    actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, marginTop: -(space[8] + space[1]) },
+    // O aleatório ganha o mesmo anel da cor do fundo que o play, e fundo opaco (metade dele fica sobre o pôster);
+    // ligado, ele é da cor do pôster e o anel o separa dele
+    shuffle: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.md, paddingHorizontal: space[4], borderRadius: radius.full, borderWidth: 4 },
     shuffleText: { ...text.captionBold },
     play: { width: 72, height: 72, borderRadius: radius.full, borderWidth: 4, alignItems: 'center', justifyContent: 'center', boxShadow: c.shadow2 },
     field: { paddingHorizontal: gutter, paddingTop: space[4] },
-    list: { paddingHorizontal: space[4], paddingTop: space[4] },
-    row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2], paddingLeft: space[2], borderRadius: radius.lg },
+    header: { paddingBottom: space[4] },
+    row: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginHorizontal: space[4], paddingVertical: space[2], paddingLeft: space[2], borderRadius: radius.lg },
     rowText: { flex: 1, minWidth: 0 },
     num: { width: 24, alignItems: 'center', justifyContent: 'center' },
     numText: { ...text.caption, ...tabular, color: c.muted },

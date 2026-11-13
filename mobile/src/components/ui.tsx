@@ -12,7 +12,7 @@ const WORDMARK_RATIO = 595 / 240;
 
 /** O símbolo: o P com a perna virando seta. */
 export function Mark({ size, color }: { size: number; color: string }) {
-  return <Image source={MARK} style={{ width: size, height: size, tintColor: color }} resizeMode="contain" accessibilityIgnoresInvertColors />;
+  return <Image resizeMethod="resize" source={MARK} style={{ width: size, height: size, tintColor: color }} resizeMode="contain" accessibilityIgnoresInvertColors />;
 }
 
 /** Quanto a ponta da seta do P sai para a esquerda da haste (parte da altura). */
@@ -25,6 +25,7 @@ const WING = 310 / 1760;
 export function Wordmark({ height, color }: { height: number; color: string }) {
   return (
     <Image
+      resizeMethod="resize"
       source={WORDMARK}
       style={{ width: Math.round(height * WORDMARK_RATIO), height, tintColor: color, marginLeft: -Math.round(height * WING) }}
       resizeMode="contain"

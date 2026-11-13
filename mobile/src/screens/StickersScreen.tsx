@@ -123,7 +123,7 @@ function FolderRow({ f, c, s, onPress }: { f: StickerFolder; c: Palette; s: Styl
     >
       <View style={[s.cover, { backgroundColor: c.chat }]}>
         {cover.length ? (
-          cover.map((st) => <Image key={st.file} source={{ uri: toUri(st.path) }} style={cover.length === 1 ? s.coverOne : s.coverTile} resizeMode="contain" />)
+          cover.map((st) => <Image resizeMethod="resize" key={st.file} source={{ uri: toUri(st.animated && st.poster ? st.poster : st.path) }} style={cover.length === 1 ? s.coverOne : s.coverTile} resizeMode="contain" />)
         ) : (
           <View style={s.coverEmpty}>
             <Feather name="folder" size={24} color={c.muted} />

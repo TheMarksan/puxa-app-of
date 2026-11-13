@@ -79,7 +79,7 @@ export function EditProfileScreen() {
         <ScreenHeader title="Editar perfil" />
         <View style={s.body}>
           <Pressable onPress={() => pick('cover')} style={[s.cover, { height: coverH, backgroundColor: COLORS.azul.bg }]} accessibilityRole="button" accessibilityLabel={cover ? 'Trocar a capa' : 'Escolher uma capa'}>
-            {cover ? <Image source={imgSource(cover)} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
+            {cover ? <Image resizeMethod="resize" source={imgSource(cover)} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
             <View style={s.badge}>{picking === 'cover' ? <ActivityIndicator size="small" color={c.onMedia} /> : <Feather name="image" size={16} color={c.onMedia} />}</View>
           </Pressable>
           <Pressable onPress={() => pick('avatar')} style={s.avatar} accessibilityRole="button" accessibilityLabel={avatar ? 'Trocar a foto' : 'Escolher uma foto'}>
@@ -113,7 +113,8 @@ const makeStyles = (c: Palette) =>
     body: { paddingHorizontal: gutter, gap: space[4] },
     cover: { borderRadius: radius.xl, overflow: 'hidden' },
     badge: { position: 'absolute', right: space[3], bottom: space[3], width: 32, height: 32, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
-    avatar: { alignSelf: 'flex-start', marginTop: -space[12], marginLeft: space[4] },
+    // A foto (96) com o centro na borda de baixo da capa: sobe a metade dela mais o espaço do grupo
+    avatar: { alignSelf: 'flex-start', marginTop: -space[16], marginLeft: space[4] },
     avatarBadge: { right: 0, bottom: 0 },
     removeRow: { flexDirection: 'row', gap: space[2], marginTop: -space[2] },
     error: { ...text.caption, color: c.danger },

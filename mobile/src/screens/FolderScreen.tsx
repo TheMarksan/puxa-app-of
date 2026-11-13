@@ -273,7 +273,8 @@ export function FolderScreen({ id }: { id: string }) {
                   accessibilityState={{ selected: on }}
                   accessibilityLabel={`Figurinha ${st.animated ? 'animada' : 'parada'} ${st.emojis.join(' ')} ${st.label}`}
                 >
-                  <Image source={{ uri: toUri(st.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+                  {/* Na grade a animada aparece parada (o primeiro quadro); anima ao tocar nela, embaixo */}
+                  <Image resizeMethod="resize" source={{ uri: toUri(st.animated && st.poster ? st.poster : st.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
                   {st.animated ? (
                     <View style={s.badge}>
                       <Feather name="repeat" size={12} color={c.onMedia} />
@@ -324,7 +325,7 @@ export function FolderScreen({ id }: { id: string }) {
             </Reveal>
           ) : (
             <View style={s.actionRow}>
-              <Image source={{ uri: toUri(picked.path) }} style={s.actionImg} resizeMode="contain" />
+              <Image resizeMethod="resize" source={{ uri: toUri(picked.path) }} style={s.actionImg} resizeMode="contain" />
               <View style={s.actionText}>
                 <Text style={s.actionTitle} numberOfLines={1}>
                   {picked.emojis.join(' ')} {picked.label}

@@ -427,7 +427,7 @@ export function StickerPanel({ header, kind, player, file, image, size, duration
             accessibilityLabel={`Figurinha pronta na pasta ${ready.folder.name}. Abrir a pasta`}
           >
             <View style={[s.madeImg, { backgroundColor: c.chat }]}>
-              <Image source={{ uri: toUri(ready.sticker?.path ?? ready.result.webp) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+              <Image resizeMethod="resize" source={{ uri: toUri(ready.sticker?.path ?? ready.result.webp) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
             </View>
             <View style={s.madeText}>
               <Text style={s.madeTitle}>Pronta · {bytes(ready.result.size)}</Text>
@@ -486,7 +486,7 @@ function ShapeThumb({ shape, corner, thumb, size, outline, c }: { shape: Sticker
   const round = (clampCorner(corner) * Math.min(w, h)) / 2;
   return (
     <View style={{ width: w, height: h, borderRadius: round, overflow: 'hidden', borderWidth: outline ? 2 : 0, borderColor: media.on, backgroundColor: c.faint /* arte: o canto acompanha o que a pessoa escolheu */ }}>
-      {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+      {thumb ? <Image resizeMethod="resize" source={{ uri: thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
     </View>
   );
 }
@@ -643,7 +643,8 @@ function StickerPreview({
       >
         <View pointerEvents="none" style={video}>
           {image ? (
-            <Image source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="stretch" />
+            // Inteira de propósito ("scale"): o recorte aproxima com dois dedos, e a imagem reduzida ficaria borrada
+            <Image resizeMethod="scale" source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="stretch" />
           ) : (
             <VideoView player={player} style={videoFill} contentFit="fill" nativeControls={false} surfaceType="textureView" />
           )}
@@ -829,7 +830,7 @@ function FramePicker({ filmstrip, duration, value, onChange, c }: { filmstrip: s
     <View style={{ height: 64 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessible accessibilityRole="adjustable" accessibilityLabel={`Quadro em ${clock(value)}`}>
       <View pointerEvents="none" style={{ ...StyleSheet.absoluteFill, flexDirection: 'row', borderRadius: radius.md, overflow: 'hidden', backgroundColor: c.sk }}>
         {filmstrip.map((uri, i) => (
-          <Image key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
+          <Image resizeMethod="resize" key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
         ))}
       </View>
       {width > 0 ? (

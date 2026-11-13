@@ -1,33 +1,32 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ART } from '../community/art';
 import { packsIn } from '../community/core';
-import { PosterHero } from '../community/PosterHero';
 import { CATEGORIES } from '../community/seed';
 import { useDB, useFetched } from '../community/store';
 import type { Category } from '../community/types';
-import { PackCards, PackCardsSkeleton, still } from '../community/ui';
+import { CategoryArt, PackRows, PackRowsSkeleton } from '../community/ui';
 import { useInstaller } from '../community/useInstaller';
+import { MediaHeader } from '../components/MediaHeader';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { EmptyState } from '../components/ui';
-import { COLORS } from '../playlist/colors';
+import { listSoft } from '../playlist/colors';
 import { control, gutter, type Palette, radius, space, text, usePalette } from '../theme';
 
 /**
- * Uma categoria do acervo: o pôster na cor dela, a fileira com todas as categorias (troca ali
- * mesmo, sem voltar ao Início) e os pacotes em duas colunas, dos mais adicionados para baixo,
- * cada um com a foto e o @ de quem fez.
+ * Uma categoria do acervo: o topo com o véu da cor dela e o círculo, a fileira com todas as
+ * categorias (troca ali mesmo, sem voltar ao Início) e os pacotes em linhas, dos mais adicionados
+ * para baixo.
  */
 export function CategoryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const router = useRouter();
   const db = useDB();
   const ready = useFetched(`categoria-${id}`);
@@ -44,13 +43,18 @@ export function CategoryScreen() {
       </View>
     );
   const packs = packsIn(db, cat.id);
-  const inner = width - gutter * 2;
   // Deixa a categoria escolhida à vista na fileira, com um pedaço da anterior aparecendo
   const reveal = (x: number, animated: boolean) => rail.current?.scrollTo({ x: Math.max(0, x - gutter * 2), animated });
   return (
     <View style={s.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space[8] }}>
-        <PosterHero color={cat.color} kicker="Categoria" title={cat.name} meta={packs.length === 1 ? '1 pacote' : `${packs.length} pacotes`} art={packs.flatMap((p) => p.stickers.slice(0, 1).map(still))} />
+        <MediaHeader
+          tint={listSoft(cat.color, c.dark)}
+          kicker="Categoria"
+          title={cat.name}
+          meta={packs.length === 1 ? '1 pacote' : `${packs.length} pacotes`}
+          cover={<CategoryArt category={cat} size={128} bg={c.dark ? c.raised : c.surface} />}
+        />
         <ScrollView ref={rail} horizontal showsHorizontalScrollIndicator={false} style={s.rail} contentContainerStyle={s.railContent} accessibilityRole="tablist" accessibilityLabel="Categorias">
           {CATEGORIES.map((k) => (
             <CategoryPill
@@ -77,9 +81,9 @@ export function CategoryScreen() {
         </ScrollView>
         <View style={s.body}>
           {!ready ? (
-            <PackCardsSkeleton width={inner} />
+            <PackRowsSkeleton rows={4} />
           ) : packs.length ? (
-            <PackCards packs={packs} width={inner} meta="author" busy={busy} onAdd={install} />
+            <PackRows packs={packs} busy={busy} onAdd={install} />
           ) : (
             <EmptyState icon="package" title="Nada aqui ainda" body="Seja a primeira pessoa a publicar um pacote nesta categoria: em Figurinhas, abra uma pasta e toque em Publicar." />
           )}
@@ -89,20 +93,19 @@ export function CategoryScreen() {
   );
 }
 
-/** Uma categoria na fileira: a figurinha dela pequena e o nome. A escolhida fica na cor do pôster. */
+/** Uma categoria na fileira: a figurinha dela pequena e o nome. A escolhida fica cheia (tinta do app), as outras no cinza. */
 function CategoryPill({ category, active, onPress, onLayout, s, c }: { category: Category; active: boolean; onPress: () => void; onLayout: (x: number) => void; s: Styles; c: Palette }) {
-  const k = COLORS[category.color];
   return (
     <Pressable
       onPress={onPress}
       onLayout={(e) => onLayout(e.nativeEvent.layout.x)}
-      style={({ pressed }) => [s.pill, { backgroundColor: active ? k.bg : pressed ? c.lineStrong : c.sunken }]}
+      style={({ pressed }) => [s.pill, { backgroundColor: active ? c.inverse : pressed ? c.lineStrong : c.sunken }]}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={category.name}
     >
       <Image source={ART[category.cover]} style={s.pillArt} resizeMode="contain" resizeMethod="resize" accessibilityIgnoresInvertColors />
-      <Text style={[s.pillText, { color: active ? k.ink : c.ink }]}>{category.name}</Text>
+      <Text style={[s.pillText, { color: active ? c.onInverse : c.ink }]}>{category.name}</Text>
     </Pressable>
   );
 }

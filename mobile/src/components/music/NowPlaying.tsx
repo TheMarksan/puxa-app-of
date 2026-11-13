@@ -55,8 +55,8 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
       <View style={[st.root, { backgroundColor: view === 'main' ? k.deep : k.bg }]}>
         {view === 'main' ? (
           <>
-            <View pointerEvents="none" style={[st.glow, { opacity: 0.28, backgroundColor: k.bg, width: width * 2, height: width * 2, borderRadius: radius.full, left: -width * 0.5, top: -width * 1.05 }]} />
-            <View pointerEvents="none" style={[st.glow, { opacity: 0.45, backgroundColor: k.bg, width: width * 1.5, height: width * 1.5, borderRadius: radius.full, left: -width * 0.25, top: -width * 0.9 }]} />
+            <View pointerEvents="none" style={[st.glow, { opacity: 0.14, backgroundColor: k.bg, width: width * 2, height: width * 2, borderRadius: radius.full, left: -width * 0.5, top: -width * 1.05 }]} />
+            <View pointerEvents="none" style={[st.glow, { opacity: 0.22, backgroundColor: k.bg, width: width * 1.5, height: width * 1.5, borderRadius: radius.full, left: -width * 0.25, top: -width * 0.9 }]} />
           </>
         ) : null}
         <View style={[st.top, { paddingTop: insets.top + space[2] }]}>

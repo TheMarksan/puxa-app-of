@@ -675,7 +675,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                             accessibilityLabel="Ajustar a legenda na tela"
                           >
                             <View style={[s.capPreview, { width: pw, height: ph }]}>
-                              {poster ? <Image source={{ uri: poster }} style={posterStyle} /> : null}
+                              {poster ? <Image resizeMethod="resize" source={{ uri: poster }} style={posterStyle} /> : null}
                               <View pointerEvents="none" style={StyleSheet.absoluteFill}>
                                 <CaptionLayer cue={sample} time={sample.start + 1.2} style={capStyle} cw={pw} ch={ph} />
                               </View>
@@ -784,7 +784,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                   {tiles}
                   <Reveal key="photo">
                     <View style={[s.photo, source && source.width > 0 && source.height > 0 ? { aspectRatio: Math.max(0.6, Math.min(1.8, source.width / source.height)) } : null]}>
-                      <Image source={{ uri: toUri(file.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" accessibilityLabel="Foto que vai ser enviada" />
+                      <Image resizeMethod="resize" source={{ uri: toUri(file.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" accessibilityLabel="Foto que vai ser enviada" />
                       <View pointerEvents="none" style={s.chip}>
                         <Text style={s.chipText}>{bytes(file.size)}</Text>
                       </View>

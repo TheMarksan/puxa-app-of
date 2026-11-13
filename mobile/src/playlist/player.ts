@@ -38,6 +38,12 @@ export type PlayerState = {
 };
 
 let state: PlayerState = { listId: null, trackId: null, playing: false, buffering: false, time: 0, duration: 0, loop: 'all', shuffle: false, error: null };
+
+/** O estado sem o tempo: muda quando a música, a lista, o tocar ou o modo mudam, e não a cada segundo. */
+export type PlayerCore = Omit<PlayerState, 'time'>;
+const coreOf = (s: PlayerState): PlayerCore => ({ listId: s.listId, trackId: s.trackId, playing: s.playing, buffering: s.buffering, duration: s.duration, loop: s.loop, shuffle: s.shuffle, error: s.error });
+let core: PlayerCore = coreOf(state);
+
 const listeners = new Set<() => void>();
 /** Quando o tempo foi lido pela última vez (para o relógio liso da letra). */
 let stamp = Date.now();
@@ -46,6 +52,7 @@ const set = (patch: Partial<PlayerState>) => {
   const next = { ...state, ...patch };
   if (Object.keys(patch).every((k) => (next as Record<string, unknown>)[k] === (state as Record<string, unknown>)[k])) return;
   state = next;
+  if ((Object.keys(patch) as (keyof PlayerState)[]).some((k) => k !== 'time' && next[k] !== core[k as keyof PlayerCore])) core = coreOf(next);
   listeners.forEach((l) => l());
 };
 
@@ -66,6 +73,16 @@ export const getPlayer = get;
 
 export function usePlayer(): PlayerState {
   return useSyncExternalStore(subscribe, get, get);
+}
+
+const getCore = () => core;
+
+/**
+ * O player sem o tempo, para as telas de lista: elas só se redesenham quando a música ou o
+ * tocar/pausar mudam. Com usePlayer, uma playlist inteira se redesenhava a cada aviso de tempo.
+ */
+export function usePlayerCore(): PlayerCore {
+  return useSyncExternalStore(subscribe, getCore, getCore);
 }
 
 // ---------- Estado interno ----------
@@ -376,7 +393,10 @@ function sync() {
   const cur = state.trackId;
   if (!now.includes(cur)) {
     // A música atual saiu: segue para a que vinha depois dela (ou para)
-    const after = order.slice(order.indexOf(cur) + 1).concat(order.slice(0, order.indexOf(cur))).find((x) => now.includes(x));
+    const after = order
+      .slice(order.indexOf(cur) + 1)
+      .concat(order.slice(0, order.indexOf(cur)))
+      .find((x) => now.includes(x));
     if (after && intent) startAt(after, 0, true);
     else stop();
     return;

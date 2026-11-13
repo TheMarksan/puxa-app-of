@@ -39,7 +39,10 @@ const ROWS: Row[] = [
 const TERMS: { title: string; body: string }[] = [
   { title: 'O que é o Puxa', body: 'Um app independente, sem ligação com YouTube, Instagram, X, WhatsApp ou ElevenLabs. Os nomes dessas marcas aparecem só para dizer de onde vem cada link.' },
   { title: 'Como funciona', body: 'O app fala direto com o site do link, do seu celular. Não existe servidor do Puxa no meio: nada do que você baixa passa por nós.' },
-  { title: 'Seus dados', body: 'Downloads, figurinhas e a playlist ficam só no aparelho. O login do Instagram é o mesmo de um navegador e sai quando você toca em Sair. A chave da ElevenLabs fica guardada no aparelho e só vai para a ElevenLabs.' },
+  {
+    title: 'Seus dados',
+    body: 'Downloads, figurinhas e a playlist ficam só no aparelho. O login do Instagram é o mesmo de um navegador e sai quando você toca em Sair. A chave da ElevenLabs fica guardada no aparelho e só vai para a ElevenLabs.',
+  },
   { title: 'Uso', body: 'Você é responsável pelo que baixa, guarda e compartilha, seguindo as regras de cada rede e a lei do seu país.' },
   { title: 'Sem garantia', body: 'O Puxa é oferecido como está. As redes mudam sem aviso e algum link pode parar de funcionar até a próxima versão.' },
   { title: 'Software livre', body: 'O Puxa usa NewPipe Extractor (GPLv3), FFmpeg (GPL), whisper.cpp (MIT), Expo e React Native (MIT), entre outros, cada um sob a própria licença.' },
@@ -223,7 +226,7 @@ export function SettingsScreen() {
                       Para seguir, curtir e publicar
                     </Text>
                   </View>
-                  <Button size="sm" tone="neutral" label="Entrar" accessibilityLabel="Entrar ou criar conta do Puxa" onPress={() => router.push('/entrar')} />
+                  <Button size="sm" tone="neutral" label="Entrar" style={s.trail} accessibilityLabel="Entrar ou criar conta do Puxa" onPress={() => router.push('/entrar')} />
                 </View>
               )}
               <Hairline inset={space[4] + control.sm + space[3]} />
@@ -244,6 +247,7 @@ export function SettingsScreen() {
                 </View>
                 <Button
                   size="sm"
+                  style={s.trail}
                   tone={instagram ? 'neutral' : 'accent'}
                   label={instagram ? 'Sair' : 'Entrar'}
                   accessibilityLabel={instagram ? 'Sair do Instagram' : 'Entrar no Instagram'}
@@ -262,11 +266,7 @@ export function SettingsScreen() {
                   <View style={s.status}>
                     {key ? <View style={[s.statusDot, { backgroundColor: c.successInk }]} /> : null}
                     <Text style={s.rowSub} numberOfLines={1}>
-                      {key
-                        ? credits && credits.limit > 0
-                          ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando`
-                          : `Chave •••• ${key.slice(-4)}`
-                        : 'Transcrição precisa e dublagem'}
+                      {key ? (credits && credits.limit > 0 ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando` : `Chave •••• ${key.slice(-4)}`) : 'Transcrição precisa e dublagem'}
                     </Text>
                   </View>
                 </View>
@@ -335,6 +335,7 @@ export function SettingsScreen() {
                       </View>
                       <Button
                         size="sm"
+                        style={s.trail}
                         tone={confirm ? 'danger' : 'neutral'}
                         label={confirm ? 'Confirmar' : r.action}
                         accessibilityLabel={`${confirm ? 'Confirmar' : r.action}: ${r.title}`}
@@ -357,6 +358,7 @@ export function SettingsScreen() {
                 </View>
                 <Button
                   size="sm"
+                  style={s.trail}
                   tone="neutral"
                   label="Limpar"
                   accessibilityLabel="Limpar os links recentes"
@@ -379,6 +381,7 @@ export function SettingsScreen() {
                 </View>
                 <Button
                   size="sm"
+                  style={s.trail}
                   tone="neutral"
                   label="Restaurar"
                   accessibilityLabel="Restaurar os dados de teste da comunidade"
@@ -406,12 +409,7 @@ export function SettingsScreen() {
                 </View>
               </View>
               <Hairline />
-              <Pressable
-                onPress={() => setTerms((v) => !v)}
-                style={({ pressed }) => [s.row, pressed && { backgroundColor: c.sunken }]}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: terms }}
-              >
+              <Pressable onPress={() => setTerms((v) => !v)} style={({ pressed }) => [s.row, pressed && { backgroundColor: c.sunken }]} accessibilityRole="button" accessibilityState={{ expanded: terms }}>
                 <View style={s.tile}>
                   <Feather name="file-text" size={20} color={c.ink} />
                 </View>
@@ -482,6 +480,8 @@ const phone = StyleSheet.create({
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
+    // Botões do fim da linha com a mesma largura: a coluna deles fica alinhada nas duas bordas
+    trail: { minWidth: 96 },
     root: { flex: 1, backgroundColor: c.bg },
     body: { paddingHorizontal: gutter, gap: space[8] },
     section: { gap: space[3] },

@@ -164,7 +164,7 @@ export function Trimmer({ peaks, duration, start, end, onChange, playhead, onScr
             {/* Vídeo: a tira de quadros, escurecida fora do trecho */}
             <View style={s.strip} pointerEvents="none">
               {filmstrip.map((uri, i) => (
-                <Image key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
+                <Image resizeMethod="resize" key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
               ))}
             </View>
             <View pointerEvents="none" style={[s.dim, { left: 0, width: sx }]} />
