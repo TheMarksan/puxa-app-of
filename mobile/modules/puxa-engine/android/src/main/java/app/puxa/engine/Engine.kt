@@ -186,7 +186,8 @@ object Engine {
       )
     }
     if (audio.isEmpty() && video.isEmpty()) {
-      throw PuxaException("no_streams", "O YouTube não liberou áudio nem vídeo deste link agora. Troque entre Wi-Fi e dados móveis ou tente de novo em alguns minutos.")
+      // O extrator guarda em info.errors o motivo de não ter achado a mídia: vai junto, para o log
+      throw PuxaException("no_streams", "O YouTube não liberou áudio nem vídeo deste link agora. Troque entre Wi-Fi e dados móveis ou tente de novo em alguns minutos.", info.errors.firstOrNull())
     }
     val thumb = info.thumbnails
       .filter { it.width in 1..720 }
@@ -301,14 +302,12 @@ object Engine {
 
   /**
    * Pedido de mídia como o app NewPipe faz: o link do googlevideo pertence ao cliente do YouTube
-   * que o gerou (Android, iOS, visionOS ou web), e o User-Agent acompanha esse cliente.
+   * que o gerou (visionOS ou web), e o User-Agent acompanha esse cliente.
    */
   private fun mediaRequest(url: String, range: String): Request {
     val b = Request.Builder().url(url).header("Accept", "*/*").header("Range", "bytes=$range")
     val ua = when {
       YoutubeParsingHelper.isVisionOsStreamingUrl(url) -> YoutubeParsingHelper.getVisionOsUserAgent(null)
-      YoutubeParsingHelper.isIosStreamingUrl(url) -> YoutubeParsingHelper.getIosUserAgent(null)
-      YoutubeParsingHelper.isAndroidStreamingUrl(url) -> YoutubeParsingHelper.getAndroidUserAgent(null)
       else -> {
         YoutubeParsingHelper.getOriginReferrerHeaders("https://www.youtube.com").forEach { (k, v) -> v.forEach { b.addHeader(k, it) } }
         USER_AGENT

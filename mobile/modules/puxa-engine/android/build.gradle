@@ -15,8 +15,9 @@ android {
 }
 
 dependencies {
-  // Extrator do YouTube do app NewPipe (Java puro), servido pelo JitPack
-  implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
+  // Extrator do YouTube do app NewPipe (Java puro), servido pelo JitPack. A 0.27 deixou os
+  // clientes Android e iOS, que pararam de entregar a mídia, e ficou com o web e o visionOS.
+  implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.27.1'
   implementation 'com.squareup.okhttp3:okhttp:4.12.0'
   implementation 'androidx.core:core-ktx:1.13.1'
   // FFmpeg 6.1.1 com bibliotecas alinhadas a 16 KB (fork mantido do FFmpegKit, LGPL):

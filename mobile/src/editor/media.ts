@@ -10,7 +10,8 @@ export function dirs() {
 }
 
 export const toPath = (uri: string) => decodeURI(uri.replace(/^file:\/\//, ''));
-export const toUri = (path: string) => (path.startsWith('file://') || path.startsWith('http') || path.startsWith('/preview') ? path : `file://${path}`);
+// blob: e data: são os arquivos escolhidos na galeria pela prévia web
+export const toUri = (path: string) => (/^(file:\/\/|https?:|blob:|data:|\/preview)/.test(path) ? path : `file://${path}`);
 
 /** Espera um download do motor terminar, repassando o progresso. */
 export function awaitJob(jobId: string, onProgress?: (e: ProgressEvent) => void): Promise<DoneEvent> {
