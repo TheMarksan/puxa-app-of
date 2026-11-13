@@ -1,4 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -82,8 +83,12 @@ export const still = (s: Sticker): Img => s.poster ?? s.img;
 export function PackThumb({ pack, size }: { pack: Pack; size: number }) {
   const c = usePalette();
   const first = pack.stickers[0];
-  return <View style={[styles.thumb, size > 64 ? styles.thumbLarge : styles.thumbSmall, { width: size, height: size, backgroundColor: c.sunken }]}>{/* Pequena, a figurinha ocupa quase tudo para ser lida; grande, sobra mais margem e a capa fica calma */}
-      {first ? <StickerImage img={still(first)} size={Math.round(size * (size > 64 ? 0.62 : 0.78))} /> : null}</View>;
+  return (
+    <View style={[styles.thumb, size > 64 ? styles.thumbLarge : styles.thumbSmall, { width: size, height: size, backgroundColor: c.sunken }]}>
+      {/* Pequena, a figurinha ocupa quase tudo para ser lida; grande, sobra mais margem e a capa fica calma */}
+      {first ? <StickerImage img={still(first)} size={Math.round(size * (size > 64 ? 0.62 : 0.78))} /> : null}
+    </View>
+  );
 }
 
 /** Grade de figurinhas que se toca uma a uma (abre a prévia). [animate] só na tela do pacote. */
@@ -120,7 +125,10 @@ export function useInstalled(pack: Pack): boolean {
 
 type AddProps = { pack: Pack; busy: boolean; onAdd: () => void };
 
-/** O botão redondo de adicionar o pacote ao WhatsApp (vira um visto quando já está). */
+/**
+ * O botão de pôr o pacote no WhatsApp: o símbolo do WhatsApp com um + no canto, para não restar
+ * dúvida de para onde o pacote vai. Já instalado, o + vira um visto verde.
+ */
 export function AddButton({ pack, busy, onAdd }: AddProps) {
   const c = usePalette();
   const done = useInstalled(pack);
@@ -136,7 +144,12 @@ export function AddButton({ pack, busy, onAdd }: AddProps) {
     >
       {(pressed) => (
         <View style={[styles.round, { backgroundColor: done ? c.successSoft : pressed ? c.accentLine : c.accentSoft }]}>
-          {busy ? <ActivityIndicator size="small" color={c.accentInk} /> : <Feather name={done ? 'check' : 'plus'} size={20} color={done ? c.successInk : c.accentInk} />}
+          {busy ? <ActivityIndicator size="small" color={c.accentInk} /> : <FontAwesome name="whatsapp" size={20} color={done ? c.successInk : c.accentInk} />}
+          {busy ? null : (
+            <View style={[styles.addBadge, { backgroundColor: done ? c.success : c.accent, borderColor: c.bg }]}>
+              <Feather name={done ? 'check' : 'plus'} size={12} color={c.onAccent} />
+            </View>
+          )}
         </View>
       )}
     </Press>
@@ -361,6 +374,8 @@ const styles = StyleSheet.create({
   adds: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   cell: { borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   round: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  // O + no canto de baixo do símbolo, com um anel da cor do fundo para descolar dele
+  addBadge: { position: 'absolute', right: -space[1], bottom: -space[1], width: 20, height: 20, borderRadius: radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   circle: { borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   badge: { height: 24, paddingHorizontal: space[2], borderRadius: radius.full, justifyContent: 'center' },
   badgeText: { lineHeight: 16 },
