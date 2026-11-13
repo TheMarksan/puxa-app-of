@@ -1,3 +1,4 @@
+import { requireNativeModule } from 'expo';
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,8 +18,19 @@ export async function imgFile(img: Img): Promise<string> {
   if (!('art' in img)) return toPath(img.uri);
   const a = Asset.fromModule(ART[img.art]);
   await a.downloadAsync();
-  return Platform.OS === 'web' ? (a.localUri ?? a.uri) : toPath(a.localUri ?? a.uri);
+  const uri = a.localUri ?? a.uri;
+  if (Platform.OS === 'web') return uri;
+  // No APK de produção a imagem é um recurso do Android: o expo-asset devolve só o NOME dele
+  // ("assets_acervo_nordeste_oxe", sem "file://") e já a dá por baixada. O nome não é arquivo,
+  // e o motor recusava a figurinha. O módulo nativo do expo-asset copia o recurso para o cache.
+  if (!uri.includes(':')) return toPath(await ExpoAsset.downloadAsync(uri, a.hash, a.type));
+  return toPath(uri);
 }
+
+/** O módulo nativo do expo-asset: abre um recurso do APK pelo nome e grava uma cópia no cache. */
+const ExpoAsset = {
+  downloadAsync: (name: string, hash: string | null, type: string): Promise<string> => requireNativeModule<{ downloadAsync: (u: string, h: string | null, t: string) => Promise<string> }>('ExpoAsset').downloadAsync(name, hash, type),
+};
 
 const dir = (name: string) => new Directory(Paths.document, 'comunidade', name);
 

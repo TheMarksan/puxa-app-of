@@ -2,6 +2,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { plainError } from '../errors';
 import { ms, reduceMotion } from '../motion';
 import { COLORS } from '../playlist/colors';
 import { dark, ease, light, type Palette, radius, space, text, usePalette } from '../theme';
@@ -37,8 +38,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const lift = useState(() => new Animated.Value(24))[0];
   const nextId = useRef(1);
 
-  const show = useCallback((t: ToastInput) => {
+  const show = useCallback((input: ToastInput) => {
     const id = nextId.current++;
+    // Mensagem de erro vinda do motor: só a frase para gente, sem o embrulho em inglês do Expo
+    const t = input.body ? { ...input, body: plainError(input.body) } : input;
     setItems((list) => [...list, { ...t, id }].slice(-MAX_VISIBLE - 1));
     AccessibilityInfo.announceForAccessibility([t.title, t.body].filter(Boolean).join('. '));
   }, []);
@@ -82,10 +85,9 @@ function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void
       if (leaving.current) return;
       leaving.current = true;
       if (timer.current) clearTimeout(timer.current);
-      Animated.parallel([
-        Animated.timing(enter, { toValue: 0, duration: ms(180), easing: ease.exit, useNativeDriver: false }),
-        Animated.timing(dx, { toValue: toX, duration: ms(180), easing: ease.exit, useNativeDriver: false }),
-      ]).start(() => onGone(item.id));
+      Animated.parallel([Animated.timing(enter, { toValue: 0, duration: ms(180), easing: ease.exit, useNativeDriver: false }), Animated.timing(dx, { toValue: toX, duration: ms(180), easing: ease.exit, useNativeDriver: false })]).start(() =>
+        onGone(item.id),
+      );
     },
     [dx, enter, item.id, onGone],
   );

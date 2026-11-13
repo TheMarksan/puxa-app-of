@@ -10,7 +10,7 @@ import { CATEGORIES } from '../community/seed';
 import { follow, unfollow, toggleLike, unpublish, useDB } from '../community/store';
 import { StickerSheet } from '../community/StickerSheet';
 import type { Pack, Sticker } from '../community/types';
-import { Avatar, FollowButton, StickerGrid, useInstalled, UserName } from '../community/ui';
+import { Avatar, FollowButton, StickerGrid, still, useInstalled, UserName } from '../community/ui';
 import { useInstaller } from '../community/useInstaller';
 import { Button } from '../components/Button';
 import { Sheet } from '../components/music/Sheet';
@@ -76,7 +76,7 @@ function PackView({ pack: p }: { pack: Pack }) {
           onKicker={() => router.push(`/categoria/${cat.id}`)}
           title={p.name}
           meta={`${p.stickers.length} figurinhas${p.animated ? ' animadas' : ''} · ${compact(p.downloads)} no WhatsApp`}
-          art={p.stickers.slice(0, 3).map((x) => x.img)}
+          art={p.stickers.slice(0, 3).map(still)}
           right={(veil) => (
             <>
               <IconButton
@@ -137,7 +137,7 @@ function PackView({ pack: p }: { pack: Pack }) {
 
           <View style={s.section}>
             <Overline>{p.animated ? 'Figurinhas animadas' : 'Figurinhas'}</Overline>
-            <StickerGrid items={p.stickers.map((x) => ({ sticker: x, pack: p }))} width={width - gutter * 2} onPress={(sticker) => setOpen({ sticker, pack: p })} />
+            <StickerGrid items={p.stickers.map((x) => ({ sticker: x, pack: p }))} width={width - gutter * 2} animate onPress={(sticker) => setOpen({ sticker, pack: p })} />
             <Text style={s.note}>Toque numa figurinha para ver de perto ou pôr só ela numa pasta sua.</Text>
           </View>
         </View>

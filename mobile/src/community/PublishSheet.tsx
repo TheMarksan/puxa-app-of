@@ -104,7 +104,7 @@ export function PublishSheet({ folder, visible, onClose }: { folder: StickerFold
             {list.length ? (
               <View style={[s.strip, { backgroundColor: c.chat }]}>
                 {list.slice(0, 5).map((st) => (
-                  <Image key={st.file} source={{ uri: toUri(st.path) }} style={s.thumb} resizeMode="contain" />
+                  <Image key={st.file} source={{ uri: toUri(st.path) }} style={s.thumb} resizeMode="contain" resizeMethod="resize" />
                 ))}
                 {list.length > 5 ? <Text style={s.more}>+{list.length - 5}</Text> : null}
               </View>

@@ -359,24 +359,21 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
   const option = options.find((o) => o.id === optionId) ?? null;
   const key = info && optionId ? fileKey(info.id, optionId) : null;
 
-  const start = useCallback(
-    (opt: string, intent: Intent | null) => {
-      const i = infoRef.current;
-      if (!i) return;
-      const current = jobRef.current;
-      if (current?.status === 'preparing') PuxaEngine.cancel(current.id);
-      const id = newId();
-      const k = fileKey(i.id, opt);
-      const d = i.direct?.[opt];
-      const video = d ? d.kind === 'video' : opt.startsWith('v:');
-      const size = allOptions(i).find((o) => o.id === opt)?.size ?? 0;
-      setJob({ status: 'preparing', id, key: k, optionId: opt, intent, video, stage: 'downloading', downloaded: 0, total: size, speed: 0, eta: null });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      const run = d ? PuxaEngine.startUrlDownload(id, d.url, i.headers ?? {}, d.kind, i.title, false) : PuxaEngine.startDownload(id, i.id, opt, false);
-      run.catch((e: Error & { code?: string }) => setJob({ status: 'error', id, key: k, optionId: opt, intent, message: e.message, code: e.code }));
-    },
-    [],
-  );
+  const start = useCallback((opt: string, intent: Intent | null) => {
+    const i = infoRef.current;
+    if (!i) return;
+    const current = jobRef.current;
+    if (current?.status === 'preparing') PuxaEngine.cancel(current.id);
+    const id = newId();
+    const k = fileKey(i.id, opt);
+    const d = i.direct?.[opt];
+    const video = d ? d.kind === 'video' : opt.startsWith('v:');
+    const size = allOptions(i).find((o) => o.id === opt)?.size ?? 0;
+    setJob({ status: 'preparing', id, key: k, optionId: opt, intent, video, stage: 'downloading', downloaded: 0, total: size, speed: 0, eta: null });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    const run = d ? PuxaEngine.startUrlDownload(id, d.url, i.headers ?? {}, d.kind, i.title, false) : PuxaEngine.startDownload(id, i.id, opt, false);
+    run.catch((e: Error & { code?: string }) => setJob({ status: 'error', id, key: k, optionId: opt, intent, message: e.message, code: e.code }));
+  }, []);
 
   const cancel = () => {
     const j = jobRef.current;
@@ -535,11 +532,7 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
 
   useEffect(() => {
     const progress = PuxaEngine.addListener('onProgress', (e) => {
-      setJob((j) =>
-        j && j.status === 'preparing' && j.id === e.jobId
-          ? { ...j, stage: e.stage, downloaded: e.downloaded, total: e.total || j.total, speed: e.speed, eta: e.eta }
-          : j,
-      );
+      setJob((j) => (j && j.status === 'preparing' && j.id === e.jobId ? { ...j, stage: e.stage, downloaded: e.downloaded, total: e.total || j.total, speed: e.speed, eta: e.eta } : j));
     });
     const done = PuxaEngine.addListener('onDone', (e) => {
       const j = jobRef.current;
@@ -656,13 +649,24 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
     lookup(r.link);
   };
 
+  const showFeed = phase === 'empty' && !hasText && !focused;
+  // O trilho de links do topo não muda a cada letra nem a cada progresso: chama sempre a versão atual das ações
+  const actions = useRef({ paste, openRecent, example: () => {} });
+  useEffect(() => {
+    actions.current = {
+      paste,
+      openRecent,
+      example: () => {
+        setLink(SAMPLE_URL);
+        lookup(SAMPLE_URL);
+      },
+    };
+  });
+  const links = useMemo(() => <LinksRail recents={recents} onPaste={() => actions.current.paste()} onOpen={(r) => actions.current.openRecent(r)} onExample={() => actions.current.example()} s={s} c={c} />, [recents, s, c]);
+
   return (
     <View style={s.root}>
-      <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: (dockVisible ? dockH : insets.bottom) + space[8] + barSpace }]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
+      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: (dockVisible ? dockH : insets.bottom) + space[8] + barSpace }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {header}
 
         <View style={[s.field, focused && s.fieldFocused, fieldError && s.fieldError]}>
@@ -739,64 +743,11 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
           />
         ) : null}
 
-        {phase === 'empty' && !hasText && !focused ? (
-          <AcervoFeed
-            width={inner}
-            onCreate={() => device.start()}
-            creating={device.busy}
-            before={
-              recents.length ? (
-                <View style={s.block}>
-                  <View style={s.sectionHead}>
-                    <Overline>Links recentes</Overline>
-                    <Pressable onPress={clearRecents} hitSlop={space[3]} accessibilityRole="button" accessibilityLabel="Limpar os links recentes">
-                      <Text style={s.link}>Limpar</Text>
-                    </Pressable>
-                  </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
-                    {recents.map((r) => (
-                      <RecentCard
-                        key={r.link}
-                        item={r}
-                        onPress={() => openRecent(r)}
-                        onRemove={() => {
-                          Haptics.selectionAsync().catch(() => {});
-                          forgetRecent(r.link);
-                        }}
-                        s={s}
-                        c={c}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : (
-                <View style={s.linkCard}>
-                  <View style={s.linkIcons}>
-                    {(['youtube', 'instagram', 'twitter'] as const).map((icon) => (
-                      <View key={icon} style={s.linkIcon}>
-                        <Feather name={icon} size={20} color={c.accentInk} />
-                      </View>
-                    ))}
-                  </View>
-                  <View>
-                    <Text style={s.linkTitle}>Puxe de um link</Text>
-                    <Text style={s.linkBody}>Cole o link de um vídeo, Short, Reel, post ou perfil do YouTube, do Instagram ou do X. Vira MP3, vídeo para o WhatsApp, figurinha ou música da playlist.</Text>
-                  </View>
-                  <Button
-                    tone="neutral"
-                    size="md"
-                    icon="play-circle"
-                    label="Testar com um vídeo de exemplo"
-                    onPress={() => {
-                      setLink(SAMPLE_URL);
-                      lookup(SAMPLE_URL);
-                    }}
-                  />
-                </View>
-              )
-            }
-          />
-        ) : null}
+        {/* O acervo fica montado e só some da tela enquanto se busca ou com um vídeo aberto:
+            desmontar e montar de novo as cem figurinhas a cada toque no campo travava o Início */}
+        <View style={showFeed ? null : s.hidden}>
+          <AcervoFeed width={inner} onCreate={device.start} creating={device.busy} top={links} />
+        </View>
 
         {phase === 'loading' ? (
           <View style={s.section}>
@@ -900,37 +851,76 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
       <ListPicker trackId={pickFor?.id ?? null} title={pickFor?.title ?? ''} onClose={() => setPickFor(null)} />
 
       {sheet ? (
-        <VideoSendSheet
-          key={sheet.file.path}
-          file={sheet.file}
-          info={sheet.info}
-          mode={sheet.as}
-          visible={sheetVisible}
-          onClose={() => setSheetVisible(false)}
-          onShare={share}
-          onError={onSheetError}
-          onNotice={onSheetNotice}
-        />
+        <VideoSendSheet key={sheet.file.path} file={sheet.file} info={sheet.info} mode={sheet.as} visible={sheetVisible} onClose={() => setSheetVisible(false)} onShare={share} onError={onSheetError} onNotice={onSheetNotice} />
       ) : null}
 
       {device.sheet}
 
-      {audioSheet ? (
-        <SendSheet
-          key={audioSheet.file.path}
-          file={audioSheet.file}
-          title={stem(audioSheet.file.filename)}
-          visible={audioVisible}
-          onClose={() => setAudioVisible(false)}
-          onSend={share}
-          onError={onSheetError}
-        />
-      ) : null}
+      {audioSheet ? <SendSheet key={audioSheet.file.path} file={audioSheet.file} title={stem(audioSheet.file.filename)} visible={audioVisible} onClose={() => setAudioVisible(false)} onSend={share} onError={onSheetError} /> : null}
     </View>
   );
 }
 
 const SOURCE_ICON = { youtube: 'youtube', instagram: 'instagram', x: 'twitter' } as const;
+
+/**
+ * O topo do Início: colar um link e os links recentes (ou, na primeira vez, um exemplo para
+ * testar), num trilho só. O botão Colar link de baixo continua: este é o atalho de quem já
+ * está olhando para o campo.
+ */
+function LinksRail({ recents, onPaste, onOpen, onExample, s, c }: { recents: Recent[]; onPaste: () => void; onOpen: (r: Recent) => void; onExample: () => void; s: Styles; c: Palette }) {
+  return (
+    <View style={s.block}>
+      <View style={s.sectionHead}>
+        <Overline>Puxar de um link</Overline>
+        {recents.length ? (
+          <Pressable onPress={clearRecents} hitSlop={space[3]} accessibilityRole="button" accessibilityLabel="Limpar os links recentes">
+            <Text style={s.link}>Limpar</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
+        <LinkAction icon="clipboard" title="Colar link" by="YouTube, Instagram ou X" tone="accent" onPress={onPaste} s={s} c={c} />
+        {recents.length ? (
+          recents.map((r) => (
+            <RecentCard
+              key={r.link}
+              item={r}
+              onPress={() => onOpen(r)}
+              onRemove={() => {
+                Haptics.selectionAsync().catch(() => {});
+                forgetRecent(r.link);
+              }}
+              s={s}
+              c={c}
+            />
+          ))
+        ) : (
+          <LinkAction icon="play-circle" title="Testar com um exemplo" by="Um vídeo curto do YouTube" onPress={onExample} s={s} c={c} />
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** Uma peça de ação no trilho de links, do mesmo tamanho de um link recente. */
+function LinkAction({ icon, title, by, tone = 'neutral', onPress, s, c }: { icon: 'clipboard' | 'play-circle'; title: string; by: string; tone?: 'accent' | 'neutral'; onPress: () => void; s: Styles; c: Palette }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [s.recent, pressed && { opacity: 0.72 }]} accessibilityRole="button" accessibilityLabel={`${title}. ${by}`}>
+      <View style={[s.recentThumb, { backgroundColor: tone === 'accent' ? c.accentSoft : c.sunken }]}>
+        <View style={[s.actionIcon, { backgroundColor: c.dark ? c.raised : c.surface }]}>
+          <Feather name={icon} size={20} color={tone === 'accent' ? c.accentInk : c.ink} />
+        </View>
+      </View>
+      <Text style={s.recentTitle} numberOfLines={2}>
+        {title}
+      </Text>
+      <Text style={s.recentBy} numberOfLines={1}>
+        {by}
+      </Text>
+    </Pressable>
+  );
+}
 
 /** Um link recente: a capa, o título e de quem é. Segurar tira da lista. */
 function RecentCard({ item, onPress, onRemove, s, c }: { item: Recent; onPress: () => void; onRemove: () => void; s: Styles; c: Palette }) {
@@ -1003,11 +993,8 @@ const makeStyles = (c: Palette) =>
     recentBadge: { position: 'absolute', left: space[2], top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
     recentTitle: { ...text.captionBold, color: c.ink },
     recentBy: { ...text.caption, color: c.muted },
-    linkCard: { gap: space[4], padding: space[4], borderRadius: radius.xl, backgroundColor: c.dark ? c.surface : c.surface, boxShadow: c.shadow1 },
-    linkIcons: { flexDirection: 'row', gap: space[2] },
-    linkIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
-    linkTitle: { ...text.bodyBold, color: c.ink },
-    linkBody: { ...text.caption, color: c.muted },
+    actionIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+    hidden: { display: 'none' },
     notice: { ...text.caption, color: c.muted },
     barWrap: { position: 'absolute', left: gutter, right: gutter, gap: space[3] },
     dock: {

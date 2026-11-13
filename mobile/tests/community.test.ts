@@ -12,10 +12,12 @@ import {
   login,
   logout,
   looksLikeLink,
+  matchAt,
   me,
   publish,
   rememberSearch,
   search,
+  shortcuts,
   signup,
   toggleLike,
   unfollow,
@@ -31,8 +33,14 @@ test('comunidade: entrar com e-mail ou usuário, e a senha confere', () => {
   assert.equal(me(login(db, 'marcos@puxa.app', TEST_PASSWORD))?.username, 'marcos');
   assert.equal(me(login(db, '@analima', TEST_PASSWORD))?.name, 'Ana Lima');
   assert.equal(me(login(db, 'ANALIMA', TEST_PASSWORD))?.id, 'u-ana');
-  assert.throws(() => login(db, 'marcos', 'errada'), (e: CommunityError) => e.field === 'password');
-  assert.throws(() => login(db, 'ninguem@puxa.app', TEST_PASSWORD), (e: CommunityError) => e.field === 'identifier');
+  assert.throws(
+    () => login(db, 'marcos', 'errada'),
+    (e: CommunityError) => e.field === 'password',
+  );
+  assert.throws(
+    () => login(db, 'ninguem@puxa.app', TEST_PASSWORD),
+    (e: CommunityError) => e.field === 'identifier',
+  );
   // Os criadores dos dados de teste não têm senha: não dá para entrar como eles
   assert.throws(() => login(db, 'puxa', TEST_PASSWORD), CommunityError);
   assert.equal(me(logout(login(db, 'marcos', TEST_PASSWORD))), null);
@@ -44,7 +52,10 @@ test('comunidade: criar conta confere nome, usuário, e-mail e senha', () => {
   assert.equal(me(ok)?.username, 'joana.dev');
   assert.equal(me(login(logout(ok), 'joana@mail.com', 'segredo'))?.id, 'u-joana');
   const bad = (input: Partial<Parameters<typeof signup>[1]>, field: string) =>
-    assert.throws(() => signup(db, { name: 'Joana', username: 'joana', email: 'j@mail.com', password: 'segredo', ...input }, 1, 'x'), (e: CommunityError) => e.field === field);
+    assert.throws(
+      () => signup(db, { name: 'Joana', username: 'joana', email: 'j@mail.com', password: 'segredo', ...input }, 1, 'x'),
+      (e: CommunityError) => e.field === field,
+    );
   bad({ name: ' ' }, 'name');
   bad({ username: 'ab' }, 'username');
   bad({ username: 'marcos' }, 'username');
@@ -58,7 +69,10 @@ test('comunidade: editar o perfil não deixa pegar o usuário de outra pessoa', 
   const next = updateProfile(db, { name: 'Marcos Melo', bio: 'Oi', avatar: { uri: '/foto.jpg' } });
   assert.equal(me(next)?.name, 'Marcos Melo');
   assert.deepEqual(me(next)?.avatar, { uri: '/foto.jpg' });
-  assert.throws(() => updateProfile(db, { username: 'analima' }), (e: CommunityError) => e.field === 'username');
+  assert.throws(
+    () => updateProfile(db, { username: 'analima' }),
+    (e: CommunityError) => e.field === 'username',
+  );
   assert.throws(() => updateProfile(logout(db), { name: 'X Y' }), CommunityError);
 });
 
@@ -101,6 +115,35 @@ test('comunidade: a busca acha sem acento, por figurinha, pacote e pessoa', () =
   for (const t of TRENDING) assert.ok(search(db, t, cat).stickers.length + search(db, t, cat).packs.length > 0, t);
 });
 
+test('comunidade: atalhos da busca vão do mais certeiro, categoria antes de pessoa e pacote', () => {
+  const db = seed();
+  const kinds = (q: string) => shortcuts(db, q, CATEGORIES).map((x) => (x.kind === 'category' ? `c:${x.category.id}` : x.kind === 'person' ? `u:${x.user.id}` : `p:${x.pack.id}`));
+  // Nome igual vale mais; no empate, a categoria vem primeiro
+  assert.deepEqual(kinds('festa'), ['c:festa', 'u:u-festaja']);
+  assert.deepEqual(kinds('Bom'), ['c:bomdia', 'p:p-bomdia']);
+  assert.deepEqual(kinds('ox'), ['u:u-oxente', 'p:p-nordeste']);
+  // Pelo @ também
+  assert.deepEqual(kinds('analima'), ['u:u-ana']);
+  // Meio de palavra não vira atalho (fica nos resultados); uma letra só, nada
+  assert.deepEqual(kinds('gato'), []);
+  assert.deepEqual(kinds('b'), []);
+  assert.ok(kinds('bo').length <= 3);
+  const bomdia = shortcuts(db, 'bom dia', CATEGORIES)[0];
+  assert.ok(bomdia.kind === 'category' && bomdia.packs > 0);
+});
+
+test('comunidade: o pedaço buscado em negrito acha a posição sem acento', () => {
+  assert.deepEqual(matchAt('Bom dia e boa noite', 'boa'), [10, 13]);
+  assert.deepEqual(matchAt('Reações da Ana', 'REACO'), [0, 5]);
+  assert.deepEqual(matchAt('Reações da Ana', 'ana'), [11, 14]);
+  // Só no meio de uma palavra: marca a primeira vez
+  assert.deepEqual(matchAt('Gatinhos', 'tinh'), [2, 6]);
+  assert.equal(matchAt('Ana', 'xyz'), null);
+  assert.equal(matchAt('Ana', '  '), null);
+  // Acento já separado da letra: o tamanho muda, então não marca nada
+  assert.equal(matchAt('Reações', 'rea'), null);
+});
+
 test('comunidade: buscas recentes sem repetir, as novas primeiro', () => {
   let db = seed();
   for (const q of ['oxe', 'bom dia', 'Oxe', 'a', 'gato']) db = rememberSearch(db, q);
@@ -138,9 +181,19 @@ test('comunidade: os dados de teste batem com as regras do WhatsApp', () => {
   const db = seed();
   for (const p of db.packs) {
     assert.ok(p.stickers.length >= 3 && p.stickers.length <= 30, p.id);
-    assert.ok(CATEGORIES.some((c) => c.id === p.category), p.id);
-    assert.ok(db.users.some((u) => u.id === p.author), p.id);
-    if (p.animated) assert.ok(p.stickers.every((s) => s.poster), `${p.id}: animada sem quadro`);
+    assert.ok(
+      CATEGORIES.some((c) => c.id === p.category),
+      p.id,
+    );
+    assert.ok(
+      db.users.some((u) => u.id === p.author),
+      p.id,
+    );
+    if (p.animated)
+      assert.ok(
+        p.stickers.every((s) => s.poster),
+        `${p.id}: animada sem quadro`,
+      );
   }
   assert.equal(new Set(db.users.map((u) => u.username)).size, db.users.length);
 });
@@ -170,7 +223,11 @@ test('arte: dois arquivos nunca viram o mesmo recurso no Android (o build quebra
       if (statSync(p).isDirectory()) walk(p);
       else {
         const rel = relative(root, p);
-        const key = rel.slice(0, -extname(rel).length).replace(/\//g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const key = rel
+          .slice(0, -extname(rel).length)
+          .replace(/\//g, '_')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '');
         assert.ok(!seen.has(key), `${rel} e ${seen.get(key)} viram o mesmo recurso`);
         seen.set(key, rel);
       }

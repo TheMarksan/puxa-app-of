@@ -8,7 +8,7 @@ import { PersonRow } from '../community/Acervo';
 import { compact, countsOf, followersOf, followingOf, follows, me, packsBy, userById } from '../community/core';
 import { imgSource } from '../community/images';
 import { follow, logout, unfollow, useDB, useFetched } from '../community/store';
-import { Avatar, FollowButton, PackRow, PackRowsSkeleton, Stat, UserName } from '../community/ui';
+import { Avatar, FollowButton, PackCards, PackCardsSkeleton, Stat, UserName } from '../community/ui';
 import { useInstaller } from '../community/useInstaller';
 import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
@@ -132,13 +132,10 @@ export function ProfileScreen() {
           />
 
           {!ready ? (
-            <PackRowsSkeleton width={inner} rows={2} />
+            <PackCardsSkeleton width={inner} count={2} />
           ) : packs.length ? (
-            <View style={s.list}>
-              {packs.map((p) => (
-                <PackRow key={p.id} pack={p} width={inner} busy={busy === p.id} onAdd={() => install(p)} />
-              ))}
-            </View>
+            // Pacotes da pessoa: o tamanho de cada um; curtidos são de outras pessoas, então mostram quem fez
+            <PackCards packs={packs} width={inner} meta={tab === 'packs' ? 'counts' : 'author'} busy={busy} onAdd={install} />
           ) : tab === 'packs' ? (
             <EmptyState
               icon="package"
@@ -156,7 +153,12 @@ export function ProfileScreen() {
       <Sheet visible={menu} onClose={() => setMenu(false)} label="Opções da conta">
         <View style={s.menu}>
           <Text style={s.menuTitle}>{user.name}</Text>
-          <Button size="md" tone="neutral" icon="edit-2" label="Editar perfil" onPress={() => {
+          <Button
+            size="md"
+            tone="neutral"
+            icon="edit-2"
+            label="Editar perfil"
+            onPress={() => {
               setMenu(false);
               router.push('/perfil/editar');
             }}
@@ -253,7 +255,6 @@ const makeStyles = (c: Palette) =>
     bio: { ...text.body, color: c.body, marginTop: space[1] },
     empty: { ...text.body, color: c.faint, marginTop: space[1] },
     stats: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: space[3], borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: c.lineStrong },
-    list: { gap: space[6] },
     menu: { paddingHorizontal: gutter, paddingBottom: space[2], gap: space[3] },
     menuTitle: { ...text.title, color: c.ink },
     connBody: { paddingHorizontal: gutter, gap: space[6] },
