@@ -1,4 +1,4 @@
-import { Archivo_400Regular, Archivo_700Bold, useFonts } from '@expo-google-fonts/archivo';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -19,7 +19,12 @@ if (getSettings().theme !== 'system') applyTheme(getSettings().theme);
 
 export default function RootLayout() {
   const c = usePalette();
-  const [loaded] = useFonts({ Archivo_400Regular, Archivo_700Bold, ...FONT_MAP });
+  // Só os dois pesos usados: importar o pacote inteiro levaria os 18 arquivos da Archivo para o APK
+  const [loaded] = useFonts({
+    Archivo_400Regular: require('@expo-google-fonts/archivo/400Regular/Archivo_400Regular.ttf'),
+    Archivo_700Bold: require('@expo-google-fonts/archivo/700Bold/Archivo_700Bold.ttf'),
+    ...FONT_MAP,
+  });
 
   // A playlist termina os downloads que ficaram na fila; na primeira entrada, pede as permissões
   useEffect(() => {
