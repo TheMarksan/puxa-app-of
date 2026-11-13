@@ -39,6 +39,6 @@ export function Harvester() {
 }
 
 const s = StyleSheet.create({
-  box: { position: 'absolute', left: 0, top: 0, width: 390, height: 844, opacity: 0.01 },
+  box: { position: 'absolute', left: 0, top: 0, width: 392, height: 844, opacity: 0.01 },
   web: { flex: 1 },
 });

@@ -1,7 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { VideoView, type VideoPlayer } from 'expo-video';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import PuxaEngine, { type DoneEvent, type StickerFolder, type StickerItem } from '../../modules/puxa-engine';
@@ -34,15 +34,15 @@ import {
   type StickerKind,
   type StickerShape,
 } from '../stickers/sticker';
-import { ease, font, type Palette, usePalette } from '../theme';
+import { control, ease, gutter, media, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 import { Button, Press } from './Button';
+import { BusyCard, SendRow } from './ui';
 import { Reveal } from './SheetParts';
 import { SnapSlider } from './SnapSlider';
 import { cueAt } from './SendPreview';
 import { Trimmer } from './Trimmer';
 
 /** Fundo da conversa do WhatsApp: a figurinha aparece como vai ficar lá (e o contorno branco aparece). */
-export const CHAT_BG = { light: '#EFEAE2', dark: '#0B141A' };
 
 // O player vem do painel de envio; estes ajudantes mexem nele fora da renderização
 const seek = (p: VideoPlayer, t: number) => {
@@ -58,6 +58,8 @@ const seconds = (v: number) => `${v.toFixed(1).replace('.', ',')} s`;
 type Made = { key: string; result: StickerResult; folder: StickerFolder; sticker: StickerItem | null };
 
 type Props = {
+  /** O que vem no topo da rolagem (a escolha do que mandar). */
+  header?: ReactNode;
   kind: StickerKind;
   player: VideoPlayer;
   file: DoneEvent;
@@ -94,7 +96,7 @@ type Props = {
  * quadro). A prévia mostra o recorte que vai sair; embaixo, só o essencial: formato, tempo,
  * texto e emoji.
  */
-export function StickerPanel({ kind, player, file, image, size, duration, filmstrip, thumbAt, title, design, onDesign, emoji, onEmoji, onError, onNotice, onBusy, onOpenStickers, source, captions, startAt }: Props) {
+export function StickerPanel({ header, kind, player, file, image, size, duration, filmstrip, thumbAt, title, design, onDesign, emoji, onEmoji, onError, onNotice, onBusy, onOpenStickers, source, captions, startAt }: Props) {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const [range, setRange] = useState(() => {
@@ -269,7 +271,10 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
   ];
 
   return (
-    <Reveal key={kind}>
+    <>
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} bounces={false} keyboardShouldPersistTaps="handled">
+        {header}
+        <Reveal key={kind}>
       <View style={s.root}>
         <View style={s.previewWrap} onLayout={(e) => setBox(Math.floor(e.nativeEvent.layout.width))}>
           {P > 0 ? (
@@ -294,13 +299,13 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
           ))}
           <View style={s.swatchSep} />
           <Swatch label="Contorno" active={design.outline} onPress={() => patch({ outline: !design.outline })} c={c} role="switch">
-            <View style={[s.ring, { borderRadius: 4 + 13 * clampCorner(design.corner), borderColor: design.outline ? '#FFFFFF' : 'transparent', backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]} />
+            <View style={[s.ring, { borderRadius: 4 + 12 * clampCorner(design.corner), borderColor: design.outline ? media.on : 'transparent', backgroundColor: c.faint /* arte: o canto acompanha o que a pessoa escolheu */ }]} />
           </Swatch>
           {hasCaptions ? (
             <Swatch label="Legenda" active={capOn} onPress={() => setCapOn((v) => !v)} c={c} role="switch">
-              <View style={[s.ring, { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, gap: 3, backgroundColor: c.dark ? '#5A616B' : '#9AA1AB' }]}>
-                <View style={{ width: 22, height: 3, borderRadius: 2, backgroundColor: capOn ? '#FFFFFF' : 'rgba(255,255,255,0.4)' }} />
-                <View style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: capOn ? '#FFFFFF' : 'rgba(255,255,255,0.4)' }} />
+              <View style={[s.ring, s.ringCaption, { backgroundColor: c.faint }]}>
+                <View style={[s.ringBar, { width: 20, backgroundColor: capOn ? media.on : media.track }]} />
+                <View style={[s.ringBar, { width: 12, backgroundColor: capOn ? media.on : media.track }]} />
               </View>
             </Swatch>
           ) : null}
@@ -333,7 +338,7 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
           ) : (
             <View style={s.frameRow}>
               <StepButton icon="chevron-left" label="Quadro anterior" onPress={() => setAt((t) => clampT(t - 0.1, 0, duration - 0.05))} c={c} />
-              <View style={{ flex: 1 }}>
+              <View style={s.framePick}>
                 <FramePicker filmstrip={filmstrip} duration={duration} value={at} onChange={setAt} c={c} />
               </View>
               <StepButton icon="chevron-right" label="Próximo quadro" onPress={() => setAt((t) => clampT(t + 0.1, 0, duration - 0.05))} c={c} />
@@ -351,7 +356,7 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
               value={design.text}
               onChangeText={(text) => patch({ text })}
               placeholder="Opcional"
-              placeholderTextColor={c.disabledInk}
+              placeholderTextColor={c.muted}
               maxLength={40}
               style={s.input}
               selectionColor={c.accent}
@@ -386,7 +391,7 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
                   Haptics.selectionAsync().catch(() => {});
                   onEmoji(e);
                 }}
-                style={[s.emoji, emoji === e && { borderColor: c.accent, backgroundColor: c.accentSoft }]}
+                style={[s.emoji, emoji === e && { borderColor: c.accentLine, backgroundColor: c.accentSoft }]}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: emoji === e }}
                 accessibilityLabel={`Emoji ${e}`}
@@ -409,46 +414,42 @@ export function StickerPanel({ kind, player, file, image, size, duration, filmst
           c={c}
         />
 
+      </View>
+        </Reveal>
+      </ScrollView>
+      {/* O que acabou de ficar pronto e a ação principal ficam fixos embaixo, ao alcance do polegar */}
+      <View style={s.footer}>
         {ready ? (
-          <Reveal>
-            <Pressable onPress={() => onOpenStickers(ready.folder.id)} style={s.made} accessibilityRole="button" accessibilityLabel={`Figurinha pronta na pasta ${ready.folder.name}. Abrir a pasta`}>
-              <View style={[s.madeImg, { backgroundColor: c.dark ? CHAT_BG.dark : CHAT_BG.light }]}>
-                <Image source={{ uri: toUri(ready.sticker?.path ?? ready.result.webp) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.madeTitle}>Pronta · {bytes(ready.result.size)}</Text>
-                <Text style={s.madeBody} numberOfLines={1}>
-                  {ready.folder.name} · {count} de {MAX_PER_PACK}
-                </Text>
-              </View>
-              <Feather name="chevron-right" size={20} color={c.muted} />
-            </Pressable>
-          </Reveal>
-        ) : null}
-
-        {busy ? (
-          <View style={s.busy}>
-            <Text style={s.busyText}>{busy.label}</Text>
-            <View style={s.track}>
-              <View style={[s.fill, { width: busy.fraction == null ? '35%' : `${Math.max(3, busy.fraction * 100)}%` }]} />
+          <Pressable
+            onPress={() => onOpenStickers(ready.folder.id)}
+            style={({ pressed }) => [s.made, pressed && { opacity: 0.72 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Figurinha pronta na pasta ${ready.folder.name}. Abrir a pasta`}
+          >
+            <View style={[s.madeImg, { backgroundColor: c.chat }]}>
+              <Image source={{ uri: toUri(ready.sticker?.path ?? ready.result.webp) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
             </View>
-            <Text onPress={() => (signal.current.cancelled = true)} style={s.cancel}>
-              Cancelar
-            </Text>
-          </View>
+            <View style={s.madeText}>
+              <Text style={s.madeTitle}>Pronta · {bytes(ready.result.size)}</Text>
+              <Text style={s.madeBody} numberOfLines={1}>
+                {ready.folder.name} · {count} de {MAX_PER_PACK}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={c.successInk} />
+          </Pressable>
+        ) : null}
+        {busy ? (
+          <BusyCard label={busy.label} fraction={busy.fraction} onCancel={() => (signal.current.cancelled = true)} />
         ) : (
-          <View style={{ gap: 6 }}>
-            <Button tone="wa" icon="plus-circle" label={readyPack?.whatsapp ? 'Já está no WhatsApp' : 'Adicionar ao WhatsApp'} onPress={toWhatsApp} />
-            <Button tone="ghost" icon="share-2" label="Outros apps" compact onPress={shareOther} />
-          </View>
+          <SendRow label={readyPack?.whatsapp ? 'Já está no WhatsApp' : 'Adicionar ao WhatsApp'} onSend={toWhatsApp} onOther={shareOther} />
         )}
       </View>
-    </Reveal>
+    </>
   );
 }
 
 /** Opção desenhada (formato ou contorno), com o nome embaixo e um anel quando escolhida. */
-function Swatch({ label, active, onPress, children, c, role }: { label: string; active: boolean; onPress: () => void; children: React.ReactNode; c: Palette; role: 'radio' | 'switch' }) {
+function Swatch({ label, active, onPress, children, c, role }: { label: string; active: boolean; onPress: () => void; children: ReactNode; c: Palette; role: 'radio' | 'switch' }) {
   return (
     <Press
       onPress={() => {
@@ -459,28 +460,22 @@ function Swatch({ label, active, onPress, children, c, role }: { label: string; 
       accessibilityRole={role}
       accessibilityState={{ checked: active }}
       accessibilityLabel={label}
-      style={{ alignItems: 'center', gap: 6, width: 64 }}
+      style={sw.root}
     >
-      <View
-        style={{
-          width: 58,
-          height: 58,
-          borderRadius: 18,
-          borderWidth: 2,
-          borderColor: active ? c.accent : 'transparent',
-          backgroundColor: c.dark ? CHAT_BG.dark : CHAT_BG.light,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {children}
-      </View>
-      <Text style={{ fontFamily: font.semibold, fontSize: 12, color: active ? c.accentInk : c.muted }} numberOfLines={1}>
+      <View style={[sw.tile, { borderColor: active ? c.accent : 'transparent', backgroundColor: c.chat }]}>{children}</View>
+      <Text style={[text.captionBold, { color: active ? c.accentInk : c.muted }]} numberOfLines={1}>
         {label}
       </Text>
     </Press>
   );
 }
+
+const sw = StyleSheet.create({
+  root: { alignItems: 'center', gap: space[1], width: 64 },
+  tile: { width: 56, height: 56, borderRadius: radius.lg, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  round: { width: control.md, height: control.md, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  step: { width: control.sm, height: 64, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+});
 
 /** O próprio quadro do vídeo no formato: recorte quadrado ou inteiro, com os cantos escolhidos. */
 function ShapeThumb({ shape, corner, thumb, size, outline, c }: { shape: StickerShape; corner: number; thumb: string | undefined; size: { width: number; height: number } | null; outline: boolean; c: Palette }) {
@@ -488,9 +483,9 @@ function ShapeThumb({ shape, corner, thumb, size, outline, c }: { shape: Sticker
   const S = 38;
   const w = shape === 'fit' ? (ar >= 1 ? 44 : Math.round(44 * ar)) : S;
   const h = shape === 'fit' ? (ar >= 1 ? Math.round(44 / ar) : 44) : S;
-  const radius = (clampCorner(corner) * Math.min(w, h)) / 2;
+  const round = (clampCorner(corner) * Math.min(w, h)) / 2;
   return (
-    <View style={{ width: w, height: h, borderRadius: radius, overflow: 'hidden', borderWidth: outline ? 2 : 0, borderColor: '#FFFFFF', backgroundColor: c.dark ? '#2C3036' : '#C9CDD2' }}>
+    <View style={{ width: w, height: h, borderRadius: round, overflow: 'hidden', borderWidth: outline ? 2 : 0, borderColor: media.on, backgroundColor: c.faint /* arte: o canto acompanha o que a pessoa escolheu */ }}>
       {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
     </View>
   );
@@ -509,20 +504,10 @@ function IconToggle({ icon, dot, label, onPress, disabled, c }: { icon?: keyof t
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
-      style={({ pressed }) => ({
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: pressed ? c.hover : c.dark ? c.hover : c.bg,
-        borderWidth: 1,
-        borderColor: c.line,
-        opacity: disabled ? 0.4 : 1,
-      })}
+      style={({ pressed }) => [sw.round, { backgroundColor: pressed ? c.lineStrong : c.sunken, opacity: disabled ? 0.4 : 1 }]}
     >
-      {icon ? <Feather name={icon} size={19} color={c.ink} /> : null}
-      {dot ? <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: dot, borderWidth: 2, borderColor: c.dark ? '#000' : '#16191D' }} /> : null}
+      {icon ? <Feather name={icon} size={20} color={c.ink} /> : null}
+      {dot ? <View style={{ width: 20, height: 20, borderRadius: radius.full, backgroundColor: dot, borderWidth: 2, borderColor: c.ink }} /> : null}
     </Pressable>
   );
 }
@@ -550,7 +535,7 @@ function CornerSlider({ value, onChange, c }: { value: number; onChange: (v: num
       stops={CORNERS.map((p, i) => ({
         value: p,
         label: CORNER_NAMES[i],
-        glyph: (on) => <View style={{ width: 22, height: 22, borderRadius: 11 * p, borderWidth: 2, borderColor: on ? c.accentInk : c.muted }} />,
+        glyph: (on) => <View style={{ width: 24, height: 24, borderRadius: 12 * p, borderWidth: 2, borderColor: on ? c.accentInk : c.muted }} />, // arte: o desenho mostra o próprio arredondamento
       }))}
     />
   );
@@ -563,7 +548,7 @@ function StepButton({ icon, label, onPress, c }: { icon: keyof typeof Feather.gl
       hitSlop={4}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ width: 40, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? c.line : c.hover })}
+      style={({ pressed }) => [sw.step, { backgroundColor: pressed ? c.lineStrong : c.surface }]}
     >
       <Feather name={icon} size={20} color={c.ink} />
     </Pressable>
@@ -590,7 +575,7 @@ function StickerPreview({
   onCrop: (crop: StickerDesign['crop']) => void;
   captions: { cues: Cue[]; style: CaptionStyle } | null;
 }) {
-  const src = size ?? { width: 16, height: 9 };
+  const src = size ?? { width: 16, height: 8 };
   const L = stickerLayout(design, src);
   const k = box / CANVAS;
   const ct = L.content;
@@ -644,17 +629,17 @@ function StickerPreview({
     : StyleSheet.absoluteFill;
   const text = design.text.trim();
   return (
-    <View style={{ width: box, height: box, borderRadius: 20, overflow: 'hidden', backgroundColor: c.dark ? CHAT_BG.dark : CHAT_BG.light }}>
+    <View style={{ width: box, height: box, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: c.chat }}>
       {L.border ? (
         <View
           pointerEvents="none"
-          style={{ position: 'absolute', left: L.border.x * k, top: L.border.y * k, width: L.border.w * k, height: L.border.h * k, borderRadius: L.border.radius * k, backgroundColor: '#FFFFFF' }}
+          style={{ position: 'absolute', left: L.border.x * k, top: L.border.y * k, width: L.border.w * k, height: L.border.h * k, borderRadius: L.border.radius * k, backgroundColor: media.on }} // arte: a forma da figurinha
         />
       ) : null}
       <View
         {...responder.panHandlers}
         accessibilityLabel="Prévia da figurinha. Arraste para escolher o recorte; com dois dedos, aproxima."
-        style={{ position: 'absolute', left: ct.x * k, top: ct.y * k, width: ct.w * k, height: ct.h * k, borderRadius: ct.radius * k, overflow: 'hidden', backgroundColor: '#000' }}
+        style={{ position: 'absolute', left: ct.x * k, top: ct.y * k, width: ct.w * k, height: ct.h * k, borderRadius: ct.radius * k, overflow: 'hidden', backgroundColor: media.stage }} // arte: a forma da figurinha
       >
         <View pointerEvents="none" style={video}>
           {image ? (
@@ -670,7 +655,7 @@ function StickerPreview({
           <TextVisual
             text={text}
             uppercase
-            style={{ font: 'anton', size: 0.11, color: TEXT_COLORS[design.textColor], background: 'outline', bgColor: '#000000', align: 'center' }}
+            style={{ font: 'anton', size: 0.11, color: TEXT_COLORS[design.textColor], background: 'outline', bgColor: media.stage, align: 'center' }}
             fontSize={CANVAS * 0.11 * k}
             maxWidth={CANVAS * 0.94 * k}
           />
@@ -678,7 +663,7 @@ function StickerPreview({
       ) : null}
       {design.shape !== 'fit' ? (
         <Animated.View pointerEvents="none" style={[pv.hint, { opacity: hint }]}>
-          <Feather name="move" size={13} color="#fff" />
+          <Feather name="move" size={12} color={media.on} />
           <Text style={pv.hintText}>Arraste para ajustar</Text>
         </Animated.View>
       ) : null}
@@ -701,8 +686,8 @@ function StickerCaption({ player, captions, cw, ch }: { player: VideoPlayer; cap
 }
 
 const pv = StyleSheet.create({
-  hint: { position: 'absolute', alignSelf: 'center', top: 12, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.55)' },
-  hintText: { fontFamily: font.semibold, fontSize: 13, color: '#fff' },
+  hint: { position: 'absolute', alignSelf: 'center', top: space[3], flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3], height: 32, borderRadius: radius.full, backgroundColor: media.scrim },
+  hintText: { ...text.captionBold, color: media.on },
 });
 
 /**
@@ -742,46 +727,36 @@ function FolderChips({
       setSaving(false);
     }
   };
-  const chip = (on: boolean) => ({
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    height: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: on ? c.accent : c.line,
-    backgroundColor: on ? c.accentSoft : c.surface,
-  });
+  const chip = (on: boolean) => [chips.chip, { backgroundColor: on ? c.inverse : c.sunken }];
   return (
     <View>
-      <Text style={{ fontFamily: font.semibold, fontSize: 14, color: c.ink, marginBottom: 8 }} nativeID="sticker-folder-label">
+      <Text style={[text.overline, chips.label, { color: c.muted }]} nativeID="sticker-folder-label">
         Pasta
       </Text>
       {naming ? (
         <Reveal>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={chips.naming}>
             <TextInput
               value={name}
               onChangeText={setName}
               autoFocus
               placeholder="Nome da pasta"
-              placeholderTextColor={c.disabledInk}
+              placeholderTextColor={c.muted}
               maxLength={40}
               returnKeyType="done"
               onSubmitEditing={create}
               selectionColor={c.accent}
               accessibilityLabel="Nome da nova pasta"
-              style={{ flex: 1, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, fontFamily: font.medium, fontSize: 16, color: c.ink }}
+              style={[text.body, chips.input, { borderColor: c.accent, backgroundColor: c.sunken, color: c.ink }]}
             />
-            <Button tone="accent" compact label="Criar" busy={saving} disabled={!name.trim()} onPress={create} />
-            <Pressable onPress={() => setNaming(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancelar a pasta nova" style={{ padding: 8 }}>
+            <Button tone="accent" size="md" label="Criar" busy={saving} disabled={!name.trim()} onPress={create} />
+            <Pressable onPress={() => setNaming(false)} hitSlop={space[3]} accessibilityRole="button" accessibilityLabel="Cancelar a pasta nova">
               <Feather name="x" size={20} color={c.muted} />
             </Pressable>
           </View>
         </Reveal>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabelledBy="sticker-folder-label">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={chips.row} accessibilityRole="radiogroup" accessibilityLabelledBy="sticker-folder-label">
           {(folders ?? []).map((f) => {
             const on = f.id === value;
             const n = packOf(f, kind === 'animated')?.count ?? 0;
@@ -797,23 +772,31 @@ function FolderChips({
                 accessibilityState={{ checked: on }}
                 accessibilityLabel={`Pasta ${f.name}, ${n} de ${MAX_PER_PACK}`}
               >
-                <Feather name="folder" size={15} color={on ? c.accentInk : c.muted} />
-                <Text style={{ fontFamily: font.semibold, fontSize: 14, color: on ? c.accentInk : c.ink }} numberOfLines={1}>
+                <Feather name="folder" size={16} color={on ? c.onInverse : c.muted} />
+                <Text style={[text.captionBold, { color: on ? c.onInverse : c.ink }]} numberOfLines={1}>
                   {f.name}
                 </Text>
-                <Text style={{ fontFamily: font.medium, fontSize: 12, color: n >= MAX_PER_PACK ? c.danger : c.muted, fontVariant: ['tabular-nums'] }}>{n}</Text>
+                <Text style={[text.caption, tabular, { color: n >= MAX_PER_PACK ? c.danger : on ? c.onInverse : c.muted }]}>{n}</Text>
               </Pressable>
             );
           })}
-          <Pressable onPress={() => setNaming(true)} style={[chip(false), { borderStyle: 'dashed' }]} accessibilityRole="button" accessibilityLabel="Nova pasta">
-            <Feather name="plus" size={15} color={c.accentInk} />
-            <Text style={{ fontFamily: font.semibold, fontSize: 14, color: c.accentInk }}>Nova</Text>
+          <Pressable onPress={() => setNaming(true)} style={[chips.chip, { backgroundColor: c.accentSoft }]} accessibilityRole="button" accessibilityLabel="Nova pasta">
+            <Feather name="plus" size={16} color={c.accentInk} />
+            <Text style={[text.captionBold, { color: c.accentInk }]}>Nova</Text>
           </Pressable>
         </ScrollView>
       )}
     </View>
   );
 }
+
+const chips = StyleSheet.create({
+  label: { marginBottom: space[2] },
+  row: { gap: space[2] },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full },
+  naming: { flexDirection: 'row', gap: space[2], alignItems: 'center' },
+  input: { flex: 1, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.lg, borderWidth: 2 },
+});
 
 /** Tira de quadros com uma alça: arrastar escolhe o quadro da figurinha parada. */
 function FramePicker({ filmstrip, duration, value, onChange, c }: { filmstrip: string[]; duration: number; value: number; onChange: (t: number) => void; c: Palette }) {
@@ -844,13 +827,13 @@ function FramePicker({ filmstrip, duration, value, onChange, c }: { filmstrip: s
   const x = duration > 0 ? (value / duration) * width : 0;
   return (
     <View style={{ height: 64 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)} accessible accessibilityRole="adjustable" accessibilityLabel={`Quadro em ${clock(value)}`}>
-      <View pointerEvents="none" style={{ ...StyleSheet.absoluteFill, flexDirection: 'row', borderRadius: 10, overflow: 'hidden', backgroundColor: c.sk }}>
+      <View pointerEvents="none" style={{ ...StyleSheet.absoluteFill, flexDirection: 'row', borderRadius: radius.md, overflow: 'hidden', backgroundColor: c.sk }}>
         {filmstrip.map((uri, i) => (
           <Image key={i} source={{ uri }} style={{ flex: 1, height: '100%' }} resizeMode="cover" />
         ))}
       </View>
       {width > 0 ? (
-        <View pointerEvents="none" style={{ position: 'absolute', top: -5, bottom: -5, left: x - 3, width: 6, borderRadius: 3, backgroundColor: c.accent, borderWidth: 1.5, borderColor: '#fff' }} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: -space[1], bottom: -space[1], left: x - 4, width: 8, borderRadius: radius.full, backgroundColor: c.accent, borderWidth: 2, borderColor: media.on }} />
       ) : null}
       <View {...responder.panHandlers} style={StyleSheet.absoluteFill} />
     </View>
@@ -859,29 +842,31 @@ function FramePicker({ filmstrip, duration, value, onChange, c }: { filmstrip: s
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    root: { gap: 18 },
+    scroll: { flexShrink: 1 },
+    content: { paddingHorizontal: gutter, paddingBottom: space[4], gap: space[4] },
+    footer: { paddingHorizontal: gutter, paddingTop: space[3], gap: space[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.lineStrong },
+    root: { gap: space[6] },
     previewWrap: { alignItems: 'center' },
-    swatches: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 4 },
-    swatchSep: { width: StyleSheet.hairlineWidth, height: 40, backgroundColor: c.line, marginTop: 9, marginHorizontal: 6 },
-    ring: { width: 34, height: 34, borderRadius: 10, borderWidth: 3.5 },
-    card: { paddingTop: 12, paddingBottom: 12, borderRadius: 16, backgroundColor: c.bg, gap: 10 },
-    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
-    cardTitle: { fontFamily: font.semibold, fontSize: 14, color: c.ink },
-    badge: { fontFamily: font.semibold, fontSize: 13, color: c.accentInk, fontVariant: ['tabular-nums'] },
-    frameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 },
-    label: { fontFamily: font.semibold, fontSize: 14, color: c.ink, marginBottom: 8 },
-    textRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    input: { flex: 1, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.surface, fontFamily: font.medium, fontSize: 16, color: c.ink },
-    emojiRow: { gap: 8, alignItems: 'center' },
-    emoji: { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: c.line, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface },
-    emojiText: { fontSize: 22 },
-    made: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 10, paddingRight: 12, borderRadius: 16, backgroundColor: c.waSoft },
-    madeImg: { width: 56, height: 56, borderRadius: 12, overflow: 'hidden' },
-    madeTitle: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    madeBody: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 2 },
-    busy: { gap: 10, padding: 14, borderRadius: 14, backgroundColor: c.bg, borderWidth: 1, borderColor: c.line },
-    busyText: { fontFamily: font.medium, fontSize: 15, color: c.ink },
-    track: { height: 4, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden' },
-    fill: { height: 4, borderRadius: 2, backgroundColor: c.accent },
-    cancel: { fontFamily: font.semibold, fontSize: 14, color: c.danger, textAlign: 'center' },
+    swatches: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: space[1] },
+    swatchSep: { width: StyleSheet.hairlineWidth, height: 40, backgroundColor: c.lineStrong, marginTop: space[2], marginHorizontal: space[2] },
+    ring: { width: 32, height: 32, borderRadius: radius.md, borderWidth: 4 },
+    ringCaption: { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: space[1], gap: space[1], borderWidth: 0 },
+    ringBar: { height: 4, borderRadius: radius.full },
+    card: { paddingVertical: space[3], borderRadius: radius.lg, backgroundColor: c.sunken, gap: space[3] },
+    cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space[4] },
+    cardTitle: { ...text.overline, color: c.muted },
+    badge: { ...text.captionBold, ...tabular, color: c.accentInk },
+    frameRow: { flexDirection: 'row', alignItems: 'center', gap: space[2], paddingHorizontal: space[3] },
+    framePick: { flex: 1 },
+    label: { ...text.overline, color: c.muted, marginBottom: space[2] },
+    textRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    input: { ...text.body, flex: 1, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.lg, backgroundColor: c.sunken, color: c.ink },
+    emojiRow: { gap: space[2], alignItems: 'center' },
+    emoji: { width: control.md, height: control.md, borderRadius: radius.full, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', backgroundColor: c.sunken },
+    emojiText: { ...text.title },
+    made: { flexDirection: 'row', gap: space[3], alignItems: 'center', padding: space[2], paddingRight: space[3], borderRadius: radius.lg, backgroundColor: c.successSoft },
+    madeImg: { width: 48, height: 48, borderRadius: radius.md, overflow: 'hidden' },
+    madeText: { flex: 1, minWidth: 0 },
+    madeTitle: { ...text.bodyBold, color: c.ink },
+    madeBody: { ...text.caption, color: c.muted },
   });

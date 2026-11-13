@@ -2,12 +2,12 @@ import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine from '../../modules/puxa-engine';
 import { AddLinks } from '../components/music/AddLinks';
-import { imageUri, PlaylistCover, TrackArt } from '../components/music/Cover';
+import { Equalizer, HeroMotif, imageUri, PlaylistCover, TrackArt } from '../components/music/Cover';
 import { ListEditor } from '../components/music/ListEditor';
 import { ListPicker } from '../components/music/ListPicker';
 import { MiniPlayer } from '../components/music/MiniPlayer';
@@ -15,22 +15,15 @@ import { Sheet } from '../components/music/Sheet';
 import { TrackActions, type TrackAction } from '../components/music/TrackActions';
 import { useToast } from '../components/Toasts';
 import { bytes, clock } from '../format';
-import { ms } from '../motion';
-import { COLORS, motifOf } from '../playlist/colors';
+import { COLORS, listInk, motifOf } from '../playlist/colors';
 import { removeTrack, resumeQueue, retry } from '../playlist/downloads';
 import { addToList, ALL, deleteList, listLook, moveInList, removeFromList, tracksOf, updateList, useLists } from '../playlist/lists';
 import { playList, playTrack, toggle, toggleShuffle, usePlayer } from '../playlist/player';
 import { moveTrack, useTracks, type Track } from '../playlist/store';
-import { font, type Palette, usePalette } from '../theme';
-
-/** Cor da playlist que dá para ler sobre o fundo do app (no escuro, mais clara). */
-function readable(hex: string, dark: boolean, ink: string): string {
-  if (!dark) return hex === COLORS.amarelo.bg || hex === COLORS.lima.bg ? '#5B4A00' : hex;
-  if (hex === COLORS.grafite.bg) return ink;
-  const n = parseInt(hex.slice(1), 16);
-  const mix = (v: number) => Math.round(v + (255 - v) * 0.38);
-  return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
-}
+import { alpha, control, gutter, hit, type Palette, radius, space, tabular, text, usePalette } from '../theme';
+import { BackButton } from '../components/BackButton';
+import { Button } from '../components/Button';
+import { EmptyState, IconButton, PlayIcon } from '../components/ui';
 
 /**
  * Uma playlist (ou Todas as músicas): o pôster no topo com o nome grande, tocar e aleatório, o
@@ -42,6 +35,7 @@ export function PlaylistScreen() {
   const c = usePalette();
   const s = useMemo(() => makeStyles(c), [c]);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
   const all = useTracks();
@@ -61,14 +55,17 @@ export function PlaylistScreen() {
   const own = id === ALL ? null : (lists.find((p) => p.id === id) ?? null);
   const look = listLook(id);
   const k = COLORS[look.color];
-  const tint = readable(k.bg, c.dark, c.ink);
+  /** A cor da playlist como texto e ícone sobre o fundo do app. */
+  const tint = listInk(look.color, c.dark);
+  /** Peças redondas sobre o pôster: um véu da cor da letra. */
+  const veil = { bg: alpha(k.ink, 0.16), ink: k.ink };
   const tracks = tracksOf(id, all);
   const ready = tracks.filter((t) => t.status === 'ready');
   const time = ready.reduce((n, t) => n + (t.duration || 0), 0);
   const here = player.listId === id;
   const hasPlayer = !!player.trackId;
 
-  const toastBottom = hasPlayer && miniH ? miniH + 8 : insets.bottom + 16;
+  const toastBottom = hasPlayer && miniH ? miniH + space[2] : insets.bottom + space[4];
   useFocusEffect(
     useCallback(() => {
       const t = setTimeout(() => toast.setBottomInset(toastBottom), 60);
@@ -141,34 +138,29 @@ export function PlaylistScreen() {
 
   const playing = here && player.playing;
   const index = actions ? tracks.findIndex((x) => x.id === actions.id) : -1;
+  const count = tracks.length === 1 ? '1 música' : `${tracks.length} músicas`;
 
   return (
     <View style={s.root}>
-      <ScrollView contentContainerStyle={{ paddingBottom: (hasPlayer ? 110 : 32) + insets.bottom }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingBottom: (hasPlayer && miniH ? miniH + space[6] : space[8] + insets.bottom) }} keyboardShouldPersistTaps="handled">
         {/* O pôster da playlist, de ponta a ponta */}
-        <View style={[s.hero, { backgroundColor: k.bg, paddingTop: insets.top + 8 }]}>
-          <HeroMotif kind={motifOf(look.name)} ink={k.ink} />
+        <View style={[s.hero, { backgroundColor: k.bg, paddingTop: insets.top + space[2] }]}>
+          <HeroMotif kind={motifOf(look.name)} ink={k.ink} width={width} />
           <View style={s.heroTop}>
-            <Pressable onPress={() => router.back()} hitSlop={6} style={[s.round, { backgroundColor: k.ink === '#FFFFFF' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.4)' }]} accessibilityRole="button" accessibilityLabel="Voltar">
-              <Feather name="arrow-left" size={22} color={k.ink} />
-            </Pressable>
-            {own ? (
-              <Pressable onPress={() => setMenu(true)} hitSlop={6} style={[s.round, { backgroundColor: k.ink === '#FFFFFF' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.4)' }]} accessibilityRole="button" accessibilityLabel="Opções da playlist">
-                <Feather name="more-horizontal" size={22} color={k.ink} />
-              </Pressable>
-            ) : null}
+            <BackButton tint={veil} />
+            {own ? <IconButton icon="more-horizontal" label="Opções da playlist" tint={veil} onPress={() => setMenu(true)} /> : null}
           </View>
           {look.cover ? (
             <Pressable onPress={() => setEditing(true)} style={s.heroArt} accessibilityRole="button" accessibilityLabel="Trocar a capa">
-              <Image source={{ uri: imageUri(look.cover) }} style={{ width: 148, height: 148 }} resizeMode="cover" />
+              <Image source={{ uri: imageUri(look.cover) }} style={s.heroImage} resizeMode="cover" />
             </Pressable>
           ) : null}
-          <Text style={[s.kicker, { color: k.ink }]}>{own ? 'PLAYLIST' : 'BIBLIOTECA'}</Text>
-          <Text style={[s.heroTitle, { color: k.ink }, look.cover && { fontSize: 44, lineHeight: 50 }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
+          <Text style={[s.kicker, { color: alpha(k.ink, 0.8) }]}>{own ? 'Playlist' : 'Biblioteca'}</Text>
+          <Text style={[s.heroTitle, { color: k.ink }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6} accessibilityRole="header">
             {look.name}
           </Text>
-          <Text style={[s.heroMeta, { color: k.ink }]}>
-            {tracks.length === 1 ? '1 música' : `${tracks.length} músicas`}
+          <Text style={[s.heroMeta, { color: alpha(k.ink, 0.8) }]}>
+            {count}
             {time ? ` · ${clock(time)}` : ''}
           </Text>
         </View>
@@ -180,13 +172,14 @@ export function PlaylistScreen() {
               Haptics.selectionAsync().catch(() => {});
               toggleShuffle();
             }}
-            style={({ pressed }) => [s.chip, { borderColor: player.shuffle ? tint : c.line, backgroundColor: player.shuffle ? `${k.bg}22` : c.surface }, pressed && { opacity: 0.85 }]}
+            hitSlop={hit(control.sm)}
+            style={({ pressed }) => [s.shuffle, { backgroundColor: player.shuffle ? k.bg : c.sunken }, pressed && { opacity: 0.72 }]}
             accessibilityRole="switch"
             accessibilityState={{ checked: player.shuffle }}
             accessibilityLabel="Aleatório"
           >
-            <Feather name="shuffle" size={17} color={player.shuffle ? tint : c.ink} />
-            <Text style={[s.chipText, { color: player.shuffle ? tint : c.ink }]}>Aleatório</Text>
+            <Feather name="shuffle" size={16} color={player.shuffle ? k.ink : c.ink} />
+            <Text style={[s.shuffleText, { color: player.shuffle ? k.ink : c.ink }]}>Aleatório</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -195,57 +188,52 @@ export function PlaylistScreen() {
               else playList(id);
             }}
             disabled={!ready.length}
-            style={({ pressed }) => [s.play, { backgroundColor: k.bg, borderColor: c.bg, opacity: ready.length ? 1 : 0.5 }, pressed && { transform: [{ scale: 0.94 }] }]}
+            style={({ pressed }) => [s.play, { backgroundColor: k.bg, borderColor: c.bg, opacity: ready.length ? 1 : 0.4 }, pressed && { transform: [{ scale: 0.94 }] }]}
             accessibilityRole="button"
             accessibilityLabel={playing ? 'Pausar' : `Tocar ${look.name}`}
           >
-            <Feather name={playing ? 'pause' : 'play'} size={30} color={k.ink} style={playing ? null : { marginLeft: 4 }} />
+            <PlayIcon playing={playing} size={32} color={k.ink} />
           </Pressable>
         </View>
 
-        <View style={s.body}>
+        <View style={s.field}>
           <AddLinks listId={own ? id : undefined} tint={k.bg} tintInk={k.ink} />
-
-          {tracks.length ? (
-            <View style={{ gap: 2 }}>
-              {tracks.map((t, i) => (
-                <TrackRow
-                  key={t.id}
-                  t={t}
-                  n={i + 1}
-                  current={here && player.trackId === t.id}
-                  audible={here && player.trackId === t.id && player.playing}
-                  tint={tint}
-                  art={k.bg}
-                  c={c}
-                  s={s}
-                  onPress={() => onRow(t)}
-                  onMore={() => setActions(t)}
-                />
-              ))}
-            </View>
-          ) : (
-            <View style={s.empty}>
-              <PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={20} image={look.cover} />
-              <Text style={s.emptyTitle}>{own ? 'Playlist vazia' : 'Nenhuma música ainda'}</Text>
-              <Text style={s.emptyBody}>
-                {own ? 'Cole links aqui em cima ou escolha músicas que já estão no celular.' : 'Cole um link aqui em cima ou, no Baixar, toque em Playlist. As músicas tocam com a tela desligada.'}
-              </Text>
-              {own && all.length ? (
-                <Pressable onPress={() => setPicking(true)} style={({ pressed }) => [s.emptyBtn, { backgroundColor: k.bg }, pressed && { opacity: 0.85 }]} accessibilityRole="button" accessibilityLabel="Escolher da biblioteca">
-                  <Feather name="list" size={17} color={k.ink} />
-                  <Text style={[s.emptyBtnText, { color: k.ink }]}>Escolher da biblioteca</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          )}
-          {own && tracks.length && all.length > tracks.length ? (
-            <Pressable onPress={() => setPicking(true)} style={({ pressed }) => [s.more, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel="Adicionar músicas da biblioteca">
-              <Feather name="plus" size={18} color={tint} />
-              <Text style={[s.moreText, { color: tint }]}>Adicionar da biblioteca</Text>
-            </Pressable>
-          ) : null}
         </View>
+
+        {tracks.length ? (
+          <View style={s.list}>
+            {tracks.map((t, i) => (
+              <TrackRow
+                key={t.id}
+                t={t}
+                n={i + 1}
+                current={here && player.trackId === t.id}
+                audible={here && player.trackId === t.id && player.playing}
+                tint={tint}
+                art={k.bg}
+                artInk={k.ink}
+                c={c}
+                s={s}
+                onPress={() => onRow(t)}
+                onMore={() => setActions(t)}
+              />
+            ))}
+          </View>
+        ) : (
+          <EmptyState
+            icon="music"
+            art={<PlaylistCover name={own ? look.name : 'Vazia'} color={look.color} size={96} radius={radius.xl} image={look.cover} />}
+            title={own ? 'Playlist vazia' : 'Nenhuma música ainda'}
+            body={own ? 'Cole links aqui em cima ou escolha músicas que já estão no celular.' : 'Cole um link aqui em cima ou, no Início, toque em Playlist. As músicas tocam com a tela desligada.'}
+          >
+            {own && all.length ? <Button icon="list" label="Escolher da biblioteca" tint={{ bg: k.bg, ink: k.ink }} onPress={() => setPicking(true)} /> : null}
+          </EmptyState>
+        )}
+        {own && tracks.length && all.length > tracks.length ? (
+          <View style={s.field}>
+            <Button tone="neutral" size="md" icon="plus" label="Adicionar da biblioteca" onPress={() => setPicking(true)} style={s.more} />
+          </View>
+        ) : null}
       </ScrollView>
 
       <MiniPlayer onHeight={setMiniH} />
@@ -256,6 +244,7 @@ export function PlaylistScreen() {
         canUp={index > 0}
         canDown={index >= 0 && index < tracks.length - 1}
         tint={k.bg}
+        tintInk={k.ink}
         onClose={() => setActions(null)}
         onAction={act}
       />
@@ -294,7 +283,9 @@ export function PlaylistScreen() {
 
 type Styles = ReturnType<typeof makeStyles>;
 
-function TrackRow({ t, n, current, audible, tint, art, c, s, onPress, onMore }: { t: Track; n: number; current: boolean; audible: boolean; tint: string; art: string; c: Palette; s: Styles; onPress: () => void; onMore: () => void }) {
+type RowProps = { t: Track; n: number; current: boolean; audible: boolean; tint: string; art: string; artInk: string; c: Palette; s: Styles; onPress: () => void; onMore: () => void };
+
+function TrackRow({ t, n, current, audible, tint, art, artInk, c, s, onPress, onMore }: RowProps) {
   const busy = t.status === 'queued' || t.status === 'downloading';
   const meta =
     t.status === 'ready'
@@ -311,15 +302,15 @@ function TrackRow({ t, n, current, audible, tint, art, c, s, onPress, onMore }: 
       onPress={onPress}
       onLongPress={onMore}
       delayLongPress={300}
-      android_ripple={{ color: c.hover }}
-      style={[s.row, current && { backgroundColor: c.dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)' }]}
+      android_ripple={{ color: c.sunken }}
+      style={({ pressed }) => [s.row, (current || pressed) && { backgroundColor: c.sunken }]}
       accessibilityRole="button"
       accessibilityLabel={t.status === 'ready' ? `${audible ? 'Pausar' : 'Tocar'} ${t.title}` : t.status === 'error' ? `Tentar de novo: ${t.title}` : `${t.title}, ${meta}`}
       accessibilityHint="Segure para mais opções"
     >
-      <View style={s.num}>{current ? <Bars on={audible} color={tint} /> : busy ? <ActivityIndicator size="small" color={c.muted} /> : <Text style={s.numText}>{n}</Text>}</View>
-      <TrackArt uri={imageUri(t.thumbnail)} size={48} radius={10} tint={art} />
-      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+      <View style={s.num}>{current ? <Equalizer on={audible} color={tint} /> : busy ? <ActivityIndicator size="small" color={c.muted} /> : <Text style={s.numText}>{n}</Text>}</View>
+      <TrackArt uri={imageUri(t.thumbnail)} size={48} radius={radius.sm} tint={art} ink={artInk} />
+      <View style={s.rowText}>
         <Text style={[s.title, current && { color: tint }]} numberOfLines={1}>
           {t.title}
         </Text>
@@ -332,72 +323,8 @@ function TrackRow({ t, n, current, audible, tint, art, c, s, onPress, onMore }: 
           </View>
         ) : null}
       </View>
-      <Pressable onPress={onMore} hitSlop={6} style={({ pressed }) => [s.dots, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel={`Mais opções: ${t.title}`}>
-        <Feather name="more-vertical" size={20} color={c.muted} />
-      </Pressable>
+      <IconButton icon="more-vertical" tone="plain" label={`Mais opções: ${t.title}`} onPress={onMore} />
     </Pressable>
-  );
-}
-
-/** Três barrinhas que dançam enquanto a música toca (paradas quando pausa). */
-function Bars({ on, color }: { on: boolean; color: string }) {
-  const [vals] = useState(() => [new Animated.Value(0.4), new Animated.Value(0.8), new Animated.Value(0.55)]);
-  useEffect(() => {
-    if (!on) {
-      vals.forEach((v) => v.stopAnimation());
-      return;
-    }
-    const loops = vals.map((v, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: ms(280 + i * 90), easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0.25, duration: ms(320 + i * 70), easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        ]),
-      ),
-    );
-    loops.forEach((l) => l.start());
-    return () => loops.forEach((l) => l.stop());
-  }, [on, vals]);
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2.5, height: 16 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {vals.map((v, i) => (
-        <Animated.View key={i} style={{ width: 3.5, height: 16, borderRadius: 2, backgroundColor: color, transform: [{ scaleY: v }], transformOrigin: 'bottom' }} />
-      ))}
-    </View>
-  );
-}
-
-/** Desenho de fundo do pôster do topo (o mesmo da capa, em tamanho grande). */
-function HeroMotif({ kind, ink }: { kind: number; ink: string }) {
-  const o = 0.14;
-  if (kind === 0)
-    return (
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        {[420, 300, 180].map((d, i) => (
-          <View key={i} style={{ position: 'absolute', width: d, height: d, borderRadius: d, borderWidth: 14, borderColor: ink, opacity: o, right: -d * 0.3, top: -d * 0.35 }} />
-        ))}
-      </View>
-    );
-  if (kind === 1)
-    return (
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o }]}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <View key={i} style={{ position: 'absolute', width: 700, height: 22, backgroundColor: ink, left: -120, top: 10 + i * 64, transform: [{ rotate: '-28deg' }] }} />
-        ))}
-      </View>
-    );
-  if (kind === 2)
-    return (
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o + 0.04 }]}>
-        {Array.from({ length: 24 }, (_, i) => (
-          <View key={i} style={{ position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: ink, right: 24 + (i % 6) * 34, top: 70 + Math.floor(i / 6) * 30 }} />
-        ))}
-      </View>
-    );
-  return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: o }]}>
-      <View style={{ position: 'absolute', width: 320, height: 320, borderRadius: 160, backgroundColor: ink, right: -90, top: 10 }} />
-    </View>
   );
 }
 
@@ -408,25 +335,25 @@ function ListMenu({ visible, name, onClose, onEdit, onDelete }: { visible: boole
   if (!visible && armed) setArmed(false);
   return (
     <Sheet visible={visible} onClose={onClose} label={`Opções de ${name}`}>
-      <View style={{ paddingBottom: 4 }}>
-        <Text style={{ fontFamily: font.bold, fontSize: 19, color: c.ink, paddingHorizontal: 22, paddingBottom: 8 }} numberOfLines={1}>
+      <View style={{ paddingBottom: space[1] }}>
+        <Text style={{ ...text.title, color: c.ink, paddingHorizontal: gutter, paddingBottom: space[2] }} numberOfLines={1}>
           {name}
         </Text>
-        <Pressable onPress={onEdit} android_ripple={{ color: c.hover }} style={menuRow} accessibilityRole="button" accessibilityLabel="Editar nome, cor e capa">
-          <Feather name="edit-3" size={21} color={c.ink} />
-          <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.ink }}>Editar nome, cor e capa</Text>
+        <Pressable onPress={onEdit} android_ripple={{ color: c.sunken }} style={menuRow} accessibilityRole="button" accessibilityLabel="Editar nome, cor e capa">
+          <Feather name="edit-3" size={20} color={c.ink} />
+          <Text style={{ ...text.body, color: c.ink }}>Editar nome, cor e capa</Text>
         </Pressable>
         <Pressable
           onPress={() => (armed ? onDelete() : setArmed(true))}
-          android_ripple={{ color: c.hover }}
+          android_ripple={{ color: c.sunken }}
           style={menuRow}
           accessibilityRole="button"
           accessibilityLabel={armed ? 'Toque de novo para apagar a playlist' : 'Apagar playlist'}
         >
-          <Feather name="trash-2" size={21} color={c.danger} />
+          <Feather name="trash-2" size={20} color={c.danger} />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: font.medium, fontSize: 16, color: c.danger }}>{armed ? 'Toque de novo para apagar' : 'Apagar playlist'}</Text>
-            <Text style={{ fontFamily: font.regular, fontSize: 13, color: c.muted }}>As músicas continuam no celular.</Text>
+            <Text style={{ ...text.body, color: c.danger }}>{armed ? 'Toque de novo para apagar' : 'Apagar playlist'}</Text>
+            <Text style={{ ...text.caption, color: c.muted }}>As músicas continuam no celular.</Text>
           </View>
         </Pressable>
       </View>
@@ -434,7 +361,7 @@ function ListMenu({ visible, name, onClose, onEdit, onDelete }: { visible: boole
   );
 }
 
-const menuRow = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 16, minHeight: 56, paddingHorizontal: 22 };
+const menuRow = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: space[4], minHeight: control.lg, paddingHorizontal: gutter };
 
 /** Escolher músicas que já estão no celular para esta playlist. */
 function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boolean; listId: string; tint: string; tintInk: string; onClose: () => void }) {
@@ -444,8 +371,8 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
   const inside = new Set(lists.find((p) => p.id === listId)?.trackIds ?? []);
   return (
     <Sheet visible={visible} onClose={onClose} label="Escolher da biblioteca">
-      <Text style={{ fontFamily: font.bold, fontSize: 19, color: c.ink, paddingHorizontal: 20, paddingBottom: 8 }}>Da biblioteca</Text>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 8 }}>
+      <Text style={{ ...text.title, color: c.ink, paddingHorizontal: gutter, paddingBottom: space[2] }}>Da biblioteca</Text>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: space[2], paddingBottom: space[2] }}>
         {all.map((t) => {
           const on = inside.has(t.id);
           return (
@@ -456,22 +383,22 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
                 if (on) removeFromList(listId, t.id);
                 else addToList(listId, [t.id]);
               }}
-              android_ripple={{ color: c.hover }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 }}
+              android_ripple={{ color: c.sunken }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: space[4], paddingVertical: space[2], borderRadius: radius.lg }}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: on }}
               accessibilityLabel={t.title}
             >
-              <TrackArt uri={imageUri(t.thumbnail)} size={44} radius={10} tint={tint} />
+              <TrackArt uri={imageUri(t.thumbnail)} size={48} radius={radius.sm} tint={tint} ink={tintInk} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={{ fontFamily: font.semibold, fontSize: 15, color: c.ink }} numberOfLines={1}>
+                <Text style={{ ...text.bodyBold, color: c.ink }} numberOfLines={1}>
                   {t.title}
                 </Text>
-                <Text style={{ fontFamily: font.regular, fontSize: 13, color: c.muted }} numberOfLines={1}>
+                <Text style={{ ...text.caption, color: c.muted }} numberOfLines={1}>
                   {t.artist || ' '}
                 </Text>
               </View>
-              <View style={[{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, on ? { backgroundColor: tint } : { borderWidth: 2, borderColor: c.lineStrong }]}>
+              <View style={[{ width: 24, height: 24, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' }, on ? { backgroundColor: tint } : { borderWidth: 2, borderColor: c.lineStrong }]}>
                 {on ? <Feather name="check" size={16} color={tintInk} /> : null}
               </View>
             </Pressable>
@@ -485,31 +412,27 @@ function LibraryPick({ visible, listId, tint, tintInk, onClose }: { visible: boo
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    hero: { paddingHorizontal: 20, paddingBottom: 46, overflow: 'hidden' },
-    heroTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 },
-    heroArt: { width: 148, height: 148, borderRadius: 18, overflow: 'hidden', marginTop: -8, marginBottom: 18, elevation: 10, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } },
-    round: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-    kicker: { fontFamily: 'Anton_400Regular', fontSize: 13, letterSpacing: 1.8, opacity: 0.75 },
-    heroTitle: { fontFamily: 'Anton_400Regular', fontSize: 54, lineHeight: 60, textTransform: 'uppercase', marginTop: 2, includeFontPadding: false },
-    heroMeta: { fontFamily: font.semibold, fontSize: 14, opacity: 0.85, marginTop: 4 },
-    actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: -36, marginBottom: 8 },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5, marginTop: 30 },
-    chipText: { fontFamily: font.semibold, fontSize: 14 },
-    play: { width: 72, height: 72, borderRadius: 36, borderWidth: 5, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-    body: { paddingHorizontal: 12, gap: 14 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingLeft: 4, paddingRight: 0, borderRadius: 14 },
-    num: { width: 26, alignItems: 'center', justifyContent: 'center' },
-    numText: { fontFamily: font.medium, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    title: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
-    meta: { fontFamily: font.regular, fontSize: 13, color: c.muted },
-    bar: { height: 3, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden', marginTop: 3 },
-    barFill: { height: 3, borderRadius: 2 },
-    dots: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-    empty: { alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingTop: 20 },
-    emptyTitle: { fontFamily: font.bold, fontSize: 19, color: c.ink, marginTop: 6 },
-    emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center' },
-    emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 46, paddingHorizontal: 18, borderRadius: 23, marginTop: 6 },
-    emptyBtnText: { fontFamily: font.semibold, fontSize: 15 },
-    more: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 14, borderRadius: 14 },
-    moreText: { fontFamily: font.semibold, fontSize: 15 },
+    hero: { paddingHorizontal: gutter, paddingBottom: space[12], overflow: 'hidden' },
+    heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: control.md, marginBottom: space[8] },
+    heroArt: { width: 144, height: 144, borderRadius: radius.lg, overflow: 'hidden', marginBottom: space[4], boxShadow: c.shadow2 },
+    heroImage: { width: 144, height: 144 },
+    kicker: { ...text.overline },
+    heroTitle: { ...text.display, marginTop: space[1] },
+    heroMeta: { ...text.captionBold, ...tabular, marginTop: space[1] },
+    // O play entra 24 no pôster; o aleatório fica embaixo, na linha de baixo do play, com 8 de folga
+    actionsRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: gutter, marginTop: -space[6] },
+    shuffle: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full },
+    shuffleText: { ...text.captionBold },
+    play: { width: 72, height: 72, borderRadius: radius.full, borderWidth: 4, alignItems: 'center', justifyContent: 'center', boxShadow: c.shadow2 },
+    field: { paddingHorizontal: gutter, paddingTop: space[4] },
+    list: { paddingHorizontal: space[4], paddingTop: space[4] },
+    row: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[2], paddingLeft: space[2], borderRadius: radius.lg },
+    rowText: { flex: 1, minWidth: 0 },
+    num: { width: 24, alignItems: 'center', justifyContent: 'center' },
+    numText: { ...text.caption, ...tabular, color: c.muted },
+    title: { ...text.bodyBold, color: c.ink },
+    meta: { ...text.caption, color: c.muted },
+    bar: { height: 4, borderRadius: radius.full, backgroundColor: c.sunken, overflow: 'hidden', marginTop: space[1] },
+    barFill: { height: 4, borderRadius: radius.full },
+    more: { alignSelf: 'flex-start' },
   });

@@ -3,31 +3,34 @@ import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PuxaEngine, { type StorageKind, type StorageUsage } from '../../modules/puxa-engine';
 import { account } from '../ai/elevenlabs';
 import { setElevenKey, useElevenKey } from '../ai/key';
-import { Press } from '../components/Button';
+import { Button, Press } from '../components/Button';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Reveal } from '../components/SheetParts';
 import { useToast } from '../components/Toasts';
+import { AppMark, Group, Hairline, Overline } from '../components/ui';
 import { forgetThumbs } from '../editor/media';
 import { accountChanged, onAccountChanged, storageCleared } from '../events';
 import { bytes } from '../format';
+import { COLORS } from '../playlist/colors';
+import { clearRecents, useRecents } from '../recents';
 import { setSettings, useSettings, type ThemePref } from '../settings';
 import { instagramLoggedIn } from '../sources';
-import { dark as darkPalette, font, light as lightPalette, type Palette, radius, usePalette } from '../theme';
+import { control, dark as darkPalette, gutter, light as lightPalette, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 type Row = { kind: StorageKind; icon: keyof typeof Feather.glyphMap; title: string; action: string; confirm?: boolean; color: string };
 
 const ROWS: Row[] = [
-  { kind: 'downloads', icon: 'download', title: 'Baixados', action: 'Apagar', color: '#2547D0' },
-  { kind: 'temp', icon: 'clock', title: 'Temporários', action: 'Limpar', color: '#0E9F6E' },
-  { kind: 'playlist', icon: 'music', title: 'Playlist', action: 'Apagar', confirm: true, color: '#C2410C' },
-  { kind: 'stickers', icon: 'smile', title: 'Figurinhas', action: 'Apagar', confirm: true, color: '#DB2777' },
-  { kind: 'models', icon: 'mic', title: 'Transcrição', action: 'Apagar', color: '#7C3AED' },
+  { kind: 'downloads', icon: 'download', title: 'Baixados', action: 'Apagar', color: COLORS.azul.bg },
+  { kind: 'temp', icon: 'clock', title: 'Temporários', action: 'Limpar', color: COLORS.verde.bg },
+  { kind: 'playlist', icon: 'music', title: 'Playlist', action: 'Apagar', confirm: true, color: COLORS.coral.bg },
+  { kind: 'stickers', icon: 'smile', title: 'Figurinhas', action: 'Apagar', confirm: true, color: COLORS.rosa.bg },
+  { kind: 'models', icon: 'mic', title: 'Transcrição', action: 'Apagar', color: COLORS.roxo.bg },
 ];
 
 /** Termos de uso: curtos, em linguagem do dia a dia. */
@@ -57,6 +60,7 @@ export function SettingsScreen() {
   const [working, setWorking] = useState<StorageKind | null>(null);
   const [confirming, setConfirming] = useState<StorageKind | null>(null);
   const [terms, setTerms] = useState(false);
+  const recents = useRecents();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const [instagram, setInstagram] = useState(() => instagramLoggedIn());
@@ -145,202 +149,224 @@ export function SettingsScreen() {
 
   return (
     <View style={s.root}>
-      <ScreenHeader title="Ajustes" />
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]}>
-        <Text style={s.section}>Aparência</Text>
-        <View style={s.themes} accessibilityRole="radiogroup" accessibilityLabel="Aparência">
-          {THEMES.map((t) => {
-            const on = theme === t.value;
-            return (
-              <Press
-                key={t.value}
-                onPress={() => {
-                  if (on) return;
-                  Haptics.selectionAsync().catch(() => {});
-                  setSettings({ theme: t.value });
-                }}
-                containerStyle={{ flex: 1 }}
-                scaleTo={0.96}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: on }}
-                accessibilityLabel={t.label}
-                style={[s.theme, on && s.themeOn]}
-              >
-                <PhoneArt kind={t.value} frame={c.dark ? '#5A616B' : '#16191D'} />
-                <Text style={[s.themeLabel, on && { color: c.accentInk }]}>{t.label}</Text>
-              </Press>
-            );
-          })}
-        </View>
-
-        <Text style={s.section}>Contas</Text>
-        <View style={s.list}>
-          <View style={s.account}>
-            <View style={[s.tile, { backgroundColor: c.dark ? '#3A1F2E' : '#FCE7F3' }]}>
-              <Feather name="instagram" size={20} color={c.dark ? '#F9A8D4' : '#BE185D'} />
-            </View>
-            <View style={s.accountText}>
-              <Text style={s.rowTitle} numberOfLines={1}>
-                Instagram
-              </Text>
-              <View style={s.status}>
-                {instagram ? <View style={[s.statusDot, { backgroundColor: c.waInk }]} /> : null}
-                <Text style={s.rowSub} numberOfLines={1}>
-                  {instagram ? 'Conectado' : 'Para stories e destaques'}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              onPress={() => (instagram ? leaveInstagram() : router.push('/instagram'))}
-              hitSlop={6}
-              style={({ pressed }) => [s.btn, !instagram && s.btnAccent, pressed && { opacity: 0.75 }]}
-              accessibilityRole="button"
-              accessibilityLabel={instagram ? 'Sair do Instagram' : 'Entrar no Instagram'}
-            >
-              <Text style={[s.btnText, !instagram && { color: c.onAccent }]}>{instagram ? 'Sair' : 'Entrar'}</Text>
-            </Pressable>
-          </View>
-          <View style={s.divider} />
-          <View style={s.account}>
-            <View style={[s.tile, { backgroundColor: c.dark ? '#2A2430' : '#F1EEF6' }]}>
-              <Feather name="zap" size={20} color={c.dark ? '#C4B5FD' : '#6D28D9'} />
-            </View>
-            <View style={s.accountText}>
-              <Text style={s.rowTitle} numberOfLines={1}>
-                ElevenLabs
-              </Text>
-              <View style={s.status}>
-                {key ? <View style={[s.statusDot, { backgroundColor: c.waInk }]} /> : null}
-                <Text style={s.rowSub} numberOfLines={1}>
-                  {key
-                    ? credits && credits.limit > 0
-                      ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando`
-                      : `Chave •••• ${key.slice(-4)}`
-                    : 'Transcrição precisa e dublagem'}
-                </Text>
-              </View>
-            </View>
-            {key ? (
-              <Pressable
-                onPress={() => {
-                  setElevenKey(null).catch(() => {});
-                  setCredits(null);
-                }}
-                hitSlop={6}
-                style={({ pressed }) => [s.btn, pressed && { opacity: 0.75 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Remover a chave da ElevenLabs"
-              >
-                <Text style={s.btnText}>Remover</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {key === '' ? (
-            <View style={s.keyBox}>
-              <View style={s.keyRow}>
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="Cole a chave da API"
-                  placeholderTextColor={c.disabledInk}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={s.keyInput}
-                  selectionColor={c.accent}
-                  accessibilityLabel="Chave da API da ElevenLabs"
-                />
-                <Pressable
-                  onPress={saveKey}
-                  disabled={!draft.trim() || checking}
-                  style={({ pressed }) => [s.btn, s.btnAccent, (!draft.trim() || checking) && { opacity: 0.45 }, pressed && { opacity: 0.75 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Salvar a chave"
-                >
-                  {checking ? <ActivityIndicator size="small" color={c.onAccent} /> : <Text style={[s.btnText, { color: c.onAccent }]}>Salvar</Text>}
-                </Pressable>
-              </View>
-              <Text style={s.link} onPress={() => Linking.openURL('https://elevenlabs.io/app/settings/api-keys').catch(() => {})} accessibilityRole="link">
-                Onde pego a chave?
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <Text style={s.section}>Armazenamento</Text>
-        <View style={s.card}>
-          <Text style={s.total}>
-            {usage ? bytes(total) || '0 KB' : '…'} <Text style={s.totalLabel}>em uso</Text>
-          </Text>
-          <View style={s.bar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {usage && total > 0 ? ROWS.filter((r) => usage[r.kind] > 0).map((r) => <View key={r.kind} style={{ flex: usage[r.kind] / total, backgroundColor: r.color, minWidth: 3 }} />) : null}
-          </View>
-          {ROWS.map((r, i) => {
-            const size = usage?.[r.kind] ?? 0;
-            const empty = !usage || size <= 0;
-            const confirm = confirming === r.kind;
-            return (
-              <View key={r.kind} style={[s.row, i > 0 && s.rowLine]}>
-                <View style={[s.dot, { backgroundColor: r.color }]} />
-                <Feather name={r.icon} size={18} color={c.muted} />
-                <Text style={s.rowTitle} numberOfLines={1}>
-                  {r.title}
-                </Text>
-                <Text style={s.rowSize}>{usage ? bytes(size) || 'vazio' : ''}</Text>
-                {working === r.kind ? (
-                  <ActivityIndicator color={c.accent} style={{ width: 84 }} />
-                ) : (
-                  <Pressable
-                    onPress={() => clear(r)}
-                    disabled={empty || !!working}
-                    hitSlop={6}
-                    style={({ pressed }) => [s.btn, confirm && s.btnDanger, pressed && { opacity: 0.75 }, empty && { opacity: 0.38 }]}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: empty }}
-                    accessibilityLabel={`${confirm ? 'Confirmar' : r.action}: ${r.title}`}
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space[8] }}>
+        <ScreenHeader title="Ajustes" />
+        <View style={s.body}>
+          <View style={s.section}>
+            <Overline>Aparência</Overline>
+            <View style={s.themes} accessibilityRole="radiogroup" accessibilityLabel="Aparência">
+              {THEMES.map((t) => {
+                const on = theme === t.value;
+                return (
+                  <Press
+                    key={t.value}
+                    onPress={() => {
+                      if (on) return;
+                      Haptics.selectionAsync().catch(() => {});
+                      setSettings({ theme: t.value });
+                    }}
+                    containerStyle={s.themeSlot}
+                    scaleTo={0.96}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={t.label}
+                    style={[s.theme, on && s.themeOn]}
                   >
-                    <Text style={[s.btnText, confirm && { color: '#fff' }]}>{confirm ? 'Confirmar' : r.action}</Text>
-                  </Pressable>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <Text style={s.section}>Sobre</Text>
-        <View style={s.card}>
-          <View style={s.about}>
-            <View style={s.logo}>
-              <Feather name="download" size={20} color="#FFFFFF" />
+                    <PhoneArt kind={t.value} frame={c.ink} />
+                    <Text style={[s.themeLabel, on && { color: c.accentInk }]}>{t.label}</Text>
+                  </Press>
+                );
+              })}
             </View>
-            <Text style={s.appName}>Puxa</Text>
-            <Text style={s.version}>
-              {version}
-              {build ? ` (${build})` : ''}
-            </Text>
           </View>
-          <Pressable
-            onPress={() => setTerms((v) => !v)}
-            style={({ pressed }) => [s.row, s.rowLine, pressed && { opacity: 0.7 }]}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: terms }}
-          >
-            <Feather name="file-text" size={18} color={c.muted} />
-            <Text style={s.rowTitle}>Termos de uso</Text>
-            <Feather name={terms ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
-          </Pressable>
-          {terms ? (
-            <Reveal>
-              <View style={s.terms}>
-                {TERMS.map((t) => (
-                  <View key={t.title} style={{ gap: 3 }}>
-                    <Text style={s.termTitle}>{t.title}</Text>
-                    <Text style={s.termBody}>{t.body}</Text>
+
+          <View style={s.section}>
+            <Overline>Contas</Overline>
+            <Group>
+              <View style={s.row}>
+                <View style={s.tile}>
+                  <Feather name="instagram" size={20} color={c.ink} />
+                </View>
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle} numberOfLines={1}>
+                    Instagram
+                  </Text>
+                  <View style={s.status}>
+                    {instagram ? <View style={[s.statusDot, { backgroundColor: c.successInk }]} /> : null}
+                    <Text style={s.rowSub} numberOfLines={1}>
+                      {instagram ? 'Conectado' : 'Para stories e destaques'}
+                    </Text>
                   </View>
-                ))}
+                </View>
+                <Button
+                  size="sm"
+                  tone={instagram ? 'neutral' : 'accent'}
+                  label={instagram ? 'Sair' : 'Entrar'}
+                  accessibilityLabel={instagram ? 'Sair do Instagram' : 'Entrar no Instagram'}
+                  onPress={() => (instagram ? leaveInstagram() : router.push('/instagram'))}
+                />
               </View>
-            </Reveal>
-          ) : null}
+              <Hairline inset={space[4] + control.sm + space[3]} />
+              <View style={s.row}>
+                <View style={s.tile}>
+                  <Feather name="zap" size={20} color={c.ink} />
+                </View>
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle} numberOfLines={1}>
+                    ElevenLabs
+                  </Text>
+                  <View style={s.status}>
+                    {key ? <View style={[s.statusDot, { backgroundColor: c.successInk }]} /> : null}
+                    <Text style={s.rowSub} numberOfLines={1}>
+                      {key
+                        ? credits && credits.limit > 0
+                          ? `${Math.max(0, credits.limit - credits.used).toLocaleString('pt-BR')} créditos sobrando`
+                          : `Chave •••• ${key.slice(-4)}`
+                        : 'Transcrição precisa e dublagem'}
+                    </Text>
+                  </View>
+                </View>
+                {key ? (
+                  <Button
+                    size="sm"
+                    tone="neutral"
+                    label="Remover"
+                    accessibilityLabel="Remover a chave da ElevenLabs"
+                    onPress={() => {
+                      setElevenKey(null).catch(() => {});
+                      setCredits(null);
+                    }}
+                  />
+                ) : null}
+              </View>
+              {key === '' ? (
+                <View style={s.keyBox}>
+                  <View style={s.keyRow}>
+                    <TextInput
+                      value={draft}
+                      onChangeText={setDraft}
+                      placeholder="Cole a chave da API"
+                      placeholderTextColor={c.muted}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      style={s.keyInput}
+                      selectionColor={c.accent}
+                      accessibilityLabel="Chave da API da ElevenLabs"
+                    />
+                    <Button size="md" label="Salvar" accessibilityLabel="Salvar a chave" busy={checking} disabled={!draft.trim()} onPress={saveKey} />
+                  </View>
+                  <Text style={s.link} onPress={() => Linking.openURL('https://elevenlabs.io/app/settings/api-keys').catch(() => {})} accessibilityRole="link">
+                    Onde pego a chave?
+                  </Text>
+                </View>
+              ) : null}
+            </Group>
+          </View>
+
+          <View style={s.section}>
+            <Overline>Armazenamento</Overline>
+            <Group>
+              <View style={s.usage}>
+                <Text style={s.total}>{usage ? bytes(total) || '0 KB' : '…'}</Text>
+                <Text style={s.totalLabel}>em uso no aparelho</Text>
+                <View style={s.bar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                  {usage && total > 0 ? ROWS.filter((r) => usage[r.kind] > 0).map((r) => <View key={r.kind} style={{ flex: usage[r.kind] / total, backgroundColor: r.color, minWidth: 4 }} />) : null}
+                </View>
+              </View>
+              {ROWS.map((r) => {
+                const size = usage?.[r.kind] ?? 0;
+                const empty = !usage || size <= 0;
+                const confirm = confirming === r.kind;
+                return (
+                  <View key={r.kind}>
+                    <Hairline />
+                    <View style={s.row}>
+                      <View style={[s.dot, { backgroundColor: r.color }]} />
+                      <View style={s.rowText}>
+                        <Text style={s.rowTitle} numberOfLines={1}>
+                          {r.title}
+                        </Text>
+                        <Text style={s.rowSub}>{usage ? bytes(size) || 'vazio' : ''}</Text>
+                      </View>
+                      <Button
+                        size="sm"
+                        tone={confirm ? 'danger' : 'neutral'}
+                        label={confirm ? 'Confirmar' : r.action}
+                        accessibilityLabel={`${confirm ? 'Confirmar' : r.action}: ${r.title}`}
+                        busy={working === r.kind}
+                        disabled={empty || (!!working && working !== r.kind)}
+                        onPress={() => clear(r)}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+              <Hairline />
+              <View style={s.row}>
+                <View style={[s.dot, { backgroundColor: c.faint }]} />
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle} numberOfLines={1}>
+                    Links recentes
+                  </Text>
+                  <Text style={s.rowSub}>{recents.length ? `${recents.length} ${recents.length === 1 ? 'link' : 'links'} no Início` : 'vazio'}</Text>
+                </View>
+                <Button
+                  size="sm"
+                  tone="neutral"
+                  label="Limpar"
+                  accessibilityLabel="Limpar os links recentes"
+                  disabled={!recents.length}
+                  onPress={() => {
+                    clearRecents();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    toast.show({ title: 'Recentes limpos', tone: 'success' });
+                  }}
+                />
+              </View>
+            </Group>
+          </View>
+
+          <View style={s.section}>
+            <Overline>Sobre</Overline>
+            <Group>
+              <View style={s.row}>
+                <AppMark size={40} />
+                <View style={s.rowText}>
+                  <Text style={s.rowTitle}>Puxa</Text>
+                  <Text style={s.rowSub}>
+                    Versão {version}
+                    {build ? ` (${build})` : ''}
+                  </Text>
+                </View>
+              </View>
+              <Hairline />
+              <Pressable
+                onPress={() => setTerms((v) => !v)}
+                style={({ pressed }) => [s.row, pressed && { backgroundColor: c.sunken }]}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: terms }}
+              >
+                <View style={s.tile}>
+                  <Feather name="file-text" size={20} color={c.ink} />
+                </View>
+                <Text style={[s.rowTitle, s.rowText]}>Termos de uso</Text>
+                <Feather name={terms ? 'chevron-up' : 'chevron-down'} size={20} color={c.muted} />
+              </Pressable>
+              {terms ? (
+                <Reveal>
+                  <View style={s.terms}>
+                    {TERMS.map((t) => (
+                      <View key={t.title} style={s.term}>
+                        <Text style={s.termTitle}>{t.title}</Text>
+                        <Text style={s.termBody}>{t.body}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </Reveal>
+              ) : null}
+            </Group>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -351,23 +377,23 @@ export function SettingsScreen() {
 function PhoneArt({ kind, frame }: { kind: ThemePref; frame: string }) {
   const half = kind === 'system';
   const screen = (p: Palette) => (
-    <View style={{ flex: 1, backgroundColor: p.bg, paddingTop: 7, paddingHorizontal: 5, gap: 4 }}>
-      <View style={{ width: 14, height: 3, borderRadius: 2, backgroundColor: p.accent }} />
-      <View style={{ height: 12, borderRadius: 3, backgroundColor: p.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: p.line }} />
-      <View style={{ height: 3, borderRadius: 2, backgroundColor: p.line, width: '80%' }} />
-      <View style={{ height: 3, borderRadius: 2, backgroundColor: p.line, width: '60%' }} />
-      <View style={{ marginTop: 'auto', marginBottom: 5, height: 6, borderRadius: 3, backgroundColor: p.accent, marginHorizontal: 4 }} />
+    <View style={[phone.screen, { backgroundColor: p.bg }]}>
+      <View style={[phone.line, { width: 16, backgroundColor: p.ink }]} />
+      <View style={[phone.field, { backgroundColor: p.sunken }]} />
+      <View style={[phone.line, { width: '80%', backgroundColor: p.lineStrong }]} />
+      <View style={[phone.line, { width: '60%', backgroundColor: p.lineStrong }]} />
+      <View style={[phone.cta, { backgroundColor: p.accent }]} />
     </View>
   );
   return (
     <View style={[phone.frame, { borderColor: frame }]}>
       {half ? (
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          <View style={{ flex: 1, overflow: 'hidden' }}>
-            <View style={{ width: 44, flex: 1 }}>{screen(lightPalette)}</View>
+        <View style={phone.halves}>
+          <View style={phone.half}>
+            <View style={phone.full}>{screen(lightPalette)}</View>
           </View>
-          <View style={{ flex: 1, overflow: 'hidden', alignItems: 'flex-end' }}>
-            <View style={{ width: 44, flex: 1 }}>{screen(darkPalette)}</View>
+          <View style={[phone.half, phone.right]}>
+            <View style={phone.full}>{screen(darkPalette)}</View>
           </View>
         </View>
       ) : (
@@ -378,48 +404,45 @@ function PhoneArt({ kind, frame }: { kind: ThemePref; frame: string }) {
 }
 
 const phone = StyleSheet.create({
-  frame: { width: 46, height: 78, borderRadius: 10, borderWidth: 2, borderColor: '#16191D', overflow: 'hidden', marginBottom: 10 },
+  frame: { width: 48, height: 80, borderRadius: radius.md, borderWidth: 2, overflow: 'hidden' },
+  screen: { flex: 1, paddingTop: space[2], paddingHorizontal: space[1], gap: space[1] },
+  line: { height: 4, borderRadius: radius.full },
+  field: { height: 12, borderRadius: radius.full },
+  cta: { marginTop: 'auto', marginBottom: space[1], height: 8, borderRadius: radius.full },
+  halves: { flex: 1, flexDirection: 'row' },
+  half: { flex: 1, overflow: 'hidden' },
+  right: { alignItems: 'flex-end' },
+  full: { width: 44, flex: 1 },
 });
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    scroll: { paddingHorizontal: 20, paddingTop: 4 },
-    section: { fontFamily: font.semibold, fontSize: 14, color: c.muted, marginTop: 20, marginBottom: 10 },
-    themes: { flexDirection: 'row', gap: 10 },
-    theme: { alignItems: 'center', paddingTop: 14, paddingBottom: 12, borderRadius: 16, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
-    themeOn: { borderColor: c.accent, backgroundColor: c.accentSoft },
-    themeLabel: { fontFamily: font.semibold, fontSize: 14, color: c.ink },
-    card: { borderRadius: radius.list + 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 16, paddingVertical: 14 },
-    total: { fontFamily: font.black, fontSize: 28, color: c.ink, letterSpacing: -0.6, fontVariant: ['tabular-nums'] },
-    totalLabel: { fontFamily: font.regular, fontSize: 15, color: c.muted, letterSpacing: 0 },
-    bar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: c.sk, marginTop: 12, marginBottom: 4, gap: 2 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56 },
-    rowLine: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
-    dot: { width: 8, height: 8, borderRadius: 4 },
-    rowTitle: { flex: 1, fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    rowSub: { flexShrink: 1, fontFamily: font.regular, fontSize: 13, color: c.muted },
-    btnAccent: { backgroundColor: c.accent, borderColor: c.accent },
-    keyBox: { gap: 6, marginLeft: 52, paddingBottom: 14 },
-    keyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    keyInput: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.bg, fontFamily: font.medium, fontSize: 15, color: c.ink },
-    link: { alignSelf: 'flex-start', fontFamily: font.semibold, fontSize: 13, color: c.accentInk, paddingVertical: 6 },
-    rowSize: { fontFamily: font.regular, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    btn: { minWidth: 84, height: 40, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center' },
-    btnDanger: { backgroundColor: c.danger, borderColor: c.danger },
-    btnText: { fontFamily: font.semibold, fontSize: 14, color: c.ink },
-    about: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
-    logo: { width: 40, height: 40, borderRadius: 11, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
-    appName: { flex: 1, fontFamily: font.black, fontSize: 19, color: c.ink, letterSpacing: -0.4 },
-    version: { fontFamily: font.medium, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    terms: { gap: 14, paddingTop: 4, paddingBottom: 12 },
-    termTitle: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    termBody: { fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: c.muted },
-    list: { borderRadius: radius.list + 4, borderWidth: StyleSheet.hairlineWidth, borderColor: c.line, backgroundColor: c.surface, paddingHorizontal: 14 },
-    account: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, minHeight: 68 },
-    tile: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    accountText: { flex: 1, minWidth: 0, gap: 2 },
-    status: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    statusDot: { width: 7, height: 7, borderRadius: 4 },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: c.line, marginLeft: 52 },
+    body: { paddingHorizontal: gutter, gap: space[8] },
+    section: { gap: space[3] },
+    themes: { flexDirection: 'row', gap: space[2] },
+    themeSlot: { flex: 1 },
+    theme: { alignItems: 'center', gap: space[3], paddingVertical: space[4], borderRadius: radius.xl, borderWidth: 2, borderColor: 'transparent', backgroundColor: c.surface, boxShadow: c.shadow1 },
+    themeOn: { borderColor: c.accentLine, backgroundColor: c.accentSoft, boxShadow: undefined },
+    themeLabel: { ...text.captionBold, color: c.ink },
+    row: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 64, paddingHorizontal: space[4], paddingVertical: space[3] },
+    rowText: { flex: 1, minWidth: 0 },
+    rowTitle: { ...text.bodyBold, color: c.ink },
+    rowSub: { ...text.caption, ...tabular, flexShrink: 1, color: c.muted },
+    tile: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: c.sunken, alignItems: 'center', justifyContent: 'center' },
+    status: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    statusDot: { width: 8, height: 8, borderRadius: radius.full },
+    keyBox: { gap: space[1], paddingHorizontal: space[4], paddingBottom: space[3] },
+    keyRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    keyInput: { ...text.body, flex: 1, minWidth: 0, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: c.sunken, color: c.ink },
+    link: { ...text.captionBold, alignSelf: 'flex-start', color: c.accentInk, paddingVertical: space[2] },
+    usage: { padding: space[4], paddingBottom: space[4] },
+    total: { ...text.display, ...tabular, color: c.ink },
+    totalLabel: { ...text.caption, color: c.muted },
+    bar: { flexDirection: 'row', height: 8, borderRadius: radius.full, overflow: 'hidden', backgroundColor: c.sk, marginTop: space[3] },
+    dot: { width: 8, height: 8, borderRadius: radius.full },
+    terms: { gap: space[4], paddingHorizontal: space[4], paddingBottom: space[4] },
+    term: { gap: space[1] },
+    termTitle: { ...text.bodyBold, color: c.ink },
+    termBody: { ...text.caption, color: c.body },
   });

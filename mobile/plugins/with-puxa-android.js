@@ -52,6 +52,18 @@ function withAnimatedWebp(config) {
 const stroke = (d, w = 2) =>
   `  <path android:pathData="${d}" android:strokeColor="#FFFFFFFF" android:strokeWidth="${w}" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>`;
 const fill = (d) => `  <path android:pathData="${d}" android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.5" android:strokeLineJoin="round"/>`;
+/**
+ * O símbolo do Puxa (o P com a perna virando seta), desenhado a partir da letra Anton em
+ * unidades da fonte (y para cima). O grupo vira o desenho de cabeça para baixo e o encaixa em
+ * 20 de altura, centrado no quadro de 24.
+ */
+const MARK = 'M78 520V1760H543Q689 1760 774.5 1695Q860 1630 897 1510Q934 1390 934 1224Q934 1064 903 945.5Q872 827 792.5 762Q713 697 567 697H424V520H734L251.0 0L-232 520ZM424 1013H444Q542 1013 564 1068Q586 1123 586 1230Q586 1330 564.5 1384.5Q543 1439 463 1439H424Z';
+const markIcon = () => {
+  const [x0, x1, h] = [-232, 934, 1760];
+  const k = 20 / h;
+  const tx = 12 - ((x0 + x1) / 2) * k;
+  return `  <group android:scaleX="${k.toFixed(6)}" android:scaleY="${(-k).toFixed(6)}" android:translateX="${tx.toFixed(4)}" android:translateY="22">\n    <path android:pathData="${MARK}" android:fillColor="#FFFFFFFF" android:fillType="evenOdd"/>\n  </group>`;
+};
 /** Um pouco menor (os desenhos de voltar e avançar encostam na borda). */
 const shrink = (paths) => `  <group android:pivotX="12" android:pivotY="12" android:scaleX="0.84" android:scaleY="0.84">\n${paths.join('\n')}\n  </group>`;
 const vector = (paths) =>
@@ -64,8 +76,8 @@ const vector = (paths) =>
  * no mesmo desenho dos ícones das telas.
  */
 const ICONS = {
-  // Barra de status: a seta para baixo com a base, igual ao ícone do app
-  media3_icon_circular_play: [stroke('M12,4.5L12,14.5M7.5,10.2L12,14.7L16.5,10.2M6.5,19.5L17.5,19.5', 2.6)],
+  // Barra de status: o símbolo do app
+  media3_icon_circular_play: [markIcon()],
   media3_icon_play: [fill('M7,4.8L18.6,12L7,19.2Z')],
   media3_icon_pause: [fill('M6.5,4.5h3.5v15h-3.5z'), fill('M14,4.5h3.5v15h-3.5z')],
   media3_icon_next: [fill('M5.5,5L15,12L5.5,19Z'), stroke('M18.5,5.5L18.5,18.5', 2.2)],
@@ -93,4 +105,4 @@ function withPlayerIcons(config) {
 
 const withPuxaAndroid = (config) => withPlayerIcons(withAnimatedWebp(withDesugaring(withShareTarget(config))));
 
-module.exports = createRunOncePlugin(withPuxaAndroid, 'with-puxa-android', '1.1.0');
+module.exports = createRunOncePlugin(withPuxaAndroid, 'with-puxa-android', '1.2.0');

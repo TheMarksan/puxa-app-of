@@ -2,8 +2,9 @@ import Feather from '@expo/vector-icons/Feather';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ms } from '../motion';
-import { ease, font, Palette, usePalette } from '../theme';
+import { ms, reduceMotion } from '../motion';
+import { COLORS } from '../playlist/colors';
+import { dark, ease, light, type Palette, radius, space, text, usePalette } from '../theme';
 
 export type ToastInput = {
   title: string;
@@ -12,6 +13,8 @@ export type ToastInput = {
   action?: { label: string; onPress: () => void };
   /** Em ms; padrão 4 s (erro, 6 s). */
   duration?: number;
+  /** O ponto alto de uma tarefa (entregue, figurinha no WhatsApp): o aviso chega com uma pequena festa. */
+  celebrate?: boolean;
 };
 
 type ToastItem = ToastInput & { id: number };
@@ -66,7 +69,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void }) {
   const c = usePalette();
-  const s = useMemo(() => makeStyles(c), [c]);
+  // O aviso é uma peça invertida (escura no tema claro, clara no escuro): usa a paleta oposta
+  const k = c.dark ? light : dark;
+  const s = useMemo(() => makeStyles(c, k), [c, k]);
   const enter = useState(() => new Animated.Value(0))[0];
   const dx = useState(() => new Animated.Value(0))[0];
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,8 +133,8 @@ function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void
 
   const tone = item.tone ?? 'info';
   const iconName = tone === 'success' ? 'check' : tone === 'error' ? 'alert-circle' : 'info';
-  const iconColor = tone === 'success' ? c.wa : tone === 'error' ? c.danger : c.accent;
-  const iconBg = tone === 'success' ? c.waSoft : tone === 'error' ? c.dangerSoft : c.accentSoft;
+  const iconColor = tone === 'success' ? k.successInk : tone === 'error' ? k.danger : k.accentInk;
+  const iconBg = tone === 'success' ? k.successSoft : tone === 'error' ? k.dangerSoft : k.accentSoft;
 
   return (
     <Animated.View
@@ -144,6 +149,7 @@ function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void
       ]}
     >
       <View style={[s.icon, { backgroundColor: iconBg }]}>
+        {item.celebrate ? <Burst /> : null}
         <Feather name={iconName} size={16} color={iconColor} />
       </View>
       <View style={s.text}>
@@ -164,7 +170,7 @@ function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void
             item.action?.onPress();
             leave();
           }}
-          style={({ pressed }) => [s.action, pressed && { backgroundColor: c.hover }]}
+          style={({ pressed }) => [s.action, pressed && { backgroundColor: k.sunken }]}
         >
           <Text style={s.actionLabel}>{item.action.label}</Text>
         </Pressable>
@@ -173,34 +179,70 @@ function Toast({ item, onGone }: { item: ToastItem; onGone: (id: number) => void
   );
 }
 
+const SPARKS = [COLORS.amarelo.bg, COLORS.coral.bg, COLORS.lima.bg, COLORS.rosa.bg, COLORS.azul.bg, COLORS.roxo.bg, COLORS.amarelo.bg, COLORS.verde.bg];
+
+/**
+ * A pequena festa do ponto alto: oito pontos nas cores das playlists saem do ícone e somem.
+ * Dura menos de um segundo e não aparece para quem pediu menos movimento.
+ */
+function Burst() {
+  const [t] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (reduceMotion()) return;
+    Animated.timing(t, { toValue: 1, duration: 720, delay: 160, easing: ease.arrive, useNativeDriver: true }).start();
+  }, [t]);
+  if (reduceMotion()) return null;
+  return (
+    <View pointerEvents="none" style={styles.burst}>
+      {SPARKS.map((color, i) => {
+        const angle = (i / SPARKS.length) * Math.PI * 2 - Math.PI / 2;
+        const reach = i % 2 ? 28 : 40;
+        return (
+          <Animated.View
+            key={i}
+            style={[
+              styles.spark,
+              {
+                backgroundColor: color,
+                opacity: t.interpolate({ inputRange: [0, 0.1, 0.7, 1], outputRange: [0, 1, 1, 0] }),
+                transform: [
+                  { translateX: t.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * reach] }) },
+                  { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * reach] }) },
+                  { scale: t.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0.4, 1, 0.6] }) },
+                ],
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  host: { justifyContent: 'flex-end', paddingHorizontal: 12, gap: 8 },
+  host: { justifyContent: 'flex-end', paddingHorizontal: space[4], gap: space[2] },
+  burst: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  spark: { position: 'absolute', width: 8, height: 8, borderRadius: radius.full },
 });
 
-const makeStyles = (c: Palette) =>
+const makeStyles = (c: Palette, k: Palette) =>
   StyleSheet.create({
     toast: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      paddingVertical: 12,
-      paddingLeft: 12,
-      paddingRight: 8,
-      minHeight: 58,
-      borderRadius: 16,
-      backgroundColor: c.toastBg,
-      borderWidth: c.dark ? 1 : 0,
-      borderColor: c.line,
-      shadowColor: c.shadow,
-      shadowOpacity: c.dark ? 0.5 : 0.14,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 8,
+      gap: space[3],
+      paddingVertical: space[3],
+      paddingLeft: space[3],
+      paddingRight: space[2],
+      minHeight: 56,
+      borderRadius: radius.xl,
+      backgroundColor: c.inverse,
+      boxShadow: c.shadow2,
     },
-    icon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    text: { flex: 1, gap: 2 },
-    title: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    body: { fontFamily: font.regular, fontSize: 14, color: c.muted, lineHeight: 19 },
-    action: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10 },
-    actionLabel: { fontFamily: font.semibold, fontSize: 15, color: c.accentInk },
+    icon: { width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+    text: { flex: 1, gap: 0 },
+    title: { ...text.bodyBold, color: k.ink },
+    body: { ...text.caption, color: k.muted },
+    action: { paddingHorizontal: space[3], paddingVertical: space[2], borderRadius: radius.full },
+    actionLabel: { ...text.bodyBold, color: k.accentInk },
   });

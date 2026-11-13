@@ -17,7 +17,8 @@ import { resumeQueue } from '../playlist/downloads';
 import { ALL, ALL_NAME, createList, tracksOf, useLists } from '../playlist/lists';
 import { playList, usePlayer } from '../playlist/player';
 import { useTracks, type Track } from '../playlist/store';
-import { font, type Palette, usePalette } from '../theme';
+import { alpha, gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
+import { IconButton, Overline, PlayIcon } from '../components/ui';
 
 const total = (ts: Track[]) => ts.reduce((n, t) => n + (t.status === 'ready' ? t.duration || 0 : 0), 0);
 const count = (n: number) => (n === 1 ? '1 música' : `${n} músicas`);
@@ -44,7 +45,7 @@ export function LibraryScreen() {
   }, []);
 
   const hasPlayer = !!player.trackId;
-  const toastBottom = hasPlayer && miniH ? miniH + 8 : insets.bottom + 16;
+  const toastBottom = hasPlayer && miniH ? miniH + space[2] : insets.bottom + space[4];
   useFocusEffect(
     useCallback(() => {
       const t = setTimeout(() => toast.setBottomInset(toastBottom), 60);
@@ -52,101 +53,107 @@ export function LibraryScreen() {
     }, [toast, toastBottom]),
   );
 
-  const tile = Math.floor((width - 40 - 14) / 2);
+  const tile = Math.floor((width - gutter * 2 - space[4]) / 2);
   const ready = tracks.filter((t) => t.status === 'ready');
   const busy = tracks.filter((t) => t.status === 'queued' || t.status === 'downloading').length;
 
+  const grafite = COLORS.grafite;
+
   return (
     <View style={s.root}>
-      <ScreenHeader
-        title="Playlists"
-        right={
-          <Pressable onPress={() => setCreating(true)} hitSlop={6} style={({ pressed }) => [s.headBtn, pressed && { backgroundColor: c.hover }]} accessibilityRole="button" accessibilityLabel="Nova playlist">
-            <Feather name="plus" size={24} color={c.ink} />
-          </Pressable>
-        }
-      />
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: (hasPlayer ? 110 : 32) + insets.bottom }]} keyboardShouldPersistTaps="handled">
-        <AddLinks tint={c.accent} tintInk={c.onAccent} />
+      <ScrollView contentContainerStyle={{ paddingBottom: (hasPlayer ? space[16] + space[12] : space[8]) + insets.bottom }} keyboardShouldPersistTaps="handled">
+        <ScreenHeader
+          title="Playlists"
+          subtitle={ready.length ? `${count(ready.length)} no celular${busy ? ` · ${busy} baixando` : ''}` : 'Cole um link e ele vira música.'}
+          right={<IconButton icon="plus" label="Nova playlist" onPress={() => setCreating(true)} />}
+        />
+        <View style={s.body}>
+          <AddLinks tint={c.accent} tintInk={c.onAccent} />
 
-        {/* A biblioteca inteira: uma faixa larga, como um pôster deitado */}
-        <Pressable onPress={() => router.push(`/playlist/${ALL}`)} style={({ pressed }) => [s.all, pressed && { transform: [{ scale: 0.99 }] }]} accessibilityRole="button" accessibilityLabel={`${ALL_NAME}, ${count(ready.length)}`}>
-          <View style={StyleSheet.absoluteFill}>
-            {[0.9, 0.62, 0.34].map((f, i) => (
-              <View key={i} style={[s.allRing, { width: 240 * f, height: 240 * f, right: -60 * f - 10, top: -70 * f }]} />
-            ))}
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={s.allKicker}>BIBLIOTECA</Text>
-            <Text style={s.allTitle}>{ALL_NAME}</Text>
-            <Text style={s.allMeta}>
-              {count(ready.length)}
-              {total(tracks) ? ` · ${clock(total(tracks))}` : ''}
-              {busy ? ` · ${busy} baixando` : ''}
-            </Text>
-          </View>
-          {ready.length ? (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                playList(ALL);
-              }}
-              hitSlop={6}
-              style={({ pressed }) => [s.allPlay, pressed && { transform: [{ scale: 0.94 }] }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Tocar ${ALL_NAME}`}
-            >
-              <Feather name="play" size={22} color={COLORS.grafite.bg} style={{ marginLeft: 3 }} />
-            </Pressable>
-          ) : null}
-        </Pressable>
-
-        <View style={s.sectionHead}>
-          <Text style={s.section}>Suas playlists</Text>
-          {lists.length ? <Text style={s.sectionMeta}>{lists.length}</Text> : null}
-        </View>
-
-        <View style={s.grid}>
-          {lists.map((p) => {
-            const ts = tracksOf(p.id, tracks);
-            const playing = player.listId === p.id && player.playing;
-            return (
+          {/* A biblioteca inteira: uma faixa larga, como um pôster deitado */}
+          <Pressable onPress={() => router.push(`/playlist/${ALL}`)} style={({ pressed }) => [s.all, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`${ALL_NAME}, ${count(ready.length)}`}>
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {[0.9, 0.62, 0.34].map((f, i) => (
+                <View key={i} style={[s.allRing, { width: 240 * f, height: 240 * f, right: -60 * f - 8, top: -72 * f }]} />
+              ))}
+            </View>
+            <View style={s.allText}>
+              <Text style={s.allKicker}>Biblioteca</Text>
+              <Text style={s.allTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {ALL_NAME}
+              </Text>
+              <Text style={s.allMeta}>
+                {count(ready.length)}
+                {total(tracks) ? ` · ${clock(total(tracks))}` : ''}
+              </Text>
+            </View>
+            {ready.length ? (
               <Pressable
-                key={p.id}
-                onPress={() => router.push(`/playlist/${p.id}`)}
-                style={({ pressed }) => [{ width: tile, gap: 8 }, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                  playList(ALL);
+                }}
+                hitSlop={space[1]}
+                style={({ pressed }) => [s.allPlay, pressed && { transform: [{ scale: 0.94 }] }]}
                 accessibilityRole="button"
-                accessibilityLabel={`${p.name}, ${count(ts.length)}${playing ? ', tocando' : ''}`}
+                accessibilityLabel={`Tocar ${ALL_NAME}`}
               >
-                <View>
-                  <PlaylistCover name={p.name} color={p.color} size={tile} radius={22} image={p.cover} />
-                  {playing ? (
-                    <View style={[s.live, { backgroundColor: COLORS[p.color].ink }]}>
-                      <Feather name="volume-2" size={14} color={COLORS[p.color].bg} />
+                <PlayIcon playing={false} size={24} color={grafite.bg} />
+              </Pressable>
+            ) : null}
+          </Pressable>
+
+          <View style={s.section}>
+            <View style={s.sectionHead}>
+              <Overline>Suas playlists</Overline>
+              {lists.length ? <Text style={s.sectionMeta}>{lists.length}</Text> : null}
+            </View>
+
+            <View style={s.grid}>
+              {lists.map((p) => {
+                const ts = tracksOf(p.id, tracks);
+                const playing = player.listId === p.id && player.playing;
+                return (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => router.push(`/playlist/${p.id}`)}
+                    style={({ pressed }) => [s.tile, { width: tile }, pressed && { opacity: 0.88 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${p.name}, ${count(ts.length)}${playing ? ', tocando' : ''}`}
+                  >
+                    <View>
+                      <PlaylistCover name={p.name} color={p.color} size={tile} radius={radius.xl} image={p.cover} />
+                      {playing ? (
+                        <View style={[s.live, { backgroundColor: COLORS[p.color].ink }]}>
+                          <Feather name="volume-2" size={16} color={COLORS[p.color].bg} />
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
+                    <View>
+                      <Text style={s.name} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                      <Text style={s.meta} numberOfLines={1}>
+                        {count(ts.length)}
+                        {total(ts) ? ` · ${clock(total(ts))}` : ''}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              <Pressable onPress={() => setCreating(true)} style={({ pressed }) => [s.tile, { width: tile }, pressed && { opacity: 0.72 }]} accessibilityRole="button" accessibilityLabel="Nova playlist">
+                <View style={[s.newTile, { width: tile, height: tile }]}>
+                  <View style={s.newPlus}>
+                    <Feather name="plus" size={24} color={c.accentInk} />
+                  </View>
                 </View>
-                <View style={{ paddingHorizontal: 2 }}>
-                  <Text style={s.name} numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                  <Text style={s.meta} numberOfLines={1}>
-                    {count(ts.length)}
-                    {total(ts) ? ` · ${clock(total(ts))}` : ''}
-                  </Text>
+                <View>
+                  <Text style={s.name}>Nova playlist</Text>
+                  <Text style={s.meta}>{lists.length ? 'Nome, cor e capa' : 'Treino, Estudos, Viagem…'}</Text>
                 </View>
               </Pressable>
-            );
-          })}
-          <Pressable onPress={() => setCreating(true)} style={({ pressed }) => [{ width: tile, gap: 8 }, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Nova playlist">
-            <View style={[s.newTile, { width: tile, height: tile }]}>
-              <View style={s.newPlus}>
-                <Feather name="plus" size={26} color={c.ink} />
-              </View>
-              <Text style={s.newHint}>{lists.length ? 'Nova playlist' : 'Treino, Estudos,\nViagem…'}</Text>
             </View>
-            <Text style={[s.name, { paddingHorizontal: 2 }]}>Nova playlist</Text>
-          </Pressable>
+          </View>
         </View>
       </ScrollView>
 
@@ -164,25 +171,27 @@ export function LibraryScreen() {
   );
 }
 
-const makeStyles = (c: Palette) =>
-  StyleSheet.create({
+const makeStyles = (c: Palette) => {
+  const k = COLORS.grafite;
+  return StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    headBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-    scroll: { paddingHorizontal: 20, paddingTop: 2, gap: 18 },
-    all: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, minHeight: 132, padding: 18, borderRadius: 24, backgroundColor: COLORS.grafite.bg, overflow: 'hidden' },
-    allRing: { position: 'absolute', borderRadius: 200, borderWidth: 9, borderColor: 'rgba(255,255,255,0.08)' },
-    allKicker: { fontFamily: 'Anton_400Regular', fontSize: 12, letterSpacing: 1.6, color: 'rgba(255,255,255,0.6)' },
-    allTitle: { fontFamily: 'Anton_400Regular', fontSize: 30, lineHeight: 36, color: '#FFFFFF', textTransform: 'uppercase', marginTop: 2 },
-    allMeta: { fontFamily: font.medium, fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-    allPlay: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-    sectionHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 4 },
-    section: { fontFamily: font.bold, fontSize: 20, color: c.ink, letterSpacing: -0.3 },
-    sectionMeta: { fontFamily: font.semibold, fontSize: 15, color: c.muted },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 20 },
-    name: { fontFamily: font.semibold, fontSize: 16, color: c.ink },
-    meta: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 1 },
-    live: { position: 'absolute', right: 10, top: 10, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-    newTile: { borderRadius: 22, borderWidth: 2, borderStyle: 'dashed', borderColor: c.lineStrong, alignItems: 'center', justifyContent: 'center', gap: 10 },
-    newPlus: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.hover, alignItems: 'center', justifyContent: 'center' },
-    newHint: { fontFamily: font.medium, fontSize: 13, color: c.muted, textAlign: 'center', lineHeight: 18 },
+    body: { paddingHorizontal: gutter, gap: space[6] },
+    all: { flexDirection: 'row', alignItems: 'flex-end', gap: space[3], minHeight: 152, padding: space[4], borderRadius: radius.xl, backgroundColor: k.bg, overflow: 'hidden' },
+    allRing: { position: 'absolute', borderRadius: radius.full, borderWidth: 8, borderColor: alpha(k.ink, 0.08) },
+    allText: { flex: 1, minWidth: 0 },
+    allKicker: { ...text.overline, color: alpha(k.ink, 0.64) },
+    allTitle: { ...text.display, color: k.ink },
+    allMeta: { ...text.caption, ...tabular, color: alpha(k.ink, 0.8) },
+    allPlay: { width: 56, height: 56, borderRadius: radius.full, backgroundColor: k.ink, alignItems: 'center', justifyContent: 'center' },
+    section: { gap: space[4] },
+    sectionHead: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    sectionMeta: { ...text.overline, ...tabular, color: c.faint },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: space[6] },
+    tile: { gap: space[2] },
+    name: { ...text.bodyBold, color: c.ink },
+    meta: { ...text.caption, ...tabular, color: c.muted },
+    live: { position: 'absolute', right: space[3], top: space[3], width: 32, height: 32, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+    newTile: { borderRadius: radius.xl, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    newPlus: { width: 56, height: 56, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
   });
+};

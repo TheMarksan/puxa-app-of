@@ -3,7 +3,7 @@ import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ms } from '../../motion';
-import { ease, usePalette } from '../../theme';
+import { ease, radius, space, usePalette } from '../../theme';
 import { useSheetDrag } from '../SheetParts';
 
 /** Folha que sobe de baixo, com a alça para arrastar e fechar (as escolhas da área de música). */
@@ -36,7 +36,7 @@ export function Sheet({ visible, onClose, children, label }: { visible: boolean;
         accessibilityLabel={label}
         style={[
           styles.sheet,
-          { backgroundColor: c.surface, paddingBottom: insets.bottom + 12, transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }), drag.drag) }] },
+          { backgroundColor: c.dark ? c.raised : c.surface, paddingBottom: insets.bottom + space[4], transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [600, 0] }), drag.drag) }] },
         ]}
       >
         <View {...drag.handlers} style={styles.handleZone}>
@@ -49,7 +49,7 @@ export function Sheet({ visible, onClose, children, label }: { visible: boolean;
 }
 
 const styles = StyleSheet.create({
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92%', borderTopLeftRadius: 28, borderTopRightRadius: 28, elevation: 24, overflow: 'hidden' },
-  handleZone: { paddingTop: 10, paddingBottom: 6, alignItems: 'center' },
-  grabber: { width: 40, height: 4, borderRadius: 2 },
+  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '92%', borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, overflow: 'hidden' },
+  handleZone: { paddingTop: space[3], paddingBottom: space[2], alignItems: 'center' },
+  grabber: { width: 40, height: 4, borderRadius: radius.full },
 });

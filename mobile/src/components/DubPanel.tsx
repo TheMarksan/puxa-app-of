@@ -10,10 +10,11 @@ import { setElevenKey, useElevenKey } from '../ai/key';
 import { toUri } from '../editor/media';
 import { clock } from '../format';
 import { getSettings, setSettings } from '../settings';
-import { font, type Palette, usePalette } from '../theme';
+import { control, type Palette, radius, space, text, usePalette } from '../theme';
 import { Button } from './Button';
 import { Pill } from './Pill';
 import { Reveal } from './SheetParts';
+import { PlayIcon } from './ui';
 
 type Props = {
   path: string;
@@ -133,7 +134,7 @@ export function DubPanel({ path, from, to, dubbed, onDubbed, keepOriginal, onKee
             selectionColor={c.accent}
             accessibilityLabel="Chave da API da ElevenLabs"
           />
-          <Button tone="accent" compact icon="key" label="Salvar chave" busy={checking} disabled={!draft.trim()} onPress={saveKey} />
+          <Button tone="accent" size="md" icon="key" label="Salvar chave" busy={checking} disabled={!draft.trim()} onPress={saveKey} />
           <Text style={s.link} onPress={() => Linking.openURL('https://elevenlabs.io/app/settings/api-keys').catch(() => {})} accessibilityRole="link">
             Onde pego a chave?
           </Text>
@@ -174,7 +175,7 @@ export function DubPanel({ path, from, to, dubbed, onDubbed, keepOriginal, onKee
                   {loadingPreview === v.id ? (
                     <ActivityIndicator size="small" color={c.ink} />
                   ) : (
-                    <Feather name={playingVoice === v.id ? 'pause' : 'play'} size={16} color={c.ink} style={playingVoice === v.id ? null : { marginLeft: 2 }} />
+                    <PlayIcon playing={playingVoice === v.id} size={16} color={c.ink} />
                   )}
                 </Pressable>
               </Pressable>
@@ -196,14 +197,14 @@ export function DubPanel({ path, from, to, dubbed, onDubbed, keepOriginal, onKee
             value={keepOriginal}
             onValueChange={onKeepOriginal}
             trackColor={{ true: c.accent, false: c.lineStrong }}
-            thumbColor="#FFFFFF"
+            thumbColor={c.onAccent}
             accessibilityLabel="Som original baixinho ao fundo"
           />
         </View>
 
         {dubbed && !busy ? (
           <View style={s.done}>
-            <Feather name="check-circle" size={18} color={c.waInk} />
+            <Feather name="check-circle" size={20} color={c.successInk} />
             <Text style={s.doneText} numberOfLines={2}>
               Dublado em {TARGETS.find((t) => t.code === dubbed.language)?.label ?? dubbed.language} · {dubbed.lines.length} falas{dubbed.voices > 1 ? ' · 2 vozes' : ''}
             </Text>
@@ -234,8 +235,8 @@ export function DubPanel({ path, from, to, dubbed, onDubbed, keepOriginal, onKee
             </Text>
           </View>
         ) : (
-          <View style={{ gap: 4 }}>
-            <Button tone={dubbed ? 'neutral' : 'accent'} compact icon="mic" label={dubbed ? 'Dublar de novo' : `Dublar ${clock(length)}`} onPress={run} />
+          <View style={{ gap: space[1] }}>
+            <Button tone={dubbed ? 'neutral' : 'accent'} size="md" icon="mic" label={dubbed ? 'Dublar de novo' : `Dublar ${clock(length)}`} onPress={run} />
             <Text style={s.hint}>Gasta uns {estimateCredits(length)} créditos da sua conta.</Text>
           </View>
         )}
@@ -265,28 +266,28 @@ export function useDubPreview(dubbed: DubResult | null) {
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    card: { gap: 10, padding: 14, borderRadius: 16, backgroundColor: c.bg },
-    title: { fontFamily: font.bold, fontSize: 16, color: c.ink },
-    body: { fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: c.muted },
-    input: { minHeight: 48, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.surface, fontFamily: font.medium, fontSize: 16, color: c.ink },
-    link: { fontFamily: font.semibold, fontSize: 14, color: c.accentInk, textAlign: 'center', paddingVertical: 6 },
-    label: { fontFamily: font.semibold, fontSize: 14, color: c.ink, marginTop: 2 },
-    voices: { flexDirection: 'row', gap: 8 },
-    voice: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
-    voiceOn: { borderColor: c.accent, backgroundColor: c.accentSoft },
-    voiceName: { fontFamily: font.bold, fontSize: 15, color: c.ink },
-    voiceDetail: { fontFamily: font.regular, fontSize: 12, color: c.muted, marginTop: 1 },
-    play: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: c.hover },
-    hint: { fontFamily: font.regular, fontSize: 12, lineHeight: 17, color: c.muted },
-    row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44 },
-    switchLabel: { flex: 1, fontFamily: font.medium, fontSize: 15, color: c.ink },
-    done: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: c.waSoft },
-    doneText: { flex: 1, fontFamily: font.semibold, fontSize: 14, color: c.ink },
-    action: { fontFamily: font.semibold, fontSize: 14, color: c.accentInk, paddingVertical: 6, paddingHorizontal: 4 },
-    busy: { gap: 10, padding: 12, borderRadius: 12, backgroundColor: c.surface, borderWidth: 1, borderColor: c.line },
-    busyText: { fontFamily: font.medium, fontSize: 14, color: c.ink },
-    track: { height: 4, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden' },
-    fill: { height: 4, borderRadius: 2, backgroundColor: c.accent },
-    cancel: { fontFamily: font.semibold, fontSize: 14, color: c.danger, textAlign: 'center' },
+    card: { gap: space[3], padding: space[4], borderRadius: radius.lg, backgroundColor: c.sunken },
+    title: { ...text.bodyBold, color: c.ink },
+    body: { ...text.caption, color: c.muted },
+    input: { ...text.body, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.lg, backgroundColor: c.surface, color: c.ink },
+    link: { ...text.captionBold, color: c.accentInk, textAlign: 'center', paddingVertical: space[2] },
+    label: { ...text.overline, color: c.muted },
+    voices: { flexDirection: 'row', gap: space[2] },
+    voice: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[2], padding: space[3], borderRadius: radius.lg, borderWidth: 2, borderColor: 'transparent', backgroundColor: c.surface },
+    voiceOn: { borderColor: c.accentLine, backgroundColor: c.accentSoft },
+    voiceName: { ...text.bodyBold, color: c.ink },
+    voiceDetail: { ...text.caption, color: c.muted },
+    play: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: c.sunken },
+    hint: { ...text.caption, color: c.muted },
+    row: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+    switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3], minHeight: control.md },
+    switchLabel: { ...text.body, flex: 1, color: c.ink },
+    done: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.successSoft },
+    doneText: { ...text.captionBold, flex: 1, color: c.ink },
+    action: { ...text.captionBold, color: c.accentInk, paddingVertical: space[2], paddingHorizontal: space[1] },
+    busy: { gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.surface },
+    busyText: { ...text.caption, color: c.ink },
+    track: { height: 8, borderRadius: radius.full, backgroundColor: c.sunken, overflow: 'hidden' },
+    fill: { height: 8, borderRadius: radius.full, backgroundColor: c.accent },
+    cancel: { ...text.captionBold, color: c.danger, textAlign: 'center' },
   });

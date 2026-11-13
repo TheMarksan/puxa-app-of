@@ -5,17 +5,24 @@
 
 export type ListColor = 'azul' | 'coral' | 'verde' | 'roxo' | 'rosa' | 'amarelo' | 'grafite' | 'lima';
 
-/** [ink]: letra sobre a cor (o nome vem grande, então 3:1 já é legível). [deep]: fundo do player. */
-export const COLORS: Record<ListColor, { label: string; bg: string; ink: string; deep: string }> = {
-  azul: { label: 'Azul', bg: '#2547D0', ink: '#FFFFFF', deep: '#0F1C55' },
-  coral: { label: 'Coral', bg: '#EE4B32', ink: '#FFFFFF', deep: '#5A1A10' },
-  verde: { label: 'Verde', bg: '#0F8F5F', ink: '#FFFFFF', deep: '#073A27' },
-  roxo: { label: 'Roxo', bg: '#6D35E0', ink: '#FFFFFF', deep: '#2A1259' },
-  rosa: { label: 'Rosa', bg: '#D93A82', ink: '#FFFFFF', deep: '#561433' },
-  amarelo: { label: 'Amarelo', bg: '#F5C518', ink: '#1B1600', deep: '#4A3A00' },
-  lima: { label: 'Lima', bg: '#B5DE45', ink: '#152100', deep: '#2F420A' },
-  grafite: { label: 'Grafite', bg: '#2B2F36', ink: '#FFFFFF', deep: '#121418' },
+/**
+ * [ink]: letra sobre a cor, sempre com contraste de 4,5:1 ou mais. [deep]: fundo do player.
+ * [onLight] e [onDark]: a mesma cor para texto e ícones sobre o fundo do app (o papel claro e o
+ * fundo escuro), escurecida ou clareada só o necessário para passar de 4,5:1.
+ */
+export const COLORS: Record<ListColor, { label: string; bg: string; ink: string; deep: string; onLight: string; onDark: string }> = {
+  azul: { label: 'Azul', bg: '#2B4BFF', ink: '#FFFFFF', deep: '#0E1A5C', onLight: '#2B4BFF', onDark: '#6F85FF' },
+  coral: { label: 'Coral', bg: '#D8371F', ink: '#FFFFFF', deep: '#5A1A10', onLight: '#BE301B', onDark: '#E26957' },
+  verde: { label: 'Verde', bg: '#0D8658', ink: '#FFFFFF', deep: '#073A27', onLight: '#0B754D', onDark: '#3D9E79' },
+  roxo: { label: 'Roxo', bg: '#6D35E0', ink: '#FFFFFF', deep: '#2A1259', onLight: '#6D35E0', onDark: '#9F7AEB' },
+  rosa: { label: 'Rosa', bg: '#D4357D', ink: '#FFFFFF', deep: '#561433', onLight: '#B82E6D', onDark: '#DE639B' },
+  amarelo: { label: 'Amarelo', bg: '#F5C518', ink: '#1B1600', deep: '#4A3A00', onLight: '#7A620C', onDark: '#F5C518' },
+  lima: { label: 'Lima', bg: '#B5DE45', ink: '#152100', deep: '#2F420A', onLight: '#596D22', onDark: '#B5DE45' },
+  grafite: { label: 'Grafite', bg: '#2B2F36', ink: '#FFFFFF', deep: '#121418', onLight: '#2B2F36', onDark: '#B9BBBE' },
 };
+
+/** A cor da playlist para texto e ícones sobre o fundo do app. */
+export const listInk = (color: ListColor, dark: boolean) => (dark ? COLORS[color].onDark : COLORS[color].onLight);
 
 export const COLOR_IDS = Object.keys(COLORS) as ListColor[];
 

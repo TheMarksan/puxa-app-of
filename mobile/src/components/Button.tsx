@@ -1,16 +1,17 @@
 import Feather from '@expo/vector-icons/Feather';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ReactNode, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, PressableProps, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { ms } from '../motion';
-import { ease, font, radius, usePalette } from '../theme';
+import { control, ease, radius, space, tabular, text, usePalette } from '../theme';
 
 type PressProps = Omit<PressableProps, 'style' | 'children'> & {
   style?: StyleProp<ViewStyle>;
   /** Layout do alvo de toque em si (flex, margens), fora da parte que encolhe. */
   containerStyle?: StyleProp<ViewStyle>;
   children: ReactNode | ((pressed: boolean) => ReactNode);
-  /** Quanto o elemento encolhe no toque; 0.97 para botões, 0.99 para linhas largas. */
+  /** Quanto o elemento encolhe no toque: 0.97 para botões; 1 para linhas largas, que só mudam de fundo. */
   scaleTo?: number;
 };
 
@@ -25,11 +26,11 @@ export function Press({ style, containerStyle, children, scaleTo = 0.97, onPress
       style={containerStyle}
       disabled={disabled}
       onPressIn={(e) => {
-        to(scaleTo, 90);
+        if (scaleTo !== 1) to(scaleTo, 90);
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        to(1, 160);
+        if (scaleTo !== 1) to(1, 160);
         onPressOut?.(e);
       }}
     >
@@ -42,32 +43,44 @@ export function Press({ style, containerStyle, children, scaleTo = 0.97, onPress
   );
 }
 
-type Tone = 'accent' | 'wa' | 'neutral' | 'ghost' | 'danger';
+/**
+ * accent: a ação principal da tela (uma só). soft: a segunda opção, no azul bem claro.
+ * neutral: ações de apoio. ghost: só o texto. danger: apagar. inverse: peça escura.
+ */
+type Tone = 'accent' | 'soft' | 'neutral' | 'ghost' | 'danger' | 'inverse';
+type Size = 'lg' | 'md' | 'sm';
 
 type ButtonProps = {
   label: string;
   onPress?: () => void;
   tone?: Tone;
+  size?: Size;
   icon?: keyof typeof Feather.glyphMap;
+  /** Ação que termina no WhatsApp: leva o símbolo dele no lugar do ícone. */
+  whatsapp?: boolean;
   busy?: boolean;
   disabled?: boolean;
   detail?: string;
   style?: StyleProp<ViewStyle>;
-  compact?: boolean;
+  /** Cor da playlist no lugar do azul: o botão principal segue a cor de onde está. */
+  tint?: { bg: string; ink: string };
   accessibilityLabel?: string;
 };
 
-export function Button({ label, onPress, tone = 'accent', icon, busy, disabled, detail, style, compact, accessibilityLabel }: ButtonProps) {
+export function Button({ label, onPress, tone = 'accent', size = 'lg', icon, whatsapp, busy, disabled, detail, style, tint, accessibilityLabel }: ButtonProps) {
   const c = usePalette();
   const off = disabled || busy;
-  const palette: Record<Tone, { bg: string; pressed: string; ink: string; border?: string }> = {
-    accent: { bg: c.accent, pressed: c.accentPressed, ink: c.onAccent },
-    wa: { bg: c.wa, pressed: c.waPressed, ink: '#FFFFFF' },
-    neutral: { bg: c.surface, pressed: c.hover, ink: c.ink, border: c.lineStrong },
-    ghost: { bg: 'transparent', pressed: c.hover, ink: c.ink },
-    danger: { bg: c.surface, pressed: c.dangerSoft, ink: c.danger, border: c.dangerLine },
+  const tones: Record<Tone, { bg: string; pressed: string; ink: string; border?: string; shadow?: string }> = {
+    accent: { bg: c.accent, pressed: c.accentPressed, ink: c.onAccent, shadow: c.glow },
+    soft: { bg: c.accentSoft, pressed: c.accentLine, ink: c.accentInk, border: c.accentLine },
+    neutral: { bg: c.sunken, pressed: c.lineStrong, ink: c.ink },
+    ghost: { bg: 'transparent', pressed: c.sunken, ink: c.ink },
+    danger: { bg: c.dangerSoft, pressed: c.dangerLine, ink: c.danger, border: c.dangerLine },
+    inverse: { bg: c.inverse, pressed: c.inversePressed, ink: c.onInverse, shadow: c.sheen },
   };
-  const p = palette[tone];
+  const p = tint && tone === 'accent' ? { bg: tint.bg, pressed: tint.bg, ink: tint.ink, shadow: c.sheen, border: undefined } : tones[tone];
+  const ink = disabled ? c.disabledInk : p.ink;
+  const glyph = size === 'sm' ? 16 : 20;
   return (
     <Press
       onPress={onPress}
@@ -81,23 +94,27 @@ export function Button({ label, onPress, tone = 'accent', icon, busy, disabled, 
         <View
           style={[
             styles.button,
-            compact && styles.compact,
+            styles[size],
             {
               backgroundColor: disabled ? c.disabledBg : pressed ? p.pressed : p.bg,
-              borderColor: disabled ? c.disabledBg : p.border ?? 'transparent',
+              borderColor: disabled ? 'transparent' : p.border ?? 'transparent',
+              boxShadow: disabled ? undefined : p.shadow,
+              opacity: pressed && tint ? 0.88 : 1,
             },
           ]}
         >
           {busy ? (
-            <ActivityIndicator color={p.ink} size="small" />
+            <ActivityIndicator color={ink} size="small" />
+          ) : whatsapp ? (
+            <FontAwesome name="whatsapp" size={glyph} color={ink} />
           ) : icon ? (
-            <Feather name={icon} size={compact ? 17 : 19} color={disabled ? c.disabledInk : p.ink} />
+            <Feather name={icon} size={glyph} color={ink} />
           ) : null}
-          <Text numberOfLines={1} style={[styles.label, compact && styles.labelCompact, { color: disabled ? c.disabledInk : p.ink }]}>
+          <Text numberOfLines={1} style={[size === 'sm' ? styles.labelSm : styles.label, { color: ink }]}>
             {label}
           </Text>
           {detail ? (
-            <Text numberOfLines={1} style={[styles.detail, { color: disabled ? c.disabledInk : p.ink }]}>
+            <Text numberOfLines={1} style={[styles.detail, { color: ink }]}>
               {detail}
             </Text>
           ) : null}
@@ -108,18 +125,11 @@ export function Button({ label, onPress, tone = 'accent', icon, busy, disabled, 
 }
 
 const styles = StyleSheet.create({
-  button: {
-    minHeight: 54,
-    borderRadius: radius.btn,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    gap: 9,
-  },
-  compact: { minHeight: 46, paddingHorizontal: 14, gap: 7 },
-  label: { fontFamily: font.semibold, fontSize: 16, letterSpacing: -0.1 },
-  labelCompact: { fontSize: 15 },
-  detail: { fontFamily: font.medium, fontSize: 15, opacity: 0.78, fontVariant: ['tabular-nums'] },
+  button: { borderRadius: radius.full, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2] },
+  lg: { minHeight: control.lg, paddingHorizontal: space[6] },
+  md: { minHeight: control.md, paddingHorizontal: space[4] },
+  sm: { minHeight: control.sm, paddingHorizontal: space[4], gap: space[1] },
+  label: { ...text.bodyBold, flexShrink: 1 },
+  labelSm: { ...text.captionBold, flexShrink: 1 },
+  detail: { ...text.caption, ...tabular, opacity: 0.8 },
 });

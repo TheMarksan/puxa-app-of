@@ -9,12 +9,12 @@ import PuxaEngine, { type StickerFolder, type StickerItem } from '../../modules/
 import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { Reveal } from '../components/SheetParts';
-import { CHAT_BG } from '../components/StickerPanel';
 import { useToast } from '../components/Toasts';
+import { EmptyState, Group, Hairline, IconButton } from '../components/ui';
 import { toUri } from '../editor/media';
 import { bytes } from '../format';
 import { dropFolder, folderToWhatsApp, MAX_PER_PACK, packOf, pendingPacks, putFolder, roomIn, useFolders } from '../stickers/folders';
-import { font, type Palette, radius, usePalette } from '../theme';
+import { control, gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 /** Uma pasta: as figurinhas (paradas e animadas juntas), o WhatsApp e as ações de cada uma. */
 export function FolderScreen({ id }: { id: string }) {
@@ -51,7 +51,7 @@ export function FolderScreen({ id }: { id: string }) {
   if (!folder) {
     return (
       <View style={s.root}>
-        <View style={[s.top, { paddingTop: insets.top + 10 }]}>
+        <View style={[s.top, { paddingTop: insets.top + space[2] }]}>
           <BackButton />
         </View>
         {folders ? <Text style={s.gone}>Essa pasta não existe mais.</Text> : null}
@@ -151,99 +151,95 @@ export function FolderScreen({ id }: { id: string }) {
 
   const others = (folders ?? []).filter((f) => f.id !== folder.id);
 
+  const counts = folder.packs.map((p) => `${p.count} de ${MAX_PER_PACK} ${p.animated ? 'animadas' : 'paradas'}`).join(' · ');
+  const onWhatsApp = !toAdd.length && folder.stickers.length > 0;
+  // O que fica preso embaixo: as ações da figurinha escolhida ou, sem escolha, o botão do WhatsApp
+  const bottomBar = !!picked || toAdd.length > 0;
+
   return (
     <View style={s.root}>
-      <View style={[s.top, { paddingTop: insets.top + 10 }]}>
-        <BackButton />
-        {renaming ? (
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            maxLength={40}
-            returnKeyType="done"
-            onSubmitEditing={saveName}
-            onBlur={() => setRenaming(false)}
-            selectionColor={c.accent}
-            style={s.titleInput}
-            accessibilityLabel="Nome da pasta"
-          />
-        ) : (
-          <Text style={s.title} numberOfLines={1} accessibilityRole="header">
-            {folder.name}
-          </Text>
-        )}
-        <Pressable
-          onPress={() => setMenu((v) => !v)}
-          hitSlop={8}
-          style={({ pressed }) => [s.headBtn, (pressed || menu) && { backgroundColor: c.hover }]}
-          accessibilityRole="button"
-          accessibilityLabel="Opções da pasta"
-          accessibilityState={{ expanded: menu }}
-        >
-          <Feather name="more-vertical" size={20} color={c.ink} />
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + (picked ? 140 : 32) }]} keyboardShouldPersistTaps="handled">
-        {menu ? (
-          <Reveal>
-            <View style={s.menu}>
-              <MenuRow
-                icon="edit-3"
-                label="Renomear"
-                c={c}
-                onPress={() => {
-                  setName(folder.name);
-                  setRenaming(true);
-                  setMenu(false);
-                }}
-              />
-              <MenuRow
-                icon="trash-2"
-                label="Apagar pasta"
-                danger
-                c={c}
-                onPress={() => {
-                  setMenu(false);
-                  if (folder.stickers.length) setConfirmDelete(true);
-                  else deleteFolder();
-                }}
-              />
-            </View>
-          </Reveal>
-        ) : null}
-
-        {confirmDelete ? (
-          <Reveal>
-            <View style={s.danger}>
-              <Text style={s.dangerText}>
-                Apagar a pasta {folder.name} e as {folder.stickers.length} figurinhas dela? O WhatsApp deixa de mostrar o pacote.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button tone="neutral" compact label="Manter" onPress={() => setConfirmDelete(false)} style={{ flex: 1 }} />
-                <Button tone="danger" compact icon="trash-2" label="Apagar" onPress={deleteFolder} style={{ flex: 1 }} />
+      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + (bottomBar ? space[16] + space[16] : space[8]) }]} keyboardShouldPersistTaps="handled">
+        <View style={[s.top, { paddingTop: insets.top + space[2] }]}>
+          <View style={s.bar}>
+            <BackButton />
+            <IconButton icon="more-vertical" label="Opções da pasta" onPress={() => setMenu((v) => !v)} />
+          </View>
+          {renaming ? (
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              maxLength={40}
+              returnKeyType="done"
+              onSubmitEditing={saveName}
+              onBlur={() => setRenaming(false)}
+              selectionColor={c.accent}
+              style={s.titleInput}
+              accessibilityLabel="Nome da pasta"
+            />
+          ) : (
+            <Text style={s.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7} accessibilityRole="header">
+              {folder.name}
+            </Text>
+          )}
+          <View style={s.meta}>
+            <Text style={s.count}>{counts}</Text>
+            {onWhatsApp ? (
+              <View style={s.added}>
+                <Feather name="check" size={12} color={c.successInk} />
+                <Text style={s.addedText}>No WhatsApp</Text>
               </View>
-            </View>
-          </Reveal>
-        ) : null}
-
-        <View style={s.summary}>
-          <Text style={s.count}>
-            {folder.packs.map((p) => `${p.count} de ${MAX_PER_PACK} ${p.animated ? 'animadas' : 'paradas'}`).join(' · ')}
-          </Text>
-          {toAdd.length ? (
-            <Button tone="wa" icon="plus-circle" label="Adicionar ao WhatsApp" busy={adding} onPress={toWhatsApp} />
-          ) : folder.stickers.length ? (
-            <View style={s.added}>
-              <Feather name="check" size={14} color={c.waInk} />
-              <Text style={s.addedText}>No WhatsApp</Text>
-            </View>
-          ) : null}
-          {few ? <Text style={s.note}>Com menos de 3, o WhatsApp mostra repetidas.</Text> : null}
+            ) : null}
+          </View>
         </View>
 
-        {stickers.length ? (
+        <View style={s.body}>
+          {menu ? (
+            <Reveal>
+              <Group>
+                <MenuRow
+                  icon="edit-3"
+                  label="Renomear"
+                  c={c}
+                  onPress={() => {
+                    setName(folder.name);
+                    setRenaming(true);
+                    setMenu(false);
+                  }}
+                />
+                <Hairline inset={space[4] + 20 + space[3]} />
+                <MenuRow
+                  icon="trash-2"
+                  label="Apagar pasta"
+                  danger
+                  c={c}
+                  onPress={() => {
+                    setMenu(false);
+                    if (folder.stickers.length) setConfirmDelete(true);
+                    else deleteFolder();
+                  }}
+                />
+              </Group>
+            </Reveal>
+          ) : null}
+
+          {confirmDelete ? (
+            <Reveal>
+              <View style={s.danger}>
+                <Text style={s.dangerText}>
+                  Apagar a pasta {folder.name} e as {folder.stickers.length} figurinhas dela? O WhatsApp deixa de mostrar o pacote.
+                </Text>
+                <View style={s.dangerRow}>
+                  <Button tone="neutral" size="md" label="Manter" onPress={() => setConfirmDelete(false)} style={s.half} />
+                  <Button tone="danger" size="md" icon="trash-2" label="Apagar" onPress={deleteFolder} style={s.half} />
+                </View>
+              </View>
+            </Reveal>
+          ) : null}
+
+          {few ? <Text style={s.note}>Com menos de 3 figurinhas, o WhatsApp completa o pacote com repetidas.</Text> : null}
+
+          {stickers.length ? (
           <View style={s.grid} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
             {stickers.map((st) => {
               const on = picked?.file === st.file;
@@ -255,7 +251,7 @@ export function FolderScreen({ id }: { id: string }) {
                     setMoving(false);
                     setPicked(on ? null : st);
                   }}
-                  style={[s.tile, { width: tile, height: tile, backgroundColor: c.dark ? CHAT_BG.dark : CHAT_BG.light }, on && { borderColor: c.accent }]}
+                  style={[s.tile, { width: tile, height: tile, backgroundColor: c.chat }, on && { borderColor: c.accent }]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   accessibilityLabel={`Figurinha ${st.animated ? 'animada' : 'parada'} ${st.emojis.join(' ')} ${st.label}`}
@@ -263,28 +259,28 @@ export function FolderScreen({ id }: { id: string }) {
                   <Image source={{ uri: toUri(st.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" />
                   {st.animated ? (
                     <View style={s.badge}>
-                      <Feather name="repeat" size={11} color="#fff" />
+                      <Feather name="repeat" size={12} color={c.onMedia} />
                     </View>
                   ) : null}
                 </Pressable>
               );
             })}
           </View>
-        ) : (
-          <View style={s.empty} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-            <Feather name="image" size={26} color={c.muted} />
-            <Text style={s.emptyBody}>Pasta vazia. Escolha esta pasta na hora de fazer uma figurinha.</Text>
-          </View>
-        )}
+          ) : (
+            <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+              <EmptyState icon="image" title="Pasta vazia" body="Na hora de fazer uma figurinha, escolha esta pasta e ela aparece aqui." />
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {picked ? (
-        <View style={[s.actions, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[s.actions, { paddingBottom: insets.bottom + space[4] }]}>
           {moving ? (
             <Reveal>
               <Text style={s.moveLabel}>Mover para</Text>
               {others.length ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
                   {others.map((f) => {
                     const full = roomIn(f, picked.animated) <= 0;
                     return (
@@ -292,11 +288,11 @@ export function FolderScreen({ id }: { id: string }) {
                         key={f.id}
                         disabled={full}
                         onPress={() => move(picked, f)}
-                        style={({ pressed }) => [s.chip, pressed && { backgroundColor: c.hover }, full && { opacity: 0.45 }]}
+                        style={({ pressed }) => [s.chip, pressed && { backgroundColor: c.lineStrong }, full && { opacity: 0.4 }]}
                         accessibilityRole="button"
                         accessibilityLabel={full ? `${f.name}, cheia` : `Mover para ${f.name}`}
                       >
-                        <Feather name="folder" size={15} color={c.muted} />
+                        <Feather name="folder" size={16} color={c.muted} />
                         <Text style={s.chipText}>{f.name}</Text>
                         <Text style={s.chipCount}>{packOf(f, picked.animated)?.count ?? 0}</Text>
                       </Pressable>
@@ -310,7 +306,7 @@ export function FolderScreen({ id }: { id: string }) {
           ) : (
             <View style={s.actionRow}>
               <Image source={{ uri: toUri(picked.path) }} style={s.actionImg} resizeMode="contain" />
-              <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={s.actionText}>
                 <Text style={s.actionTitle} numberOfLines={1}>
                   {picked.emojis.join(' ')} {picked.label}
                 </Text>
@@ -318,11 +314,15 @@ export function FolderScreen({ id }: { id: string }) {
                   {picked.animated ? 'Animada' : 'Parada'} · {bytes(picked.size)}
                 </Text>
               </View>
-              <IconAction icon="share-2" label="Mandar em outro app" onPress={() => share(picked)} c={c} />
-              <IconAction icon="folder" label="Mover para outra pasta" onPress={() => setMoving(true)} c={c} />
-              <IconAction icon="trash-2" label="Apagar figurinha" danger onPress={() => remove(picked)} c={c} />
+              <IconButton size={48} icon="share-2" label="Mandar em outro app" onPress={() => share(picked)} />
+              <IconButton size={48} icon="folder" label="Mover para outra pasta" onPress={() => setMoving(true)} />
+              <IconButton size={48} icon="trash-2" label="Apagar figurinha" tint={{ bg: c.dangerSoft, ink: c.danger }} onPress={() => remove(picked)} />
             </View>
           )}
+        </View>
+      ) : toAdd.length ? (
+        <View style={[s.actions, { paddingBottom: insets.bottom + space[4] }]}>
+          <Button whatsapp label="Adicionar ao WhatsApp" busy={adding} onPress={toWhatsApp} />
         </View>
       ) : null}
     </View>
@@ -331,76 +331,59 @@ export function FolderScreen({ id }: { id: string }) {
 
 function MenuRow({ icon, label, onPress, danger, c }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; danger?: boolean; c: Palette }) {
   return (
-    <Pressable
-      onPress={onPress}
-      android_ripple={{ color: c.hover }}
-      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, height: 52, paddingHorizontal: 14 }, pressed && { backgroundColor: c.hover }]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Feather name={icon} size={18} color={danger ? c.danger : c.ink} />
-      <Text style={{ fontFamily: font.semibold, fontSize: 16, color: danger ? c.danger : c.ink }}>{label}</Text>
+    <Pressable onPress={onPress} style={({ pressed }) => [menu.row, pressed && { backgroundColor: c.sunken }]} accessibilityRole="button" accessibilityLabel={label}>
+      <Feather name={icon} size={20} color={danger ? c.danger : c.ink} />
+      <Text style={[text.bodyBold, { color: danger ? c.danger : c.ink }]}>{label}</Text>
     </Pressable>
   );
 }
 
-function IconAction({ icon, label, onPress, danger, c }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; danger?: boolean; c: Palette }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={4}
-      style={({ pressed }) => [{ width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: c.hover }, pressed && { opacity: 0.7 }]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Feather name={icon} size={19} color={danger ? c.danger : c.ink} />
-    </Pressable>
-  );
-}
+const menu = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[3], height: control.lg, paddingHorizontal: space[4] },
+});
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
-    title: { flex: 1, fontFamily: font.bold, fontSize: 21, color: c.ink, letterSpacing: -0.3 },
-    titleInput: { flex: 1, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.accent, backgroundColor: c.surface, fontFamily: font.bold, fontSize: 18, color: c.ink },
-    headBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: c.line },
-    gone: { fontFamily: font.regular, fontSize: 15, color: c.muted, textAlign: 'center', marginTop: 40 },
-    scroll: { paddingHorizontal: 20, paddingTop: 4, gap: 14 },
-    menu: { borderRadius: radius.list, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, overflow: 'hidden' },
-    danger: { gap: 12, padding: 14, borderRadius: radius.list, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.dangerLine },
-    dangerText: { fontFamily: font.medium, fontSize: 15, lineHeight: 21, color: c.ink },
-    summary: { gap: 10 },
-    count: { fontFamily: font.semibold, fontSize: 14, color: c.muted, fontVariant: ['tabular-nums'] },
-    added: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: c.waSoft },
-    addedText: { fontFamily: font.semibold, fontSize: 13, color: c.waInk },
-    note: { fontFamily: font.regular, fontSize: 13, lineHeight: 18, color: c.muted },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    tile: { borderRadius: 14, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
-    badge: { position: 'absolute', right: 6, bottom: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
-    empty: { alignItems: 'center', gap: 10, padding: 28, borderRadius: radius.list + 4, borderWidth: 1, borderColor: c.line, borderStyle: 'dashed' },
-    emptyBody: { fontFamily: font.regular, fontSize: 15, lineHeight: 21, color: c.muted, textAlign: 'center' },
+    scroll: { flexGrow: 1 },
+    top: { paddingHorizontal: gutter, paddingBottom: space[4] },
+    bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
+    title: { ...text.display, color: c.ink, marginTop: space[4] },
+    titleInput: { ...text.title, minHeight: control.lg, marginTop: space[4], paddingHorizontal: space[4], borderRadius: radius.lg, borderWidth: 2, borderColor: c.accent, backgroundColor: c.sunken, color: c.ink },
+    meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space[2], marginTop: space[1] },
+    count: { ...text.body, ...tabular, color: c.muted },
+    added: { flexDirection: 'row', alignItems: 'center', gap: space[1], paddingHorizontal: space[2], height: 24, borderRadius: radius.full, backgroundColor: c.successSoft },
+    addedText: { ...text.captionBold, lineHeight: 16, color: c.successInk },
+    body: { paddingHorizontal: gutter, gap: space[4] },
+    gone: { ...text.body, color: c.muted, textAlign: 'center', marginTop: space[12] },
+    danger: { gap: space[3], padding: space[4], borderRadius: radius.xl, backgroundColor: c.dangerSoft },
+    dangerText: { ...text.body, color: c.ink },
+    dangerRow: { flexDirection: 'row', gap: space[2] },
+    half: { flex: 1 },
+    note: { ...text.caption, color: c.muted },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space[3] },
+    tile: { borderRadius: radius.lg, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
+    badge: { position: 'absolute', right: space[2], bottom: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
     actions: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      backgroundColor: c.surface,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: c.line,
-      elevation: 12,
-      shadowColor: c.shadow,
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
+      paddingHorizontal: gutter,
+      paddingTop: space[4],
+      backgroundColor: c.dark ? c.raised : c.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      boxShadow: c.shadow3,
     },
-    actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    actionRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     actionImg: { width: 48, height: 48 },
-    actionTitle: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    actionMeta: { fontFamily: font.regular, fontSize: 13, color: c.muted, marginTop: 2 },
-    moveLabel: { fontFamily: font.semibold, fontSize: 14, color: c.ink, marginBottom: 8 },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.bg },
-    chipText: { fontFamily: font.semibold, fontSize: 14, color: c.ink },
-    chipCount: { fontFamily: font.medium, fontSize: 12, color: c.muted, fontVariant: ['tabular-nums'] },
+    actionText: { flex: 1, minWidth: 0 },
+    actionTitle: { ...text.bodyBold, color: c.ink },
+    actionMeta: { ...text.caption, ...tabular, color: c.muted },
+    moveLabel: { ...text.overline, color: c.muted, marginBottom: space[2] },
+    chips: { gap: space[2] },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: space[2], height: control.sm, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: c.sunken },
+    chipText: { ...text.captionBold, color: c.ink },
+    chipCount: { ...text.caption, ...tabular, color: c.muted },
   });

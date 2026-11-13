@@ -1,11 +1,13 @@
 import Feather from '@expo/vector-icons/Feather';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { clock } from '../../format';
 import type { Track } from '../../playlist/store';
-import { font, usePalette } from '../../theme';
+import { control, gutter, radius, space, text, usePalette } from '../../theme';
+import { Hairline } from '../ui';
 import { imageUri, TrackArt } from './Cover';
 import { Sheet } from './Sheet';
 
@@ -18,6 +20,7 @@ export function TrackActions({
   canUp,
   canDown,
   tint,
+  tintInk,
   onClose,
   onAction,
 }: {
@@ -27,6 +30,7 @@ export function TrackActions({
   canUp: boolean;
   canDown: boolean;
   tint: string;
+  tintInk: string;
   onClose: () => void;
   onAction: (a: TrackAction, t: Track) => void;
 }) {
@@ -36,10 +40,10 @@ export function TrackActions({
   // Apagar o arquivo pede um segundo toque
   const [armed, setArmed] = useState<string | null>(null);
   if (armed && armed !== t?.id) setArmed(null);
-  const rows: { a: TrackAction; icon: keyof typeof Feather.glyphMap; label: string; tone?: string; show: boolean }[] = [
+  const rows: { a: TrackAction; icon: keyof typeof Feather.glyphMap | 'whatsapp'; label: string; tone?: string; show: boolean }[] = [
     { a: 'retry', icon: 'rotate-cw', label: 'Tentar baixar de novo', show: t?.status === 'error' },
     { a: 'save-to', icon: 'plus-circle', label: 'Salvar em playlist', show: true },
-    { a: 'whatsapp', icon: 'send', label: 'Enviar no WhatsApp', tone: c.waInk, show: ready },
+    { a: 'whatsapp', icon: 'whatsapp', label: 'Enviar no WhatsApp', show: ready },
     { a: 'share', icon: 'share-2', label: 'Enviar para outros apps', show: ready },
     { a: 'download', icon: 'download', label: 'Salvar em Download/Puxa', show: ready },
     { a: 'up', icon: 'arrow-up', label: 'Subir na lista', show: canUp },
@@ -52,7 +56,7 @@ export function TrackActions({
       {t ? (
         <View style={s.body}>
           <View style={s.head}>
-            <TrackArt uri={imageUri(t.thumbnail)} size={52} radius={12} tint={tint} />
+            <TrackArt uri={imageUri(t.thumbnail)} size={48} radius={radius.md} tint={tint} ink={tintInk} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[s.title, { color: c.ink }]} numberOfLines={2}>
                 {t.title}
@@ -62,7 +66,9 @@ export function TrackActions({
               </Text>
             </View>
           </View>
-          <View style={[s.sep, { backgroundColor: c.line }]} />
+          <View style={s.sep}>
+            <Hairline inset={0} />
+          </View>
           {rows
             .filter((r) => r.show)
             .map((r) => (
@@ -76,12 +82,12 @@ export function TrackActions({
                   }
                   onAction(r.a, t);
                 }}
-                android_ripple={{ color: c.hover }}
+                android_ripple={{ color: c.sunken }}
                 style={s.row}
                 accessibilityRole="button"
                 accessibilityLabel={r.label}
               >
-                <Feather name={r.icon} size={21} color={r.tone ?? c.ink} />
+                {r.icon === 'whatsapp' ? <FontAwesome name="whatsapp" size={20} color={c.ink} /> : <Feather name={r.icon} size={20} color={r.tone ?? c.ink} />}
                 <Text style={[s.label, { color: r.tone ?? c.ink }]}>{r.label}</Text>
               </Pressable>
             ))}
@@ -92,11 +98,11 @@ export function TrackActions({
 }
 
 const s = StyleSheet.create({
-  body: { paddingBottom: 4 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingBottom: 14 },
-  title: { fontFamily: font.semibold, fontSize: 16, lineHeight: 21 },
-  meta: { fontFamily: font.regular, fontSize: 13, marginTop: 2 },
-  sep: { height: StyleSheet.hairlineWidth, marginHorizontal: 20, marginBottom: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 52, paddingHorizontal: 22 },
-  label: { fontFamily: font.medium, fontSize: 16 },
+  body: { paddingBottom: space[1] },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space[4], paddingHorizontal: gutter, paddingBottom: space[4] },
+  title: { ...text.bodyBold },
+  meta: { ...text.caption },
+  sep: { paddingHorizontal: gutter, paddingBottom: space[1] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[4], minHeight: control.lg, paddingHorizontal: gutter },
+  label: { ...text.body },
 });

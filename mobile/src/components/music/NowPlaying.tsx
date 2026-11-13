@@ -10,15 +10,16 @@ import { ALL, listLook } from '../../playlist/lists';
 import { useLyrics } from '../../playlist/lyricsFetch';
 import { cycleLoop, dismissError, next, previous, seek, toggle, toggleShuffle } from '../../playlist/player';
 import { useTracks } from '../../playlist/store';
-import { font } from '../../theme';
+import { alpha, control, media, radius, space, tabular, text } from '../../theme';
 import { imageUri, PlaylistCover, TrackArt } from './Cover';
 import { ListPicker } from './ListPicker';
 import { LyricsCard, LyricsFull, LyricsSearch } from './LyricsView';
 import { SeekBar, useSmoothTime } from './Seek';
+import { PlayIcon } from '../ui';
 
-const W = '#FFFFFF';
-const W70 = 'rgba(255,255,255,0.72)';
-const W25 = 'rgba(255,255,255,0.25)';
+const W = media.on;
+const W70 = media.onSoft;
+const W25 = media.track;
 
 /**
  * O player em tela cheia: fundo escuro na cor da playlist, capa grande, controles e a letra.
@@ -33,6 +34,7 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
   const [view, setView] = useState<'main' | 'lyrics' | 'search'>('main');
   const [req, setReq] = useState({ n: 0, refresh: false });
   const [saving, setSaving] = useState(false);
+  const [barH, setBarH] = useState(0);
   const t = tracks.find((x) => x.id === p.trackId) ?? null;
   const lyrics = useLyrics(visible ? t : null, req);
   const look = listLook(p.listId ?? ALL);
@@ -40,7 +42,7 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
   const card = { bg: k.bg, ink: k.ink };
   const duration = p.duration || t?.duration || 0;
   const shown = drag ?? time;
-  const art = Math.min(width - 56, 340);
+  const art = Math.min(width - space[8] * 2, 336);
 
   const close = () => {
     setView('main');
@@ -53,16 +55,18 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
       <View style={[st.root, { backgroundColor: view === 'main' ? k.deep : k.bg }]}>
         {view === 'main' ? (
           <>
-            <View pointerEvents="none" style={[st.glow, { opacity: 0.28, backgroundColor: k.bg, width: width * 2, height: width * 2, borderRadius: width * 2, left: -width * 0.5, top: -width * 1.05 }]} />
-            <View pointerEvents="none" style={[st.glow, { opacity: 0.45, backgroundColor: k.bg, width: width * 1.5, height: width * 1.5, borderRadius: width * 1.5, left: -width * 0.25, top: -width * 0.9 }]} />
+            <View pointerEvents="none" style={[st.glow, { opacity: 0.28, backgroundColor: k.bg, width: width * 2, height: width * 2, borderRadius: radius.full, left: -width * 0.5, top: -width * 1.05 }]} />
+            <View pointerEvents="none" style={[st.glow, { opacity: 0.45, backgroundColor: k.bg, width: width * 1.5, height: width * 1.5, borderRadius: radius.full, left: -width * 0.25, top: -width * 0.9 }]} />
           </>
         ) : null}
-        <View style={[st.top, { paddingTop: insets.top + 6 }]}>
+        <View style={[st.top, { paddingTop: insets.top + space[2] }]}>
           <Pressable onPress={() => (view !== 'main' ? setView('main') : close())} hitSlop={8} style={st.iconBtn} accessibilityRole="button" accessibilityLabel={view !== 'main' ? 'Voltar ao player' : 'Fechar o player'}>
-            <Feather name="chevron-down" size={28} color={view === 'main' ? W : k.ink} />
+            <Feather name="chevron-down" size={24} color={view === 'main' ? W : k.ink} />
           </Pressable>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={[st.from, { color: view === 'main' ? W70 : k.ink }]}>{view === 'main' ? 'TOCANDO DE' : t.artist.toUpperCase() || 'LETRA'}</Text>
+            <Text style={[st.from, { color: view === 'main' ? W70 : alpha(k.ink, 0.8) }]} numberOfLines={1}>
+              {view === 'main' ? 'Tocando de' : t.artist || 'Letra'}
+            </Text>
             <Text style={[st.fromName, { color: view === 'main' ? W : k.ink }]} numberOfLines={1}>
               {view === 'main' ? look.name : t.title}
             </Text>
@@ -84,22 +88,22 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
           />
         ) : view === 'lyrics' && lyrics.status === 'ready' ? (
           <View style={{ flex: 1 }}>
-            <LyricsFull lyrics={lyrics.lyrics} time={time} look={card} onSearch={() => setView('search')} />
-            <View style={[st.lyricsBar, { paddingBottom: insets.bottom + 14, backgroundColor: k.bg }]}>
-              <SeekBar value={shown} max={duration} onScrub={setDrag} onSeek={(v) => { setDrag(null); seek(v); }} track={k.ink === W ? W25 : 'rgba(0,0,0,0.2)'} fill={k.ink} thumb={12} />
+            <LyricsFull lyrics={lyrics.lyrics} time={time} look={card} bottom={barH + space[12]} onSearch={() => setView('search')} />
+            <View onLayout={(e) => setBarH(Math.round(e.nativeEvent.layout.height))} style={[st.lyricsBar, { paddingBottom: insets.bottom + space[4], backgroundColor: k.bg }]}>
+              <SeekBar value={shown} max={duration} onScrub={setDrag} onSeek={(v) => { setDrag(null); seek(v); }} track={alpha(k.ink, 0.24)} fill={k.ink} thumb={12} />
               <View style={st.lyricsCtrls}>
                 <Text style={[st.time, { color: k.ink }]}>{clock(shown)}</Text>
                 <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggle(); }} style={[st.smallPlay, { backgroundColor: k.ink }]} accessibilityRole="button" accessibilityLabel={p.playing ? 'Pausar' : 'Tocar'}>
-                  <Feather name={p.playing ? 'pause' : 'play'} size={22} color={k.bg} style={p.playing ? null : { marginLeft: 2 }} />
+                  <PlayIcon playing={p.playing} size={20} color={k.bg} />
                 </Pressable>
                 <Text style={[st.time, { color: k.ink }]}>{duration ? clock(duration) : '--:--'}</Text>
               </View>
             </View>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={[st.body, { paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={[st.body, { paddingBottom: insets.bottom + space[8] }]} showsVerticalScrollIndicator={false}>
             <View style={[st.artWrap, { width: art, height: art }]}>
-              {t.thumbnail ? <TrackArt uri={imageUri(t.thumbnail)} size={art} radius={22} tint={k.bg} /> : <PlaylistCover name={t.title} color={look.color} size={art} radius={22} image={look.cover} />}
+              {t.thumbnail ? <TrackArt uri={imageUri(t.thumbnail)} size={art} radius={radius.xl} tint={k.bg} ink={k.ink} /> : <PlaylistCover name={t.title} color={look.color} size={art} radius={radius.xl} image={look.cover} />}
             </View>
             <View style={st.titles}>
               <Text style={st.title} numberOfLines={2}>
@@ -125,7 +129,7 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
             </View>
             <View style={st.controls}>
               <Ctrl icon="shuffle" label={p.shuffle ? 'Aleatório: ligado' : 'Aleatório: desligado'} on={p.shuffle} dotColor={k.bg} onPress={toggleShuffle} />
-              <Ctrl icon="skip-back" label="Anterior" size={30} onPress={previous} />
+              <Ctrl icon="skip-back" label="Anterior" size={32} onPress={previous} />
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -135,9 +139,9 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
                 accessibilityRole="button"
                 accessibilityLabel={p.playing ? 'Pausar' : 'Tocar'}
               >
-                {p.buffering && p.playing ? <ActivityIndicator color={k.deep} /> : <Feather name={p.playing ? 'pause' : 'play'} size={30} color={k.deep} style={p.playing ? null : { marginLeft: 3 }} />}
+                {p.buffering && p.playing ? <ActivityIndicator color={k.deep} /> : <PlayIcon playing={p.playing} size={32} color={k.deep} />}
               </Pressable>
-              <Ctrl icon="skip-forward" label="Próxima" size={30} onPress={next} />
+              <Ctrl icon="skip-forward" label="Próxima" size={32} onPress={next} />
               <Ctrl
                 icon="repeat"
                 label={p.loop === 'all' ? 'Repetir: a lista' : p.loop === 'single' ? 'Repetir: esta música' : 'Repetir: desligado'}
@@ -163,22 +167,21 @@ export function NowPlaying({ visible, onClose }: { visible: boolean; onClose: ()
   );
 }
 
-function Ctrl({ icon, label, onPress, on, badge, size = 22, dotColor }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; on?: boolean; badge?: string; size?: number; dotColor?: string }) {
+function Ctrl({ icon, label, onPress, on, badge, size = 24, dotColor }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void; on?: boolean; badge?: string; size?: 24 | 32; dotColor?: string }) {
   return (
     <Pressable
       onPress={() => {
         Haptics.selectionAsync().catch(() => {});
         onPress();
       }}
-      hitSlop={6}
-      style={({ pressed }) => [st.ctrl, pressed && { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+      style={({ pressed }) => [st.ctrl, pressed && { backgroundColor: alpha(W, 0.12) }]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={on != null ? { selected: on } : undefined}
     >
       <Feather name={icon} size={size} color={on === false ? W70 : W} />
       {badge ? <Text style={st.badge}>{badge}</Text> : null}
-      {on ? <View style={[st.dot, { backgroundColor: dotColor === '#2B2F36' ? W : dotColor }]} /> : null}
+      {on ? <View style={[st.dot, { backgroundColor: dotColor === COLORS.grafite.bg ? W : dotColor }]} /> : null}
     </Pressable>
   );
 }
@@ -186,25 +189,25 @@ function Ctrl({ icon, label, onPress, on, badge, size = 22, dotColor }: { icon: 
 const st = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
   glow: { position: 'absolute' },
-  top: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 6, gap: 8 },
-  iconBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  from: { fontFamily: font.semibold, fontSize: 11, letterSpacing: 1.4 },
-  fromName: { fontFamily: font.bold, fontSize: 15, marginTop: 1 },
-  body: { paddingHorizontal: 28, paddingTop: 18, gap: 22 },
-  artWrap: { alignSelf: 'center', borderRadius: 22, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 30, shadowOffset: { width: 0, height: 18 }, elevation: 18 },
-  titles: { gap: 4 },
-  title: { fontFamily: font.bold, fontSize: 24, lineHeight: 30, color: W, letterSpacing: -0.4 },
-  artist: { fontFamily: font.medium, fontSize: 16, color: W70 },
-  error: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.3)' },
-  errorText: { flex: 1, fontFamily: font.medium, fontSize: 13, lineHeight: 18, color: W },
-  times: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 },
-  time: { fontFamily: font.medium, fontSize: 12, color: W70, fontVariant: ['tabular-nums'] },
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: -6 },
-  ctrl: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  badge: { position: 'absolute', top: 9, right: 9, fontFamily: font.bold, fontSize: 10, color: W },
-  dot: { position: 'absolute', bottom: 6, width: 5, height: 5, borderRadius: 3 },
-  play: { width: 74, height: 74, borderRadius: 37, backgroundColor: W, alignItems: 'center', justifyContent: 'center' },
-  lyricsBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 10 },
+  top: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space[4], paddingBottom: space[2], gap: space[2] },
+  iconBtn: { width: control.md, height: control.md, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  from: { ...text.overline },
+  fromName: { ...text.bodyBold },
+  body: { paddingHorizontal: space[8], paddingTop: space[4], gap: space[6] },
+  artWrap: { alignSelf: 'center', borderRadius: radius.xl, boxShadow: media.lift },
+  titles: { gap: space[1] },
+  title: { ...text.title, color: W },
+  artist: { ...text.body, color: W70 },
+  error: { flexDirection: 'row', alignItems: 'center', gap: space[2], padding: space[3], borderRadius: radius.lg, backgroundColor: alpha(media.stage, 0.32) },
+  errorText: { ...text.caption, flex: 1, color: W },
+  times: { flexDirection: 'row', justifyContent: 'space-between' },
+  time: { ...text.caption, ...tabular, color: W70 },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: -space[2] },
+  ctrl: { width: control.lg, height: control.lg, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  badge: { ...text.captionBold, position: 'absolute', top: space[2], right: space[2], color: W },
+  dot: { position: 'absolute', bottom: space[1], width: 4, height: 4, borderRadius: radius.full },
+  play: { width: 72, height: 72, borderRadius: radius.full, backgroundColor: W, alignItems: 'center', justifyContent: 'center' },
+  lyricsBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: space[6], paddingTop: space[3] },
   lyricsCtrls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  smallPlay: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  smallPlay: { width: control.lg, height: control.lg, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
 });

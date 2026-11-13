@@ -9,9 +9,10 @@ import PuxaEngine from '../../modules/puxa-engine';
 import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
 import { useToast } from '../components/Toasts';
+import { EmptyState } from '../components/ui';
 import { accountChanged } from '../events';
 import { instagramLoggedIn } from '../sources';
-import { font, type Palette, usePalette } from '../theme';
+import { gutter, type Palette, space, text, usePalette } from '../theme';
 import { LoginWebView } from './LoginWebView';
 
 const LOGIN = 'https://www.instagram.com/accounts/login/';
@@ -50,10 +51,12 @@ export function InstagramLogin() {
 
   return (
     <View style={s.root}>
-      <View style={[s.top, { paddingTop: insets.top + 10 }]}>
+      <View style={[s.top, { paddingTop: insets.top + space[2] }]}>
         <BackButton icon="close" />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.title}>Entrar no Instagram</Text>
+        <View style={s.topText}>
+          <Text style={s.title} numberOfLines={1}>
+            Entrar no Instagram
+          </Text>
           <View style={s.safe}>
             <Feather name="lock" size={12} color={c.muted} />
             <Text style={s.safeText} numberOfLines={1}>
@@ -62,23 +65,20 @@ export function InstagramLogin() {
           </View>
         </View>
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={s.web}>
         {failed ? (
           <View style={s.failed}>
-            <Feather name="wifi-off" size={28} color={c.muted} />
-            <Text style={s.failedTitle}>O Instagram não abriu</Text>
-            <Text style={s.failedBody}>Confira a internet e tente de novo.</Text>
-            <Button
-              tone="accent"
-              icon="refresh-cw"
-              label="Tentar de novo"
-              compact
-              onPress={() => {
-                setFailed(false);
-                setLoading(true);
-                setAttempt((n) => n + 1);
-              }}
-            />
+            <EmptyState icon="wifi-off" title="O Instagram não abriu" body="Confira a internet e tente de novo.">
+              <Button
+                icon="refresh-cw"
+                label="Tentar de novo"
+                onPress={() => {
+                  setFailed(false);
+                  setLoading(true);
+                  setAttempt((n) => n + 1);
+                }}
+              />
+            </EmptyState>
           </View>
         ) : (
           <LoginWebView
@@ -109,12 +109,12 @@ export function InstagramLogin() {
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
-    title: { fontFamily: font.bold, fontSize: 19, color: c.ink },
-    safe: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-    safeText: { flex: 1, fontFamily: font.regular, fontSize: 13, color: c.muted },
+    top: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingHorizontal: gutter, paddingBottom: space[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.lineStrong },
+    topText: { flex: 1, minWidth: 0 },
+    title: { ...text.title, color: c.ink },
+    safe: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+    safeText: { ...text.caption, flex: 1, color: c.muted },
+    web: { flex: 1 },
     loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-    failed: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 32 },
-    failedTitle: { fontFamily: font.bold, fontSize: 18, color: c.ink, marginTop: 4 },
-    failedBody: { fontFamily: font.regular, fontSize: 15, color: c.muted, textAlign: 'center', marginBottom: 8 },
+    failed: { flex: 1, justifyContent: 'center' },
   });

@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { DoneEvent, VideoInfo } from '../../modules/puxa-engine';
 import type { DubResult } from '../ai/dub';
 import { useElevenKey } from '../ai/key';
-import { CAPTION_LOOKS, defaultCaptionStyle, LINE_OPTIONS, lookOf, maxLinesOf, shownCues } from '../editor/captionLayout';
+import { CAPTION_LOOKS, defaultCaptionStyle, lookOf, maxLinesOf, shownCues } from '../editor/captionLayout';
 import { MOTIONS } from '../editor/captionMotion';
 import { slice } from '../editor/captions';
 import { exportProject } from '../editor/exporter';
@@ -23,13 +23,14 @@ import { CaptionLayer } from '../editor/ui/CaptionLayer';
 import { bytes, clock } from '../format';
 import { ms } from '../motion';
 import { getSettings, setSettings } from '../settings';
-import { ease, font, Palette, usePalette } from '../theme';
+import { ease, gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 import { BackButton } from './BackButton';
 import { Button } from './Button';
 import { Pill } from './Pill';
 import { CaptionStudio, ORIGINAL, type Framing, type StudioTab } from './CaptionStudio';
 import { DubPanel, useDubPreview } from './DubPanel';
 import { ModeTiles, Reveal, ToolToggle, useSheetDrag, type Mode } from './SheetParts';
+import { BusyCard, Overline, SendRow } from './ui';
 import { clampCorner, defaultDesign, EMOJIS, type StickerDesign } from '../stickers/sticker';
 import { SendPreview } from './SendPreview';
 import { StickerPanel } from './StickerPanel';
@@ -81,35 +82,33 @@ export type SendAs = 'video' | 'animated' | 'still' | 'photo';
 /** Linhas no máximo da legenda: três botões com o desenho de 1, 2 e 3 linhas. */
 function LineLimit({ value, onChange, c }: { value: number; onChange: (n: number) => void; c: Palette }) {
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <Text style={{ fontFamily: font.semibold, fontSize: 14, color: c.ink }}>Linhas da legenda</Text>
-        <Text style={{ fontFamily: font.regular, fontSize: 12, color: c.muted }}>Frase longa vira duas em sequência</Text>
+    <View style={limit.root}>
+      <View style={limit.head}>
+        <Overline>Linhas da legenda</Overline>
+        <Text style={[text.caption, { color: c.muted }]}>Frase longa vira duas</Text>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel="Linhas no máximo da legenda">
-        {LINE_OPTIONS.map((n) => {
+      <View style={limit.row} accessibilityRole="radiogroup" accessibilityLabel="Linhas no máximo da legenda">
+        {[1, 2, 3].map((n) => {
           const on = value === n;
           return (
             <Pressable
               key={n}
               onPress={() => {
+                if (on) return;
                 Haptics.selectionAsync().catch(() => {});
                 onChange(n);
               }}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
               accessibilityLabel={n === 1 ? '1 linha' : `${n} linhas`}
-              style={({ pressed }) => [
-                { flex: 1, minHeight: 56, borderRadius: 14, borderWidth: on ? 2 : 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accentSoft : c.surface, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
-                pressed && { opacity: 0.8 },
-              ]}
+              style={({ pressed }) => [limit.option, { borderColor: on ? c.accentLine : 'transparent', backgroundColor: on ? c.accentSoft : c.sunken }, pressed && { opacity: 0.72 }]}
             >
-              <View style={{ height: 15, gap: 3, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={limit.glyph}>
                 {Array.from({ length: n }, (_, i) => (
-                  <View key={i} style={{ width: i === n - 1 && n > 1 ? 16 : 24, height: 3, borderRadius: 1.5, backgroundColor: on ? c.accentInk : c.muted }} />
+                  <View key={i} style={[limit.bar, { width: i === n - 1 && n > 1 ? 16 : 24, backgroundColor: on ? c.accentInk : c.muted }]} />
                 ))}
               </View>
-              <Text style={{ fontFamily: on ? font.semibold : font.medium, fontSize: 12, color: on ? c.accentInk : c.muted }}>{n === 1 ? '1 linha' : `${n} linhas`}</Text>
+              <Text style={[text.captionBold, { color: on ? c.accentInk : c.muted }]}>{n === 1 ? '1 linha' : `${n} linhas`}</Text>
             </Pressable>
           );
         })}
@@ -117,6 +116,15 @@ function LineLimit({ value, onChange, c }: { value: number; onChange: (n: number
     </View>
   );
 }
+
+const limit = StyleSheet.create({
+  root: { gap: space[2] },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  row: { flexDirection: 'row', gap: space[2] },
+  option: { flex: 1, minHeight: 64, borderRadius: radius.lg, borderWidth: 2, alignItems: 'center', justifyContent: 'center', gap: space[1] },
+  glyph: { height: 20, gap: space[1], alignItems: 'center', justifyContent: 'center' },
+  bar: { height: 4, borderRadius: radius.full },
+});
 
 export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onShare, onError, onNotice }: Props) {
   const c = usePalette();
@@ -406,7 +414,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
   const pw = ratio >= 1 ? 112 : 64;
   const ph = Math.round(pw / ratio);
   const sample = shownCues(inRange.slice(0, 1), capStyle, pw, ph)[0] ?? { start: posterTime - 1, end: posterTime + 1.5, text: capSource.kind === 'manual' ? 'Escreva sua legenda' : 'Sua legenda aqui' };
-  const fr = placement({ fit: 'fill', zoom: framing.zoom, panX: framing.panX, panY: framing.panY, rotate: 0 }, source ?? { width: 16, height: 9 }, pw, ph);
+  const fr = placement({ fit: 'fill', zoom: framing.zoom, panX: framing.panX, panY: framing.panY, rotate: 0 }, source ?? { width: 16, height: 8 }, pw, ph);
   const posterStyle = { position: 'absolute' as const, left: fr.x, top: fr.y, width: fr.sw, height: fr.sh };
 
   const capSummary =
@@ -462,6 +470,17 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
     else if (on) prefetch(capSource, readyToTranscribe(capSource));
   };
 
+  const tiles = (
+    <ModeTiles
+      modes={modes}
+      value={as}
+      onChange={(v) => {
+        player.pause();
+        setAs(v);
+      }}
+    />
+  );
+
   return (
     <Modal
       visible
@@ -503,14 +522,14 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
           <Animated.View
             style={[
               s.sheet,
-              { paddingBottom: insets.bottom + 16, transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [700, 0] }), sheetDrag.drag) }] },
+              { paddingBottom: insets.bottom + space[4], transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [700, 0] }), sheetDrag.drag) }] },
             ]}
           >
             {/* Alça e topo: arrastar para baixo fecha a folha */}
             <View {...sheetDrag.handlers} style={s.dragZone}>
               <View style={s.grabber} />
               <View style={s.header}>
-                <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={s.headerText}>
                   <Text style={s.title} accessibilityRole="header">
                     Enviar
                   </Text>
@@ -521,18 +540,12 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                 <BackButton icon="close" onPress={onClose} disabled={locked} />
               </View>
             </View>
-            <ScrollView contentContainerStyle={s.content} bounces={false} keyboardShouldPersistTaps="handled">
-              <ModeTiles
-                modes={modes}
-                value={as}
-                onChange={(v) => {
-                  player.pause();
-                  setAs(v);
-                }}
-              />
-
-              {as === 'video' ? (
-                <Reveal key="video">
+            {/* Cada modo tem a sua rolagem; a ação principal fica fixa embaixo, ao alcance do polegar */}
+            {as === 'video' ? (
+              <>
+                <ScrollView style={s.scroll} contentContainerStyle={s.content} bounces={false} keyboardShouldPersistTaps="handled">
+                  {tiles}
+                  <Reveal key="video">
                   <View style={s.stack}>
                     <SendPreview
                       player={player}
@@ -617,7 +630,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                             onScrubEnd={(a) => seek(player, a)}
                           />
                           {info.chapters.length > 1 ? (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2], paddingHorizontal: space[3] }}>
                               {info.chapters.map((ch, i) => {
                                 const end = info.chapters[i + 1]?.start ?? duration;
                                 const active = Math.abs(range.start - ch.start) < 0.5 && Math.abs(range.end - end) < 0.5;
@@ -643,7 +656,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                     {withCaptions ? (
                       <Reveal>
                         <View style={s.caps}>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2] }}>
                             {hasYt ? (
                               <>
                                 <Pill c={c} icon="youtube" label="Português" active={capSource.kind === 'youtube' && capSource.pt} onPress={() => pickSource({ kind: 'youtube', pt: true })} />
@@ -657,8 +670,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
 
                           <Pressable
                             onPress={() => openStudio('look')}
-                            android_ripple={{ color: c.hover }}
-                            style={({ pressed }) => [s.capCard, pressed && { backgroundColor: c.hover }]}
+                            style={({ pressed }) => [s.capCard, pressed && { backgroundColor: c.lineStrong }]}
                             accessibilityRole="button"
                             accessibilityLabel="Ajustar a legenda na tela"
                           >
@@ -668,7 +680,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                                 <CaptionLayer cue={sample} time={sample.start + 1.2} style={capStyle} cw={pw} ch={ph} />
                               </View>
                             </View>
-                            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                            <View style={s.capText}>
                               <Text style={s.capTitle} numberOfLines={1}>
                                 {lookName} · {FONTS[capStyle.font]?.label ?? 'Archivo'}
                               </Text>
@@ -696,7 +708,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                                 {capSource.engine === 'device' ? (
                                   <View style={s.trRow}>
                                     <Text style={s.trLabel}>Modelo</Text>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2] }}>
                                       {(Object.keys(MODELS) as WhisperModel[]).map((m) => (
                                         <Pill
                                           key={m}
@@ -713,7 +725,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                                 <View style={s.trRow}>
                                   <Text style={s.trLabel}>Idioma</Text>
                                   {langOpen ? (
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[2] }}>
                                       {SPOKEN.map((l) => (
                                         <Pill
                                           key={l.code}
@@ -732,7 +744,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                                   )}
                                 </View>
                               </View>
-                              <Button tone="neutral" compact icon="mic" label={`Transcrever ${mode === 'clip' ? 'o trecho' : 'o vídeo'}`} onPress={() => prefetch(capSource, true)} />
+                              <Button tone="neutral" size="md" icon="mic" label={`Transcrever ${mode === 'clip' ? 'o trecho' : 'o vídeo'}`} onPress={() => prefetch(capSource, true)} />
                               <Text style={s.note}>
                                 {capSource.engine === 'elevenlabs'
                                   ? 'A mais precisa, em qualquer idioma. Usa a sua conta da ElevenLabs.'
@@ -750,48 +762,48 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
 
                     {tooBig ? (
                       <View style={s.warn}>
-                        <Feather name="alert-triangle" size={16} color={c.danger} style={{ marginTop: 2 }} />
+                        <Feather name="alert-triangle" size={20} color={c.danger} />
                         <Text style={s.warnText}>Acima de 16 MB o WhatsApp manda como documento. Corte um trecho menor.</Text>
                       </View>
                     ) : null}
 
-                    {busy ? (
-                      <View style={s.busy}>
-                        <Text style={s.busyText}>{busy.label}</Text>
-                        <View style={s.track}>
-                          <View style={[s.fill, { width: busy.fraction == null ? '35%' : `${Math.max(3, busy.fraction * 100)}%` }]} />
-                        </View>
-                        <Text onPress={() => (signal.current.cancelled = true)} style={s.cancel}>
-                          Cancelar
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={{ gap: 6 }}>
-                        <Button tone="wa" icon="send" label={mode === 'clip' ? `Enviar trecho de ${clock(range.end - range.start)}` : 'Enviar no WhatsApp'} onPress={() => send(true)} />
-                        <Button tone="ghost" icon="share-2" label="Outros apps" compact onPress={() => send(false)} />
-                      </View>
-                    )}
                   </View>
-                </Reveal>
-              ) : as === 'photo' ? (
-                <Reveal key="photo">
-                  <View style={s.stack}>
+                  </Reveal>
+                </ScrollView>
+                <View style={s.footer}>
+                  {busy ? (
+                    <BusyCard label={busy.label} fraction={busy.fraction} onCancel={() => (signal.current.cancelled = true)} />
+                  ) : (
+                    <SendRow label={mode === 'clip' ? `Enviar trecho de ${clock(range.end - range.start)}` : 'Enviar no WhatsApp'} onSend={() => send(true)} onOther={() => send(false)} />
+                  )}
+                </View>
+              </>
+            ) : as === 'photo' ? (
+              <>
+                <ScrollView style={s.scroll} contentContainerStyle={s.content} bounces={false}>
+                  {tiles}
+                  <Reveal key="photo">
                     <View style={[s.photo, source && source.width > 0 && source.height > 0 ? { aspectRatio: Math.max(0.6, Math.min(1.8, source.width / source.height)) } : null]}>
                       <Image source={{ uri: toUri(file.path) }} style={StyleSheet.absoluteFill} resizeMode="contain" accessibilityLabel="Foto que vai ser enviada" />
                       <View pointerEvents="none" style={s.chip}>
                         <Text style={s.chipText}>{bytes(file.size)}</Text>
                       </View>
                     </View>
-                    <View style={{ gap: 6 }}>
-                      <Button tone="wa" icon="send" label="Enviar no WhatsApp" onPress={() => onShare({ path: file.path, filename: file.filename, mime: file.mime, size: file.size }, true)} />
-                      <Button tone="ghost" icon="share-2" label="Outros apps" compact onPress={() => onShare({ path: file.path, filename: file.filename, mime: file.mime, size: file.size }, false)} />
-                    </View>
-                  </View>
-                </Reveal>
-              ) : (
+                  </Reveal>
+                </ScrollView>
+                <View style={s.footer}>
+                  <SendRow
+                    label="Enviar no WhatsApp"
+                    onSend={() => onShare({ path: file.path, filename: file.filename, mime: file.mime, size: file.size }, true)}
+                    onOther={() => onShare({ path: file.path, filename: file.filename, mime: file.mime, size: file.size }, false)}
+                  />
+                </View>
+              </>
+            ) : (
                 <StickerPanel
                   key={as}
                   kind={as}
+                  header={tiles}
                   player={player}
                   file={file}
                   image={image}
@@ -815,8 +827,7 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
                   captions={withCaptions && cues?.length ? { cues, style: capStyle } : null}
                   startAt={mode === 'clip' ? range.start : undefined}
                 />
-              )}
-            </ScrollView>
+            )}
           </Animated.View>
         </>
       )}
@@ -826,34 +837,34 @@ export function VideoSendSheet({ file, info, mode: openAs, visible, onClose, onS
 
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
-    sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '94%', backgroundColor: c.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, elevation: 24 },
-    dragZone: { paddingHorizontal: 20, paddingBottom: 10 },
-    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: c.lineStrong, marginTop: 10, marginBottom: 12 },
-    content: { paddingHorizontal: 20, paddingTop: 2, gap: 16 },
-    stack: { gap: 16 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    title: { fontFamily: font.bold, fontSize: 21, color: c.ink, letterSpacing: -0.3 },
-    subtitle: { fontFamily: font.regular, fontSize: 14, color: c.muted, marginTop: 1 },
-    photo: { aspectRatio: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: c.dark ? '#000' : c.bg },
-    trOpts: { gap: 10, padding: 12, borderRadius: 14, backgroundColor: c.bg, marginBottom: 10 },
-    trRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    trLabel: { width: 58, fontFamily: font.semibold, fontSize: 13, color: c.muted },
-    chip: { position: 'absolute', left: 10, bottom: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
-    chipText: { fontFamily: font.semibold, fontSize: 13, color: '#fff', fontVariant: ['tabular-nums'] },
-    tools: { flexDirection: 'row', justifyContent: 'space-around' },
-    panel: { paddingVertical: 14, borderRadius: 16, backgroundColor: c.bg, gap: 10 },
-    caps: { gap: 10 },
-    capCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, paddingRight: 12, borderRadius: 16, backgroundColor: c.bg, overflow: 'hidden' },
-    capPreview: { borderRadius: 8, overflow: 'hidden', backgroundColor: '#000' },
-    capTitle: { fontFamily: font.semibold, fontSize: 15, color: c.ink },
-    capBody: { fontFamily: font.regular, fontSize: 13, color: c.muted },
-    capAction: { fontFamily: font.semibold, fontSize: 13, color: c.accentInk, marginTop: 2 },
-    note: { fontFamily: font.regular, fontSize: 12, lineHeight: 17, color: c.muted, textAlign: 'center' },
-    warn: { flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: c.dangerSoft, borderWidth: 1, borderColor: c.dangerLine },
-    warnText: { flex: 1, fontFamily: font.regular, fontSize: 14, lineHeight: 20, color: c.ink },
-    busy: { gap: 10, padding: 14, borderRadius: 14, backgroundColor: c.bg, borderWidth: 1, borderColor: c.line },
-    busyText: { fontFamily: font.medium, fontSize: 15, color: c.ink },
-    track: { height: 4, borderRadius: 2, backgroundColor: c.line, overflow: 'hidden' },
-    fill: { height: 4, borderRadius: 2, backgroundColor: c.accent },
-    cancel: { fontFamily: font.semibold, fontSize: 14, color: c.danger, textAlign: 'center' },
+    sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '94%', backgroundColor: c.dark ? c.raised : c.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, boxShadow: c.shadow3 },
+    dragZone: { paddingHorizontal: gutter, paddingBottom: space[4] },
+    grabber: { alignSelf: 'center', width: 40, height: 4, borderRadius: radius.full, backgroundColor: c.lineStrong, marginVertical: space[3] },
+    header: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+    headerText: { flex: 1, minWidth: 0 },
+    title: { ...text.title, color: c.ink },
+    subtitle: { ...text.caption, color: c.muted },
+    scroll: { flexShrink: 1 },
+    content: { paddingHorizontal: gutter, paddingBottom: space[4], gap: space[4] },
+    // A ação principal fica fixa embaixo da folha: um fio separa do que rola por baixo
+    footer: { paddingHorizontal: gutter, paddingTop: space[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.lineStrong },
+    stack: { gap: space[4] },
+    photo: { aspectRatio: 1, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: c.sunken },
+    chip: { position: 'absolute', left: space[3], bottom: space[3], paddingHorizontal: space[2], height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, justifyContent: 'center' },
+    chipText: { ...text.captionBold, ...tabular, lineHeight: 16, color: c.onMedia },
+    tools: { flexDirection: 'row' },
+    panel: { paddingVertical: space[4], borderRadius: radius.lg, backgroundColor: c.sunken, gap: space[3] },
+    caps: { gap: space[4] },
+    capCard: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.sunken },
+    capPreview: { borderRadius: radius.sm, overflow: 'hidden', backgroundColor: c.stage },
+    capText: { flex: 1, minWidth: 0 },
+    capTitle: { ...text.bodyBold, color: c.ink },
+    capBody: { ...text.caption, color: c.muted },
+    capAction: { ...text.captionBold, color: c.accentInk },
+    trOpts: { gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.sunken, marginBottom: space[3] },
+    trRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    trLabel: { ...text.captionBold, width: 56, color: c.muted },
+    note: { ...text.caption, color: c.muted, textAlign: 'center' },
+    warn: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[3], borderRadius: radius.lg, backgroundColor: c.dangerSoft },
+    warnText: { ...text.caption, flex: 1, color: c.ink },
   });

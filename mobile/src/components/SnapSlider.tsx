@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { font, type Palette } from '../theme';
+import { type Palette, radius, space, text } from '../theme';
 
 export type SnapStop = {
   value: number;
@@ -75,7 +75,7 @@ export function SnapSlider({
     onChange(clamp(next ?? (d > 0 ? 1 : 0), 0, 1));
   };
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: space[3] }}>
       <View style={styles.head}>
         <Text style={[styles.title, { color: c.ink }]}>{title}</Text>
         <Text style={[styles.value, { color: c.accentInk }]}>{valueText(value)}</Text>
@@ -91,12 +91,12 @@ export function SnapSlider({
         onAccessibilityAction={(e) => step(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
       >
         <View pointerEvents="none" style={[styles.rail, { backgroundColor: c.line }]}>
-          <View style={{ width: x, height: 6, backgroundColor: c.accent }} />
+          <View style={{ width: x, height: 8, backgroundColor: c.accent }} />
         </View>
         {width > 0
           ? points.map((p) => <View key={p} pointerEvents="none" style={[styles.dot, { left: p * width - 2, backgroundColor: p <= value ? c.onAccent : c.lineStrong }]} />)
           : null}
-        {width > 0 ? <View pointerEvents="none" style={[styles.thumb, { left: x - 14, backgroundColor: c.surface, borderColor: c.accent }]} /> : null}
+        {width > 0 ? <View pointerEvents="none" style={[styles.thumb, { left: x - 14, backgroundColor: c.surface, borderColor: c.accent, boxShadow: c.shadow1 }]} /> : null}
         <View {...responder.panHandlers} style={[StyleSheet.absoluteFill, { top: -8, bottom: -8 }]} />
       </View>
       <View style={styles.stops}>
@@ -109,7 +109,7 @@ export function SnapSlider({
                 Haptics.selectionAsync().catch(() => {});
                 onChange(p.value);
               }}
-              hitSlop={6}
+              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${title}: ${p.label}`}
               accessibilityState={{ selected: on }}
@@ -127,14 +127,14 @@ export function SnapSlider({
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontFamily: font.semibold, fontSize: 14 },
-  value: { fontFamily: font.semibold, fontSize: 13, fontVariant: ['tabular-nums'] },
+  title: { ...text.captionBold },
+  value: { ...text.captionBold, fontVariant: ['tabular-nums'] },
   // As pontas ficam no centro do primeiro e do último botão: o polegar nunca passa da borda
-  track: { height: 36, justifyContent: 'center', marginHorizontal: 28 },
-  rail: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  dot: { position: 'absolute', width: 4, height: 4, borderRadius: 2, top: 16 },
-  thumb: { position: 'absolute', top: 4, width: 28, height: 28, borderRadius: 14, borderWidth: 2, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  track: { height: 36, justifyContent: 'center', marginHorizontal: space[8] },
+  rail: { height: 8, borderRadius: radius.full, overflow: 'hidden' },
+  dot: { position: 'absolute', width: 4, height: 4, borderRadius: radius.full, top: 16 },
+  thumb: { position: 'absolute', top: 4, width: 28, height: 28, borderRadius: radius.full, borderWidth: 2 },
   stops: { flexDirection: 'row', justifyContent: 'space-between' },
-  stop: { alignItems: 'center', gap: 4, minWidth: 56, paddingVertical: 4 },
-  stopText: { fontFamily: font.medium, fontSize: 11 },
+  stop: { alignItems: 'center', gap: space[1], minWidth: 56, paddingVertical: space[1] },
+  stopText: { ...text.caption },
 });

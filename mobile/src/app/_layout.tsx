@@ -1,4 +1,4 @@
-import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold, useFonts } from '@expo-google-fonts/archivo';
+import { Archivo_400Regular, Archivo_700Bold, useFonts } from '@expo-google-fonts/archivo';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -19,7 +19,7 @@ if (getSettings().theme !== 'system') applyTheme(getSettings().theme);
 
 export default function RootLayout() {
   const c = usePalette();
-  const [loaded] = useFonts({ Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold, ...FONT_MAP });
+  const [loaded] = useFonts({ Archivo_400Regular, Archivo_700Bold, ...FONT_MAP });
 
   // A playlist termina os downloads que ficaram na fila; na primeira entrada, pede as permissões
   useEffect(() => {

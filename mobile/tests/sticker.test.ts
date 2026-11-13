@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ANIMATED_LIMIT, animatedArgs, baseArgs, CANVAS, clampCorner, defaultDesign, firstTry, maskArgs, nextTry, stickerLayout, textPlacement } from '../src/stickers/sticker';
+import { ANIMATED_LIMIT, animatedArgs, baseArgs, betterTry, CANVAS, clampCorner, defaultDesign, firstTry, maskArgs, nextTry, shapeWeight, stickerLayout, textPlacement, type Try } from '../src/stickers/sticker';
 
 const landscape = { width: 1280, height: 720 };
 const portrait = { width: 720, height: 1280 };
@@ -59,10 +59,63 @@ test('animada: repete sem parar, nunca passa de 10 s e desce qualidade e quadros
   const start = firstTry(3);
   const lighter = nextTry(start, ANIMATED_LIMIT * 2, ANIMATED_LIMIT);
   assert.ok(lighter && (lighter.quality < start.quality || lighter.fps < start.fps));
-  const much = nextTry({ fps: 15, quality: 60 }, ANIMATED_LIMIT * 4, ANIMATED_LIMIT);
+  const much = nextTry({ fps: 15, quality: 60, soft: 1 }, ANIMATED_LIMIT * 4, ANIMATED_LIMIT);
   assert.ok(much && much.fps < 15);
   assert.equal(nextTry(start, ANIMATED_LIMIT * 0.5, ANIMATED_LIMIT), null);
-  assert.equal(nextTry({ fps: 8, quality: 8 }, ANIMATED_LIMIT * 3, ANIMATED_LIMIT), null);
+  // No fundo do poço não tem mais o que cortar
+  assert.equal(nextTry({ fps: 4, quality: 8, soft: 0.5 }, ANIMATED_LIMIT * 3, ANIMATED_LIMIT), null);
+});
+
+test('animada longa: de 8 a 10 s começa com menos quadros por segundo, para caber em 500 KB', () => {
+  // O WebP animado pesa quase em linha reta com o número de quadros: trecho longo pede menos quadros por segundo
+  const frames = (d: number) => firstTry(d).fps * Math.min(d, 9.8);
+  for (const d of [2, 3, 5, 7, 8, 9, 10]) assert.ok(frames(d) <= 60.5, `${d} s: ${frames(d)} quadros`);
+  assert.ok(firstTry(10).fps < firstTry(8).fps && firstTry(8).fps < firstTry(5).fps);
+  assert.ok(firstTry(10).fps >= 4);
+  // Trecho curto tem orçamento sobrando: vira qualidade
+  assert.ok(firstTry(2).quality > firstTry(10).quality);
+  // O círculo com contorno pesa mais por quadro: começa com menos quadros que o quadrado
+  const land = { width: 1280, height: 720 };
+  const circle = { ...defaultDesign(), corner: 1 };
+  const wCircle = shapeWeight(circle, stickerLayout(circle, land));
+  const wDefault = shapeWeight(defaultDesign(), stickerLayout(defaultDesign(), land));
+  assert.ok(Math.abs(wDefault - 1) < 0.05);
+  assert.ok(wCircle > 1.25);
+  assert.ok(firstTry(10, wCircle).fps < firstTry(10, wDefault).fps);
+  // O vídeo inteiro (faixa no meio do quadro) ocupa menos área: pesa menos
+  const fit = { ...defaultDesign(), shape: 'fit' as const };
+  assert.ok(shapeWeight(fit, stickerLayout(fit, land)) < wDefault);
+});
+
+test('animada pesada: a segunda tentativa já sai da conta do peso e sempre chega a um piso', () => {
+  // Passou 15%: baixa só a qualidade (até o piso que ainda fica bonito) e, se faltar, um degrau de quadros
+  const a = nextTry({ fps: 6, quality: 37, soft: 1 }, ANIMATED_LIMIT * 1.06, ANIMATED_LIMIT)!;
+  assert.deepEqual(a, { fps: 5.5, quality: 26, soft: 1 });
+  // Passou o dobro: corta quadros por segundo quase na mesma proporção, sem mexer na nitidez à toa
+  const b = nextTry({ fps: 7, quality: 41, soft: 1 }, ANIMATED_LIMIT * 1.6, ANIMATED_LIMIT)!;
+  assert.equal(b.quality, 26);
+  assert.ok(b.fps >= 4 && b.fps <= 4.5);
+  assert.equal(b.soft, 1);
+  // Descendo sem parar de qualquer ponto, sempre termina (nunca fica em laço) e cada passo é mais leve
+  let cur: Try = firstTry(10);
+  const cost = (t: Try) => t.fps * Math.pow(t.quality, 0.27) * t.soft;
+  for (let i = 0; i < 12; i++) {
+    const next = nextTry(cur, ANIMATED_LIMIT * 1.5, ANIMATED_LIMIT);
+    if (!next) break;
+    assert.ok(cost(next) < cost(cur));
+    cur = next;
+    assert.ok(i < 8, 'a descida precisa terminar em poucas voltas');
+  }
+  assert.deepEqual(cur, { fps: 4, quality: 8, soft: 0.5 });
+});
+
+test('animada leve: sobrando muito, uma volta a mais aproveita a folga', () => {
+  const up = betterTry({ fps: 6, quality: 37, soft: 1 }, ANIMATED_LIMIT * 0.4, ANIMATED_LIMIT)!;
+  assert.ok(up.fps > 6 && up.quality >= 37);
+  // Folga pequena não compensa montar de novo
+  assert.equal(betterTry({ fps: 6, quality: 37, soft: 1 }, ANIMATED_LIMIT * 0.75, ANIMATED_LIMIT), null);
+  // Nunca devolve algo que deve estourar o limite: os quadros a mais cabem na folga medida
+  assert.ok(up.fps / 6 <= (ANIMATED_LIMIT * 0.92) / (ANIMATED_LIMIT * 0.4));
 });
 
 test('cantos de reto a círculo: o raio acompanha o controle, no recorte e no inteiro', () => {

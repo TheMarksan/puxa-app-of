@@ -9,6 +9,7 @@ import type { CaptionMotion, CaptionStyle, Cue } from '../types';
 import { Chip, Row, Section, Slider, ui } from './kit';
 import { E } from './palette';
 import { TextVisual } from './TextVisual';
+import { radius, space, text } from '../../theme';
 
 /** Aplica um estilo pronto mantendo a fonte escolhida, a não ser que o estilo traga a dele. */
 export function applyLook(style: CaptionStyle, id: string): CaptionStyle {
@@ -140,7 +141,7 @@ export function CueList({
   onAdd: () => void;
 }) {
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: space[2] }}>
       <Pressable onPress={onAdd} style={styles.add} accessibilityRole="button">
         <Feather name="plus" size={16} color={E.accent} />
         <Text style={styles.addText}>Nova legenda em {fmtClock(Math.max(0, time - offset))}</Text>
@@ -175,18 +176,18 @@ export function CueList({
 }
 
 const styles = StyleSheet.create({
-  looks: { gap: 10, paddingVertical: 2, paddingRight: 8 },
-  look: { width: 108, borderRadius: 12, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden', backgroundColor: E.raised },
+  looks: { gap: space[3], paddingVertical: space[1], paddingRight: space[2] },
+  look: { width: 108, borderRadius: radius.md, borderWidth: 2, borderColor: 'transparent', overflow: 'hidden', backgroundColor: E.raised },
   lookOn: { borderColor: E.accent },
-  lookStage: { height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3B4252', borderBottomWidth: 1, borderBottomColor: E.line },
-  lookLabel: { fontFamily: 'Archivo_600SemiBold', fontSize: 12, color: E.muted, textAlign: 'center', paddingVertical: 6 },
-  hint: { color: E.faint, fontSize: 12, marginTop: 6 },
-  add: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 14, height: 38, borderRadius: 19, backgroundColor: E.accentSoft },
-  addText: { fontFamily: 'Archivo_600SemiBold', fontSize: 14, color: E.ink },
-  cue: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 8, borderRadius: 12, backgroundColor: E.raised, borderWidth: 1, borderColor: 'transparent' },
+  lookStage: { height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: E.preview, borderBottomWidth: 1, borderBottomColor: E.line },
+  lookLabel: { ...text.captionBold, color: E.muted, textAlign: 'center', paddingVertical: space[2] },
+  hint: { ...text.caption, color: E.faint, marginTop: space[2] },
+  add: { flexDirection: 'row', alignItems: 'center', gap: space[2], alignSelf: 'flex-start', paddingHorizontal: space[4], height: 40, borderRadius: radius.full, backgroundColor: E.accentSoft },
+  addText: { ...text.captionBold, color: E.ink },
+  cue: { flexDirection: 'row', alignItems: 'flex-start', gap: space[2], padding: space[2], borderRadius: radius.md, backgroundColor: E.raised, borderWidth: 1, borderColor: 'transparent' },
   cueNow: { borderColor: E.accent },
-  cueTime: { paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: E.raised2 },
-  cueTimeText: { fontFamily: 'Archivo_600SemiBold', fontSize: 12, color: E.ink, fontVariant: ['tabular-nums'] },
-  cueInput: { flex: 1, minHeight: 34, color: E.ink, fontFamily: 'Archivo_500Medium', fontSize: 15, paddingVertical: 4 },
-  cueDel: { padding: 6 },
+  cueTime: { paddingVertical: space[2], paddingHorizontal: space[2], borderRadius: radius.sm, backgroundColor: E.raised2 },
+  cueTimeText: { ...text.captionBold, color: E.ink, fontVariant: ['tabular-nums'] },
+  cueInput: { flex: 1, minHeight: 32, color: E.ink, ...text.body, paddingVertical: space[1] },
+  cueDel: { padding: space[2] },
 });

@@ -4,7 +4,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { clamp } from '../timeline';
-import { E } from './palette';
+import { E, SWATCHES } from './palette';
+import { control, radius, space, tabular, text } from '../../theme';
+
+export { SWATCHES };
 
 /**
  * Para VideoView: no navegador o <video> ignora left/right/top/bottom = 0 e fica no tamanho
@@ -13,16 +16,16 @@ import { E } from './palette';
 export const videoFill: ViewStyle = { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' };
 
 export const ui = {
-  label: { fontFamily: 'Archivo_600SemiBold', fontSize: 12, color: E.muted, letterSpacing: 0.3 } as const,
-  body: { fontFamily: 'Archivo_400Regular', fontSize: 14, color: E.ink, lineHeight: 20 } as const,
-  title: { fontFamily: 'Archivo_700Bold', fontSize: 16, color: E.ink } as const,
+  label: { ...text.overline, color: E.muted } as const,
+  body: { ...text.caption, color: E.ink } as const,
+  title: { ...text.bodyBold, color: E.ink } as const,
 };
 
 export function Section({ label, children, right }: { label: string; children: ReactNode; right?: ReactNode }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHead}>
-        <Text style={ui.label}>{label.toUpperCase()}</Text>
+        <Text style={ui.label}>{label}</Text>
         {right}
       </View>
       {children}
@@ -60,11 +63,11 @@ export function Chip({
       accessibilityState={{ selected: !!active, disabled: !!disabled }}
       style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && !active && { backgroundColor: E.raised2 }, disabled && { opacity: 0.4 }, style]}
     >
-      {icon ? <Feather name={icon} size={15} color={active ? '#fff' : E.ink} /> : null}
-      <Text style={[styles.chipText, fontFamily ? { fontFamily, fontSize: 15 } : null, active && { color: '#fff' }]} numberOfLines={1}>
+      {icon ? <Feather name={icon} size={16} color={active ? E.onAccent : E.ink} /> : null}
+      <Text style={[styles.chipText, fontFamily ? { ...text.body, fontFamily } : null, active && { color: E.onAccent }]} numberOfLines={1}>
         {label}
       </Text>
-      {detail ? <Text style={[styles.chipDetail, active && { color: 'rgba(255,255,255,0.75)' }]}>{detail}</Text> : null}
+      {detail ? <Text style={[styles.chipDetail, active && { color: E.onAccentSoft }]}>{detail}</Text> : null}
     </Pressable>
   );
 }
@@ -149,14 +152,12 @@ export function Slider({
         {marks.map((m) => (
           <View key={m} pointerEvents="none" style={[styles.mark, { left: `${((m - min) / (max - min)) * 100}%` }]} />
         ))}
-        <View pointerEvents="none" style={[styles.thumb, { left: Math.max(0, f * w - 11) }]} />
+        <View pointerEvents="none" style={[styles.thumb, { left: Math.max(0, f * w - space[3]) }]} />
       </View>
       {format ? <Text style={styles.sliderValue}>{format(value)}</Text> : null}
     </View>
   );
 }
-
-export const SWATCHES = ['#FFFFFF', '#111318', '#FFD60A', '#FF4D4D', '#FF8A00', '#34C759', '#2EC4FF', '#4F6BFF', '#B26CFF', '#FF5FA2'];
 
 export function Swatches({ value, onChange, colors = SWATCHES }: { value: string; onChange: (c: string) => void; colors?: string[] }) {
   const v = value.slice(0, 7).toUpperCase();
@@ -188,7 +189,7 @@ export function Toggle({ label, detail, value, onChange }: { label: string; deta
       accessibilityState={{ checked: value }}
       style={styles.toggleRow}
     >
-      <View style={{ flex: 1 }}>
+      <View style={styles.toggleText}>
         <Text style={ui.body}>{label}</Text>
         {detail ? <Text style={styles.toggleDetail}>{detail}</Text> : null}
       </View>
@@ -199,17 +200,19 @@ export function Toggle({ label, detail, value, onChange }: { label: string; deta
   );
 }
 
-export function PrimaryButton({ label, icon, onPress, busy, disabled, tone = 'accent' }: { label: string; icon?: keyof typeof Feather.glyphMap; onPress: () => void; busy?: boolean; disabled?: boolean; tone?: 'accent' | 'wa' | 'plain' }) {
-  const bg = tone === 'wa' ? E.wa : tone === 'plain' ? E.raised2 : E.accent;
+export function PrimaryButton({ label, icon, onPress, busy, disabled, tone = 'accent' }: { label: string; icon?: keyof typeof Feather.glyphMap; onPress: () => void; busy?: boolean; disabled?: boolean; tone?: 'accent' | 'plain' }) {
+  const bg = tone === 'plain' ? E.raised2 : E.accent;
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || busy}
       accessibilityRole="button"
-      style={({ pressed }) => [styles.primary, { backgroundColor: bg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [styles.primary, { backgroundColor: bg, opacity: disabled ? 0.4 : pressed ? 0.88 : 1 }]}
     >
-      {busy ? <ActivityIndicator color="#fff" size="small" /> : icon ? <Feather name={icon} size={18} color="#fff" /> : null}
-      <Text style={styles.primaryText}>{label}</Text>
+      {busy ? <ActivityIndicator color={E.onAccent} size="small" /> : icon ? <Feather name={icon} size={20} color={E.onAccent} /> : null}
+      <Text style={styles.primaryText} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -219,7 +222,7 @@ export function Progress({ label, fraction }: { label: string; fraction: number 
     <View style={styles.progress}>
       <View style={styles.progressHead}>
         <ActivityIndicator size="small" color={E.accent} />
-        <Text style={[ui.body, { flex: 1 }]} numberOfLines={2}>
+        <Text style={[ui.body, styles.grow]} numberOfLines={2}>
           {label}
         </Text>
         {fraction != null ? <Text style={styles.sliderValue}>{Math.round(fraction * 100)}%</Text> : null}
@@ -232,51 +235,33 @@ export function Progress({ label, fraction }: { label: string; fraction: number 
 }
 
 const styles = StyleSheet.create({
-  section: { gap: 10, marginBottom: 16 },
+  section: { gap: space[3], marginBottom: space[4] },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  chip: {
-    minHeight: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: E.raised,
-    borderWidth: 1,
-    borderColor: E.line,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  chipActive: { backgroundColor: E.accent, borderColor: E.accent },
-  chipText: { fontFamily: 'Archivo_600SemiBold', fontSize: 14, color: E.ink },
-  chipDetail: { fontFamily: 'Archivo_400Regular', fontSize: 12, color: E.muted },
-  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  sliderHit: { flex: 1, height: 36, justifyContent: 'center' },
-  track: { height: 4, borderRadius: 2, backgroundColor: E.lineStrong, overflow: 'hidden' },
-  fill: { height: 4, borderRadius: 2, backgroundColor: E.accent },
-  mark: { position: 'absolute', top: 12, width: 2, height: 12, marginLeft: -1, borderRadius: 1, backgroundColor: E.muted },
-  thumb: {
-    position: 'absolute',
-    top: 7,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sliderValue: { minWidth: 48, textAlign: 'right', fontFamily: 'Archivo_600SemiBold', fontSize: 13, color: E.ink, fontVariant: ['tabular-nums'] },
-  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: E.line },
-  swatchOn: { borderColor: '#fff', transform: [{ scale: 1.12 }] },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
-  toggleDetail: { fontFamily: 'Archivo_400Regular', fontSize: 12, color: E.muted, marginTop: 2 },
-  switch: { width: 46, height: 28, borderRadius: 14, backgroundColor: E.lineStrong, padding: 3 },
+  row: { flexDirection: 'row', gap: space[2], alignItems: 'center' },
+  // Sem contorno: a peça se separa do painel pelo tom
+  chip: { minHeight: control.sm, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: E.raised, flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  chipActive: { backgroundColor: E.accent },
+  chipText: { ...text.captionBold, color: E.ink },
+  chipDetail: { ...text.caption, color: E.muted },
+  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: space[4] },
+  sliderHit: { flex: 1, height: control.sm, justifyContent: 'center' },
+  track: { height: 4, borderRadius: radius.full, backgroundColor: E.lineStrong, overflow: 'hidden' },
+  fill: { height: 4, borderRadius: radius.full, backgroundColor: E.accent },
+  mark: { position: 'absolute', top: space[4] - space[1], width: 2, height: 12, marginLeft: -space[1], borderRadius: radius.full, backgroundColor: E.muted },
+  thumb: { position: 'absolute', top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: E.ink, boxShadow: E.knob },
+  sliderValue: { ...text.captionBold, ...tabular, minWidth: 48, textAlign: 'right', color: E.ink },
+  swatch: { width: 32, height: 32, borderRadius: radius.full, borderWidth: 2, borderColor: E.line },
+  swatchOn: { borderColor: E.ink, transform: [{ scale: 1.12 }] },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: control.md, paddingVertical: space[2] },
+  toggleText: { flex: 1 },
+  toggleDetail: { ...text.caption, color: E.muted },
+  switch: { width: 52, height: 32, borderRadius: radius.full, backgroundColor: E.lineStrong, padding: space[1] },
   switchOn: { backgroundColor: E.accent },
-  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
-  knobOn: { transform: [{ translateX: 18 }] },
-  primary: { minHeight: 50, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18 },
-  primaryText: { fontFamily: 'Archivo_600SemiBold', fontSize: 16, color: '#fff' },
-  progress: { gap: 10, padding: 12, borderRadius: 12, backgroundColor: E.raised, borderWidth: 1, borderColor: E.line },
-  progressHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  knob: { width: 24, height: 24, borderRadius: radius.full, backgroundColor: E.ink },
+  knobOn: { transform: [{ translateX: 20 }] },
+  primary: { minHeight: control.md, borderRadius: radius.full, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[2], paddingHorizontal: space[6] },
+  primaryText: { ...text.bodyBold, color: E.onAccent },
+  progress: { gap: space[3], padding: space[4], borderRadius: radius.lg, backgroundColor: E.raised },
+  progressHead: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  grow: { flex: 1 },
 });
