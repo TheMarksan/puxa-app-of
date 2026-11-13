@@ -3,6 +3,8 @@
  * em letra condensada e um desenho de fundo que sai do próprio nome (sem foto de ninguém).
  */
 
+import { alpha } from '../theme/palette';
+
 export type ListColor = 'azul' | 'coral' | 'verde' | 'roxo' | 'rosa' | 'amarelo' | 'grafite' | 'lima';
 
 /**
@@ -23,6 +25,13 @@ export const COLORS: Record<ListColor, { label: string; bg: string; ink: string;
 
 /** A cor da playlist para texto e ícones sobre o fundo do app. */
 export const listInk = (color: ListColor, dark: boolean) => (dark ? COLORS[color].onDark : COLORS[color].onLight);
+
+/**
+ * Um véu da cor sobre o fundo do app: o topo de uma playlist, de um pacote ou de uma categoria e o
+ * círculo de uma categoria. A cor cheia fica para o botão de tocar e os detalhes; o texto sobre o
+ * véu é o do app (o véu é claro no claro e escuro no escuro).
+ */
+export const listSoft = (color: ListColor, dark: boolean) => alpha(COLORS[color].bg, dark ? 0.22 : 0.14);
 
 export const COLOR_IDS = Object.keys(COLORS) as ListColor[];
 

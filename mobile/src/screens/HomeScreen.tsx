@@ -33,7 +33,7 @@ export function HomeScreen() {
 
   return (
     <View style={s.root}>
-      <View style={[s.header, { paddingTop: insets.top + space[2] }]}>
+      <View style={[s.header, { marginTop: insets.top + space[2] }]}>
         <Wordmark height={24} color={c.ink} />
         <View style={s.actions}>
           <QuickMenu items={items} visible={!barShown} />
@@ -65,7 +65,8 @@ export function HomeScreen() {
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, minHeight: 48, paddingBottom: space[2] },
+    // Barra de 48 a 8 da área segura, como o topo das outras telas: a foto da conta fica na linha do voltar delas
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter, minHeight: control.md, marginBottom: space[2] },
     actions: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     body: { flex: 1 },
   });

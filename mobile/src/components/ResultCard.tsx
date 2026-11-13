@@ -23,7 +23,7 @@ export function ResultCard({ info, aspect }: { info: VideoInfo; aspect?: number 
   return (
     <View style={s.card}>
       <View style={[s.thumbWrap, { aspectRatio: ratio }]}>
-        <Image source={{ uri: info.thumbnail }} style={s.thumb} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <Image resizeMethod="resize" source={{ uri: info.thumbnail }} style={s.thumb} resizeMode="cover" accessibilityIgnoresInvertColors />
         <View style={[s.badge, s.badgeLeft]}>
           <Feather name={ICONS[source]} size={12} color={c.onMedia} />
           <Text style={s.badgeText}>{source === 'youtube' ? 'YouTube' : NAMES[source]}</Text>

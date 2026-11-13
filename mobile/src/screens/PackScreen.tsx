@@ -5,19 +5,20 @@ import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { compact, follows, likedBy, me } from '../community/core';
-import { PosterHero } from '../community/PosterHero';
 import { CATEGORIES } from '../community/seed';
 import { follow, unfollow, toggleLike, unpublish, useDB } from '../community/store';
 import { StickerSheet } from '../community/StickerSheet';
 import type { Pack, Sticker } from '../community/types';
-import { Avatar, FollowButton, StickerGrid, still, useInstalled, UserName } from '../community/ui';
+import { Avatar, FollowButton, StickerGrid, StickerImage, useInstalled, UserName } from '../community/ui';
 import { useInstaller } from '../community/useInstaller';
 import { Button } from '../components/Button';
+import { MediaHeader } from '../components/MediaHeader';
 import { Sheet } from '../components/music/Sheet';
 import { useToast } from '../components/Toasts';
 import { EmptyState, IconButton, Overline } from '../components/ui';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { gutter, type Palette, space, tabular, text, usePalette } from '../theme';
+import { listSoft } from '../playlist/colors';
+import { gutter, type Palette, radius, space, tabular, text, usePalette } from '../theme';
 
 const DAY = 86_400_000;
 const since = (t: number) => {
@@ -70,26 +71,26 @@ function PackView({ pack: p }: { pack: Pack }) {
   return (
     <View style={s.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: footH + space[6] }}>
-        <PosterHero
-          color={cat.color}
+        <MediaHeader
+          tint={listSoft(cat.color, c.dark)}
           kicker={cat.name}
           onKicker={() => router.push(`/categoria/${cat.id}`)}
           title={p.name}
           meta={`${p.stickers.length} figurinhas${p.animated ? ' animadas' : ''} · ${compact(p.downloads)} no WhatsApp`}
-          art={p.stickers.slice(0, 3).map(still)}
-          right={(veil) => (
+          cover={<View style={s.cover}>{p.stickers[0] ? <StickerImage img={p.stickers[0].img} size={128} /> : null}</View>}
+          right={(t) => (
             <>
               <IconButton
                 icon="heart"
                 label={liked ? 'Descurtir' : 'Curtir'}
-                tint={liked ? { bg: veil.ink, ink: c.danger } : veil}
+                tint={liked ? { bg: t.bg, ink: c.danger } : t}
                 onPress={() => {
                   if (!user) return needLogin();
                   Haptics.selectionAsync().catch(() => {});
                   toggleLike(p.id);
                 }}
               />
-              {mine ? <IconButton icon="more-horizontal" label="Opções do pacote" tint={veil} onPress={() => setMenu(true)} /> : null}
+              {mine ? <IconButton icon="more-horizontal" label="Opções do pacote" tint={t} onPress={() => setMenu(true)} /> : null}
             </>
           )}
         />
@@ -190,6 +191,8 @@ function PackView({ pack: p }: { pack: Pack }) {
 const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
+    // A capa do pacote: a primeira figurinha num quadrado claro, como a capa de um álbum
+    cover: { width: 160, height: 160, borderRadius: radius.xl, backgroundColor: c.dark ? c.raised : c.surface, alignItems: 'center', justifyContent: 'center', boxShadow: c.shadow1 },
     body: { paddingHorizontal: gutter, paddingTop: space[6], gap: space[4] },
     author: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
     authorMain: {

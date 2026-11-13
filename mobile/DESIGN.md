@@ -1,6 +1,6 @@
 # Sistema de design do Puxa
 
-O Puxa 2.0 tem uma linguagem só, a do **pôster**: cor chapada, letra condensada em maiúsculas e peças em forma de pílula. Tudo o que uma tela usa sai de `src/theme` (um ponto de entrada: `import { … } from '../theme'`). O teste `tests/design.test.ts` lê o código e falha se alguma tela escolher letra, espaço, canto, cor ou sombra por conta própria.
+O Puxa 2.0 nasceu com a linguagem do **pôster**: cor chapada, letra condensada em maiúsculas e peças em forma de pílula. Desde a 2.1.2 o pôster fica para o nome das telas e as capas das playlists; o conteúdo (acervo e playlists) segue o tom sóbrio dos apps de mídia (veja **Mídia**, abaixo). Tudo o que uma tela usa sai de `src/theme` (um ponto de entrada: `import { … } from '../theme'`). O teste `tests/design.test.ts` lê o código e falha se alguma tela escolher letra, espaço, canto, cor ou sombra por conta própria.
 
 ## Marca
 
@@ -32,9 +32,8 @@ Duas famílias: **Anton** (pôster) e **Archivo** (leitura), esta em dois pesos.
 
 | Estilo | Família | Tamanho / linha | Uso |
 |---|---|---|---|
-| `display` | Anton, maiúsculas | 40 / 48 | título de tela, pôster, letra da música |
-| `poster` | Anton, maiúsculas | 22 / 28 | nome numa peça de cor (categoria, criar a sua) |
-| `title` | Archivo 700 | 22 / 28 | título de folha, de tela vazia, nome no perfil |
+| `display` | Anton, maiúsculas | 40 / 48 | título de tela, número grande, letra da música |
+| `title` | Archivo 700 | 22 / 28 | título de folha, de tela vazia, nome no perfil, nome no topo de playlist, pacote e categoria |
 | `body` / `bodyBold` | Archivo 400 / 700 | 16 / 24 | texto corrido, nome de item, botão |
 | `caption` / `captionBold` | Archivo 400 / 700 | 13 / 20 | apoio, metadados, botão pequeno |
 | `overline` | Archivo 700, maiúsculas | 13 / 16 | nome de seção |
@@ -64,14 +63,29 @@ Números que mudam (tempo, tamanho, porcentagem) usam `tabular`.
 
 ## Acervo
 
-- **Figurinha sempre sobre o fundo de conversa** (`chat`): o bege do WhatsApp no claro e o verde-escuro no escuro. A borda branca das figurinhas some sobre o branco, e é assim que elas vão ser vistas.
-- **Pôster na cor da categoria** no topo do pacote e da categoria (`PosterHero`) e no destaque do Início, com os anéis e até três figurinhas inclinadas, como no topo das playlists.
+- **Figurinha sobre o poço** (`sunken`), nunca sobre o branco (a borda branca dela some). O fundo de conversa (`chat`) fica só para a prévia grande de uma figurinha e para a fileira do publicar, onde a pergunta é "como fica na conversa".
 - **Um botão principal por tela:** no pacote, **Adicionar ao WhatsApp** (azul, preso embaixo); nas listas, o **+** de cada pacote é a peça clara de azul, para não ter dez botões azuis competindo.
 - **Formulários** (`Field`): o nome do campo sempre em cima, o poço para digitar, o erro colado embaixo em vermelho. Nunca só o texto de exemplo.
 - **Atalhos da busca:** um painel claro colado no campo (12 abaixo dele), com até três linhas: a peça do tipo (cor da categoria, foto da pessoa, capa do pacote), o nome com o pedaço digitado em negrito e embaixo o que é ("Categoria · 2 pacotes"). O mais certeiro em cima. Os resultados vêm um grupo abaixo.
-- **Grade de pacotes** (`PackCard`, duas colunas): a figurinha da capa grande, três miniaturas embaixo, o nome e uma linha só. Onde quem olha não sabe de quem é (categoria, curtidos), a linha é a foto e o @; no perfil de quem fez, o tamanho e as adições. O **+** fica no canto da capa.
-- **Categoria troca ali mesmo:** a fileira de todas as categorias logo abaixo do pôster, a escolhida na cor dela.
+- **Categoria troca ali mesmo:** a fileira de todas as categorias logo abaixo do topo, a escolhida cheia (`inverse`), as outras no poço.
+- **Peça na borda:** botão ou foto que fica entre a capa e o corpo (tocar e aleatório na playlist, foto e Editar perfil/Seguir no perfil, foto no editar perfil) tem o **centro na linha** da borda, um anel de 4 da cor do fundo e fundo opaco (metade fica sobre a capa).
+- **Topo das telas:** barra de 48 a 8 da área segura em todas (Início, telas com título, topos de mídia, perfil): o voltar, o menu e a foto da conta ficam com o centro a 32 do topo.
+- **Botões no fim da linha** de um grupo (Ajustes) com a mesma largura mínima (96): a coluna deles alinha nas duas bordas.
+- **Topo do Início:** Colar link é uma linha (círculo de 40, texto a 64 da margem); o exemplo é só um link discreto embaixo, com o ícone no eixo do círculo e o texto na coluna do título.
 - **Leve no Início:** nas listas a figurinha animada aparece parada (`still`, o primeiro quadro); anima só no pacote e na prévia. Toda figurinha decodifica do tamanho da peça (`resizeMethod="resize"`), nunca os 512x512 inteiros. O acervo fica montado enquanto se busca (some da tela, não sai da memória).
+- **Leve em todas as telas:** lista que pode crescer (as músicas de uma playlist, a biblioteca no escolher) é `FlatList`, com linhas memorizadas. Tela de lista usa `usePlayerCore` (o player sem o tempo): só o miniplayer e a barra de tempo se redesenham a cada segundo. Toda `<Image>` decodifica do tamanho da peça (`resizeMethod="resize"`), e nas grades das pastas a figurinha animada aparece parada.
+
+## Mídia (acervo e playlists)
+
+O tom dos apps de música: o colorido vem do conteúdo (as figurinhas, as capas), e a interface fica neutra em volta.
+
+- **Topo** (`MediaHeader`): um véu da cor (`listSoft`: a cor a 14% no claro e 22% no escuro) sobre o fundo, a capa no meio e, embaixo dela, o tipo (`overline`), o nome (`title`) e os números (`caption`), alinhados à esquerda. Botões do topo brancos (elevados no escuro). Nada de cor chapada de ponta a ponta, anéis ou figurinhas inclinadas.
+- **Capas:** pacote é a primeira figurinha num quadrado claro de 160 (canto 24); categoria é a figurinha num círculo; playlist é a capa dela com 176 e sombra, como um álbum.
+- **Categorias em círculos** de 64 com o nome embaixo (`CategoryCircle`), num véu da cor dela. O primeiro é **Criar a sua**.
+- **Pacote numa lista** (`PackRow`): linha de 72, capa de 56, nome, `@autor · tamanho · ⤓ adições`, o **+** no fim. Vale para o Início, a busca, a categoria e o perfil.
+- **Carrossel** (`PackTile`): capa de 120 (cabem dois e meio), nome e autor em letra pequena. Sem selo de posição nem de animada: a ordem já diz.
+- **Biblioteca de músicas** em linhas iguais às dos pacotes: Todas as músicas, as playlists e Nova playlist.
+- **Player:** o fundo é a cor funda da playlist (`deep`) com um brilho fraco da cor por cima.
 
 ## Onde o sistema abre exceção
 

@@ -2,19 +2,17 @@ import Feather from '@expo/vector-icons/Feather';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { memo, useMemo, useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Segmented } from '../components/Segmented';
 import { EmptyState } from '../components/ui';
-import { COLORS } from '../playlist/colors';
 import { gutter, hit, type Palette, radius, space, tabular, text, usePalette } from '../theme';
-import { ART } from './art';
 import { countsOf, feed, follows, matchAt, me, plural, search, shortcuts, type Shortcut } from './core';
 import { CATEGORIES, TRENDING } from './seed';
 import { categoryName, clearSearches, follow, forgetSearch, rememberSearch, unfollow, useDB, useFetched } from './store';
 import { StickerSheet } from './StickerSheet';
 import type { Pack, Sticker, User } from './types';
-import { Avatar, Bone, CategoryTile, CreateTile, FeaturedPoster, FollowButton, PackRow, PackRowsSkeleton, PackTile, SectionHead, StickerGrid, StickerImage, still, UserName } from './ui';
+import { Avatar, Bone, CategoryArt, CategoryCircle, CreateCircle, FollowButton, PackRows, PackRowsSkeleton, PackThumb, PackTile, SectionHead, StickerGrid, TILE, UserName } from './ui';
 import { useInstaller } from './useInstaller';
 
 /**
@@ -39,28 +37,31 @@ export const AcervoFeed = memo(function AcervoFeed({ width, top, onCreate, creat
 
       <View style={s.section}>
         <SectionHead title="Categorias" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.rail}>
-          {onCreate ? <CreateTile onPress={onCreate} busy={creating} /> : null}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.circles}>
+          {onCreate ? <CreateCircle onPress={onCreate} busy={creating} /> : null}
           {CATEGORIES.map((cat) => (
-            <CategoryTile key={cat.id} category={cat} />
+            <CategoryCircle key={cat.id} category={cat} />
           ))}
         </ScrollView>
       </View>
 
       {!ready ? (
         <View style={s.section}>
-          <Bone width={width} height={208} />
-          <PackRowsSkeleton width={width} rows={2} />
+          <View style={s.railSkeleton}>
+            {[0, 1, 2].map((i) => (
+              <Bone key={i} width={TILE} height={TILE} />
+            ))}
+          </View>
+          <PackRowsSkeleton rows={3} />
         </View>
       ) : (
         <>
-          {f.featured ? <FeaturedPoster pack={f.featured} /> : null}
-
+          {/* O destaque da semana é o primeiro do trilho, e não um pôster: o Início fica no tom de uma lista de músicas */}
           <View style={s.section}>
             <SectionHead title="Em alta na semana" />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.rail}>
-              {f.trending.map((p, i) => (
-                <PackTile key={p.id} pack={p} rank={i + 2} />
+              {(f.featured ? [f.featured, ...f.trending] : f.trending).map((p) => (
+                <PackTile key={p.id} pack={p} />
               ))}
             </ScrollView>
           </View>
@@ -68,17 +69,13 @@ export const AcervoFeed = memo(function AcervoFeed({ width, top, onCreate, creat
           {user && f.following.length ? (
             <View style={s.section}>
               <SectionHead title="De quem você segue" />
-              {f.following.map((p) => (
-                <PackRow key={p.id} pack={p} width={width} busy={busy === p.id} onAdd={() => install(p)} />
-              ))}
+              <PackRows packs={f.following} busy={busy} onAdd={install} />
             </View>
           ) : null}
 
           <View style={s.section}>
             <SectionHead title="Mais adicionados" />
-            {f.popular.map((p) => (
-              <PackRow key={p.id} pack={p} width={width} busy={busy === p.id} onAdd={() => install(p)} />
-            ))}
+            <PackRows packs={f.popular} busy={busy} onAdd={install} />
           </View>
 
           {!user ? (
@@ -101,9 +98,7 @@ export const AcervoFeed = memo(function AcervoFeed({ width, top, onCreate, creat
 
           <View style={s.section}>
             <SectionHead title="Novos na comunidade" />
-            {f.fresh.map((p) => (
-              <PackRow key={p.id} pack={p} width={width} busy={busy === p.id} onAdd={() => install(p)} />
-            ))}
+            <PackRows packs={f.fresh} busy={busy} onAdd={install} />
           </View>
         </>
       )}
@@ -196,11 +191,7 @@ export function SearchResults({ query, width }: { query: string; width: number }
       {shown === 'stickers' ? (
         <StickerGrid items={r.stickers.slice(0, 40)} width={width} onPress={(sticker, pack) => setOpen({ sticker, pack })} />
       ) : shown === 'packs' ? (
-        <View style={s.list}>
-          {r.packs.map((p) => (
-            <PackRow key={p.id} pack={p} width={width} busy={busy === p.id} onAdd={() => install(p)} />
-          ))}
-        </View>
+        <PackRows packs={r.packs} busy={busy} onAdd={install} />
       ) : (
         <View style={s.people}>
           {r.people.map((u) => (
@@ -238,11 +229,7 @@ function Shortcuts({ items, query }: { items: Shortcut[]; query: string }) {
                 title: it.category.name,
                 meta: `Categoria · ${plural(it.packs, 'pacote', 'pacotes')}`,
                 path: `/categoria/${it.category.id}`,
-                tile: (
-                  <View style={[s.tile, { backgroundColor: COLORS[it.category.color].bg }]}>
-                    <Image source={ART[it.category.cover]} style={s.tileArt} resizeMode="contain" resizeMethod="resize" accessibilityIgnoresInvertColors />
-                  </View>
-                ),
+                tile: <CategoryArt category={it.category} size={48} />,
               }
             : it.kind === 'person'
               ? { key: `u:${it.user.id}`, title: it.user.name, meta: `Perfil · @${it.user.username}`, path: `/perfil/${it.user.id}`, tile: <Avatar user={it.user} size={48} /> }
@@ -251,7 +238,7 @@ function Shortcuts({ items, query }: { items: Shortcut[]; query: string }) {
                   title: it.pack.name,
                   meta: `Pacote · @${db.users.find((u) => u.id === it.pack.author)?.username ?? 'alguem'}`,
                   path: `/pacote/${it.pack.id}`,
-                  tile: <View style={[s.tile, { backgroundColor: c.chat }]}>{it.pack.stickers[0] ? <StickerImage img={still(it.pack.stickers[0])} size={40} /> : null}</View>,
+                  tile: <PackThumb pack={it.pack} size={48} />,
                 };
         return (
           <Pressable key={row.key} onPress={() => go(row.path)} style={({ pressed }) => [s.shortcut, pressed && { backgroundColor: c.sunken }]} accessibilityRole="button" accessibilityLabel={`${row.title}. ${row.meta}`}>
@@ -339,8 +326,11 @@ const makeStyles = (c: Palette) =>
     section: { gap: space[4] },
     bleed: { marginHorizontal: -gutter },
     rail: { paddingHorizontal: gutter, gap: space[3] },
-    join: { flexDirection: 'row', alignItems: 'center', gap: space[4], padding: space[4], borderRadius: radius.lg, backgroundColor: c.accentSoft },
-    joinIcon: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: c.dark ? c.raised : c.surface, alignItems: 'center', justifyContent: 'center' },
+    // Os círculos de 64 ficam a 8 um do outro (a peça tem 72 para o nome caber embaixo)
+    circles: { paddingHorizontal: gutter, gap: space[2] },
+    railSkeleton: { flexDirection: 'row', gap: space[3] },
+    join: { flexDirection: 'row', alignItems: 'center', gap: space[3], padding: space[4], borderRadius: radius.lg, backgroundColor: c.dark ? c.raised : c.surface },
+    joinIcon: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
     joinText: { flex: 1, minWidth: 0 },
     joinTitle: { ...text.bodyBold, color: c.ink },
     joinBody: { ...text.caption, color: c.body },
@@ -360,9 +350,6 @@ const makeStyles = (c: Palette) =>
     shortcut: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 64, paddingHorizontal: space[2], borderRadius: radius.lg },
     shortcutText: { flex: 1, minWidth: 0 },
     shortcutMeta: { ...text.caption, color: c.muted },
-    tile: { width: 48, height: 48, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    tileArt: { width: 40, height: 40 },
-    list: { gap: space[6] },
     people: { gap: space[4] },
     empty: { marginTop: space[6] },
     person: { flexDirection: 'row', alignItems: 'center', gap: space[3] },

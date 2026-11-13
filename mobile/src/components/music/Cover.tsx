@@ -19,7 +19,7 @@ export function PlaylistCover({ name, color, size, radius = 18, label, image }: 
     const band = Math.max(3, Math.round(size * 0.035));
     return (
       <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: k.bg, overflow: 'hidden' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Image source={{ uri: imageUri(image) }} style={{ position: 'absolute', left: 0, top: 0, width: size, height: size - band }} resizeMode="cover" />
+        <Image resizeMethod="resize" source={{ uri: imageUri(image) }} style={{ position: 'absolute', left: 0, top: 0, width: size, height: size - band }} resizeMode="cover" />
       </View>
     );
   }
@@ -159,7 +159,7 @@ export function Equalizer({ on, color }: { on: boolean; color: string }) {
 export function TrackArt({ uri, size, radius = 8, tint, ink = '#FFFFFF' }: { uri?: string; size: number; radius?: number; tint: string; ink?: string }) {
   return (
     <View style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
-      {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Feather name="music" size={size * 0.38} color={alpha(ink, 0.8)} />}
+      {uri ? <Image resizeMethod="resize" source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Feather name="music" size={size * 0.38} color={alpha(ink, 0.8)} />}
     </View>
   );
 }

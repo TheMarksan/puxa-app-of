@@ -864,9 +864,9 @@ export function Home({ header, active, onSharedLink, renderBar, onBarVisible }: 
 const SOURCE_ICON = { youtube: 'youtube', instagram: 'instagram', x: 'twitter' } as const;
 
 /**
- * O topo do Início: colar um link e os links recentes (ou, na primeira vez, um exemplo para
- * testar), num trilho só. O botão Colar link de baixo continua: este é o atalho de quem já
- * está olhando para o campo.
+ * O topo do Início, em coluna: a linha de Colar link, o exemplo para testar logo embaixo (só um
+ * link discreto, e só enquanto não há recentes) e o trilho dos links recentes. O botão Colar link
+ * de baixo continua: este é o atalho de quem já está olhando para o campo.
  */
 function LinksRail({ recents, onPaste, onOpen, onExample, s, c }: { recents: Recent[]; onPaste: () => void; onOpen: (r: Recent) => void; onExample: () => void; s: Styles; c: Palette }) {
   return (
@@ -879,10 +879,29 @@ function LinksRail({ recents, onPaste, onOpen, onExample, s, c }: { recents: Rec
           </Pressable>
         ) : null}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
-        <LinkAction icon="clipboard" title="Colar link" by="YouTube, Instagram ou X" tone="accent" onPress={onPaste} s={s} c={c} />
-        {recents.length ? (
-          recents.map((r) => (
+      <View>
+        <Pressable onPress={onPaste} style={({ pressed }) => [s.pasteRow, pressed && { backgroundColor: c.sunken }]} accessibilityRole="button" accessibilityLabel="Colar link do YouTube, do Instagram ou do X">
+          <View style={s.pasteIcon}>
+            <Feather name="clipboard" size={20} color={c.accentInk} />
+          </View>
+          <View style={s.pasteText}>
+            <Text style={s.pasteTitle}>Colar link</Text>
+            <Text style={s.pasteBy} numberOfLines={1}>
+              YouTube, Instagram ou X
+            </Text>
+          </View>
+          <Feather name="chevron-right" size={20} color={c.muted} />
+        </Pressable>
+        {recents.length ? null : (
+          <Pressable onPress={onExample} style={({ pressed }) => [s.example, pressed && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel="Testar com um vídeo de exemplo do YouTube">
+            <Feather name="play-circle" size={16} color={c.muted} />
+            <Text style={s.exampleText}>Testar com um vídeo de exemplo</Text>
+          </Pressable>
+        )}
+      </View>
+      {recents.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.bleed} contentContainerStyle={s.recents}>
+          {recents.map((r) => (
             <RecentCard
               key={r.link}
               item={r}
@@ -894,31 +913,10 @@ function LinksRail({ recents, onPaste, onOpen, onExample, s, c }: { recents: Rec
               s={s}
               c={c}
             />
-          ))
-        ) : (
-          <LinkAction icon="play-circle" title="Testar com um exemplo" by="Um vídeo curto do YouTube" onPress={onExample} s={s} c={c} />
-        )}
-      </ScrollView>
+          ))}
+        </ScrollView>
+      ) : null}
     </View>
-  );
-}
-
-/** Uma peça de ação no trilho de links, do mesmo tamanho de um link recente. */
-function LinkAction({ icon, title, by, tone = 'neutral', onPress, s, c }: { icon: 'clipboard' | 'play-circle'; title: string; by: string; tone?: 'accent' | 'neutral'; onPress: () => void; s: Styles; c: Palette }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.recent, pressed && { opacity: 0.72 }]} accessibilityRole="button" accessibilityLabel={`${title}. ${by}`}>
-      <View style={[s.recentThumb, { backgroundColor: tone === 'accent' ? c.accentSoft : c.sunken }]}>
-        <View style={[s.actionIcon, { backgroundColor: c.dark ? c.raised : c.surface }]}>
-          <Feather name={icon} size={20} color={tone === 'accent' ? c.accentInk : c.ink} />
-        </View>
-      </View>
-      <Text style={s.recentTitle} numberOfLines={2}>
-        {title}
-      </Text>
-      <Text style={s.recentBy} numberOfLines={1}>
-        {by}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -936,7 +934,7 @@ function RecentCard({ item, onPress, onRemove, s, c }: { item: Recent; onPress: 
     >
       <View style={s.recentThumb}>
         {item.thumbnail && !broken ? (
-          <Image source={{ uri: item.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" onError={() => setBroken(true)} accessibilityIgnoresInvertColors />
+          <Image resizeMethod="resize" source={{ uri: item.thumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" onError={() => setBroken(true)} accessibilityIgnoresInvertColors />
         ) : (
           <Feather name={SOURCE_ICON[item.source]} size={24} color={c.faint} />
         )}
@@ -993,7 +991,15 @@ const makeStyles = (c: Palette) =>
     recentBadge: { position: 'absolute', left: space[2], top: space[2], width: 24, height: 24, borderRadius: radius.full, backgroundColor: c.mediaScrim, alignItems: 'center', justifyContent: 'center' },
     recentTitle: { ...text.captionBold, color: c.ink },
     recentBy: { ...text.caption, color: c.muted },
-    actionIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+    // Colar link: 12 de folga dentro, o círculo de 40 e o texto a 64 da margem
+    pasteRow: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: control.lg + space[2], paddingHorizontal: space[3], borderRadius: radius.lg, backgroundColor: c.dark ? c.raised : c.surface },
+    pasteIcon: { width: control.sm, height: control.sm, borderRadius: radius.full, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    pasteText: { flex: 1, minWidth: 0 },
+    pasteTitle: { ...text.bodyBold, color: c.ink },
+    pasteBy: { ...text.caption, color: c.muted },
+    // O exemplo: o ícone no eixo do círculo de cima (24 + 8) e o texto na coluna do "Colar link" (64)
+    example: { flexDirection: 'row', alignItems: 'center', gap: space[6], minHeight: control.sm, paddingLeft: space[6] },
+    exampleText: { ...text.caption, color: c.muted },
     hidden: { display: 'none' },
     notice: { ...text.caption, color: c.muted },
     barWrap: { position: 'absolute', left: gutter, right: gutter, gap: space[3] },

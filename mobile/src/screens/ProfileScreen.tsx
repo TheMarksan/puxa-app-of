@@ -8,7 +8,7 @@ import { PersonRow } from '../community/Acervo';
 import { compact, countsOf, followersOf, followingOf, follows, me, packsBy, userById } from '../community/core';
 import { imgSource } from '../community/images';
 import { follow, logout, unfollow, useDB, useFetched } from '../community/store';
-import { Avatar, FollowButton, PackCards, PackCardsSkeleton, Stat, UserName } from '../community/ui';
+import { Avatar, FollowButton, PackRows, PackRowsSkeleton, Stat, UserName } from '../community/ui';
 import { useInstaller } from '../community/useInstaller';
 import { BackButton } from '../components/BackButton';
 import { Button } from '../components/Button';
@@ -18,7 +18,7 @@ import { Segmented } from '../components/Segmented';
 import { useToast } from '../components/Toasts';
 import { EmptyState, IconButton } from '../components/ui';
 import { COLORS } from '../playlist/colors';
-import { gutter, type Palette, radius, space, text, usePalette } from '../theme';
+import { control, gutter, type Palette, radius, space, text, usePalette } from '../theme';
 
 type Tab = 'packs' | 'liked';
 
@@ -60,7 +60,6 @@ export function ProfileScreen() {
   const n = countsOf(db, user.id);
   const following = !!viewer && follows(db, viewer.id, user.id);
   const followsYou = !!viewer && !mine && follows(db, user.id, viewer.id);
-  const inner = width - gutter * 2;
   const coverH = Math.round(width * 0.4);
   const packs = tab === 'packs' ? packsBy(db, user.id) : db.packs.filter((p) => (db.liked[user.id] ?? []).includes(p.id));
   const fallback = COLORS.azul;
@@ -69,8 +68,8 @@ export function ProfileScreen() {
     <View style={s.root}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space[8] }}>
         <View style={[s.cover, { height: coverH + insets.top, backgroundColor: fallback.bg }]}>
-          {user.cover ? <Image source={imgSource(user.cover)} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
-          <View style={[s.coverBar, { paddingTop: insets.top + space[2] }]}>
+          {user.cover ? <Image resizeMethod="resize" source={imgSource(user.cover)} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
+          <View style={[s.coverBar, { marginTop: insets.top + space[2] }]}>
             <BackButton tint={{ bg: c.mediaScrim, ink: c.onMedia }} />
             {mine ? <IconButton icon="more-horizontal" tone="media" label="Opções da conta" onPress={() => setMenu(true)} /> : null}
           </View>
@@ -81,6 +80,7 @@ export function ProfileScreen() {
             <View style={s.avatarWrap}>
               <Avatar user={user} size={96} ring={c.bg} />
             </View>
+            {/* O botão com o centro na borda da capa, como a foto, num anel da cor do fundo */}
             <View style={s.headAction}>
               {mine ? (
                 <Button size="sm" tone="neutral" icon="edit-2" label="Editar perfil" onPress={() => router.push('/perfil/editar')} />
@@ -132,10 +132,9 @@ export function ProfileScreen() {
           />
 
           {!ready ? (
-            <PackCardsSkeleton width={inner} count={2} />
+            <PackRowsSkeleton rows={2} />
           ) : packs.length ? (
-            // Pacotes da pessoa: o tamanho de cada um; curtidos são de outras pessoas, então mostram quem fez
-            <PackCards packs={packs} width={inner} meta={tab === 'packs' ? 'counts' : 'author'} busy={busy} onAdd={install} />
+            <PackRows packs={packs} busy={busy} onAdd={install} />
           ) : tab === 'packs' ? (
             <EmptyState
               icon="package"
@@ -242,11 +241,13 @@ const makeStyles = (c: Palette) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg },
     cover: { overflow: 'hidden' },
-    coverBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: gutter },
+    // Barra de 48 a 8 da área segura, como nas outras telas: o voltar fica no mesmo lugar em todo o app
+    coverBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: control.md, paddingHorizontal: gutter },
     body: { paddingHorizontal: gutter, gap: space[4] },
-    headRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: -space[12] },
+    // A foto (96) sobe a metade dela: o centro da foto e o do botão ficam na borda da capa
+    headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: -space[12] },
     avatarWrap: { borderRadius: radius.full },
-    headAction: { paddingBottom: space[2] },
+    headAction: { padding: space[1], borderRadius: radius.full, backgroundColor: c.bg },
     names: { gap: space[1] },
     handleRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     handle: { ...text.caption, color: c.muted },
