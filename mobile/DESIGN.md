@@ -33,7 +33,8 @@ Duas famílias: **Anton** (pôster) e **Archivo** (leitura), esta em dois pesos.
 | Estilo | Família | Tamanho / linha | Uso |
 |---|---|---|---|
 | `display` | Anton, maiúsculas | 40 / 48 | título de tela, pôster, letra da música |
-| `title` | Archivo 700 | 22 / 28 | título de folha, de tela vazia |
+| `poster` | Anton, maiúsculas | 22 / 28 | nome numa peça de cor (categoria, criar a sua) |
+| `title` | Archivo 700 | 22 / 28 | título de folha, de tela vazia, nome no perfil |
 | `body` / `bodyBold` | Archivo 400 / 700 | 16 / 24 | texto corrido, nome de item, botão |
 | `caption` / `captionBold` | Archivo 400 / 700 | 13 / 20 | apoio, metadados, botão pequeno |
 | `overline` | Archivo 700, maiúsculas | 13 / 16 | nome de seção |
@@ -60,6 +61,13 @@ Números que mudam (tempo, tamanho, porcentagem) usam `tabular`.
 - `EmptyState`: desenho, o que falta, o que fazer. Toda tela tem vazio, carregando, erro e pronto.
 - `BusyCard` e `SendRow`: o rodapé das folhas de envio, preso embaixo.
 - `ScreenHeader`: voltar e ações em cima, título em `display` embaixo.
+
+## Acervo
+
+- **Figurinha sempre sobre o fundo de conversa** (`chat`): o bege do WhatsApp no claro e o verde-escuro no escuro. A borda branca das figurinhas some sobre o branco, e é assim que elas vão ser vistas.
+- **Pôster na cor da categoria** no topo do pacote e da categoria (`PosterHero`) e no destaque do Início, com os anéis e até três figurinhas inclinadas, como no topo das playlists.
+- **Um botão principal por tela:** no pacote, **Adicionar ao WhatsApp** (azul, preso embaixo); nas listas, o **+** de cada pacote é a peça clara de azul, para não ter dez botões azuis competindo.
+- **Formulários** (`Field`): o nome do campo sempre em cima, o poço para digitar, o erro colado embaixo em vermelho. Nunca só o texto de exemplo.
 
 ## Onde o sistema abre exceção
 

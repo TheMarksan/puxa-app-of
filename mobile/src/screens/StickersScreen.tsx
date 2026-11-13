@@ -13,6 +13,7 @@ import { useToast } from '../components/Toasts';
 import { EmptyState, Group, Hairline, IconButton } from '../components/ui';
 import { toUri } from '../editor/media';
 import { pendingPacks, putFolder, refreshFolders, useFolders } from '../stickers/folders';
+import { useDeviceSticker } from '../stickers/fromDevice';
 import { control, gutter, type Palette, radius, space, text, usePalette } from '../theme';
 
 /** As pastas de figurinhas. Cada pasta abre na própria tela, com as figurinhas e o atalho do WhatsApp. */
@@ -26,6 +27,7 @@ export function StickersScreen() {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const device = useDeviceSticker();
 
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +58,7 @@ export function StickersScreen() {
 
   return (
     <View style={s.root}>
-      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + space[8] }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + space[16] + space[8] }]} keyboardShouldPersistTaps="handled">
         <ScreenHeader title="Figurinhas" subtitle={subtitle} right={<IconButton icon="folder-plus" label="Nova pasta" onPress={() => setNaming((v) => !v)} />} />
         <View style={s.body}>
           {naming ? (
@@ -80,7 +82,9 @@ export function StickersScreen() {
             </Reveal>
           ) : null}
 
-          {empty ? <EmptyState icon="smile" title="Nenhuma figurinha ainda" body="Cole um link no Início e toque em Figurinha. Ela vem para cá, pronta para o WhatsApp." /> : null}
+          {empty ? (
+            <EmptyState icon="smile" title="Nenhuma figurinha ainda" body="Crie com uma foto ou um vídeo do celular, puxe de um link no Início ou adicione um pacote do acervo." />
+          ) : null}
 
           {folders && !empty ? (
             <Group>
@@ -94,12 +98,11 @@ export function StickersScreen() {
           ) : null}
         </View>
       </ScrollView>
-      {empty ? (
-        // Tela vazia: a ação fica embaixo, ao alcance do polegar
-        <View style={[s.bottom, { paddingBottom: insets.bottom + space[4] }]}>
-          <Button icon="arrow-left" label="Criar a primeira no Início" onPress={() => router.back()} />
-        </View>
-      ) : null}
+      {/* Criar fica sempre embaixo, ao alcance do polegar */}
+      <View style={[s.bottom, { paddingBottom: insets.bottom + space[4] }]}>
+        <Button icon="image" label="Criar com foto ou vídeo" busy={device.busy} onPress={() => device.start()} />
+      </View>
+      {device.sheet}
     </View>
   );
 }
@@ -153,7 +156,7 @@ const makeStyles = (c: Palette) =>
     root: { flex: 1, backgroundColor: c.bg },
     scroll: { flexGrow: 1 },
     body: { paddingHorizontal: gutter, gap: space[4] },
-    bottom: { paddingHorizontal: gutter, paddingTop: space[3] },
+    bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: gutter, paddingTop: space[3], backgroundColor: c.bg },
     newRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
     input: { ...text.body, flex: 1, minHeight: control.md, paddingHorizontal: space[4], borderRadius: radius.full, backgroundColor: c.sunken, color: c.ink },
     folder: { flexDirection: 'row', alignItems: 'center', gap: space[4], padding: space[3] },

@@ -18,6 +18,8 @@ export const font = {
 export const text = {
   /** Título de pôster: o nome da tela, da playlist, um número grande. */
   display: { fontFamily: font.display, fontSize: 40, lineHeight: 48, letterSpacing: 0.4, textTransform: 'uppercase', includeFontPadding: false },
+  /** Pôster pequeno: o nome numa peça de cor (categoria, pacote em destaque). Mesmo tamanho do title. */
+  poster: { fontFamily: font.display, fontSize: 22, lineHeight: 28, letterSpacing: 0.4, textTransform: 'uppercase', includeFontPadding: false },
   /** Título de folha, de seção em destaque, da música que está tocando. */
   title: { fontFamily: font.bold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
   body: { fontFamily: font.regular, fontSize: 16, lineHeight: 24 },
